@@ -13,7 +13,7 @@ No install, no accounts, no data collection. Settings stay on the phone.
 
 ## Use it
 
-Open **https://tangineering.github.io/trigger-trainer/** on a phone, tap **Start**, and turn the phone sideways. On iPhone, allow motion
+Open **https://tangineering.github.io/Trigger-Trainer/** on a phone, tap **Start**, and turn the phone sideways. On iPhone, allow motion
 access when asked and turn off Silent mode if there's no sound. See `docs/CLASS_USE.md`.
 
 ## Deploy (GitHub Pages)

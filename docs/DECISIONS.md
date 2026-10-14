@@ -28,4 +28,4 @@ Status: `active`, `proposed`, `superseded`, `rejected`.
 | D-12 | Handedness setting mirrors the layout | Claude (proposed) | Left-handed students | proposed |
 | D-13 | Opening settings, backgrounding, or portrait orientation disarms and silences; finger must return to frame to re-arm | Claude (proposed) | Avoids alarms while the phone is put down or reconfigured | proposed |
 | D-14 | License: MIT, copyright Tangineering | Ricky | LICENSE added at repo creation | active |
-| D-15 | Hosting: GitHub Pages from `Tangineering/trigger-trainer`, branch `main`, root | Ricky | Repo created under the Tangineering org; resolves Q7 | active |
+| D-15 | Hosting: GitHub Pages from `Tangineering/Trigger-Trainer`, branch `main`, root | Ricky | Repo created under the Tangineering org; resolves Q7 | active |
