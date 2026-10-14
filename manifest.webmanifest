@@ -1,0 +1,13 @@
+{
+  "name": "Trigger Discipline Trainer",
+  "short_name": "Trigger Trainer",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#121417",
+  "theme_color": "#121417",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
