@@ -37,6 +37,15 @@ const check = (name, cond, state) => {
       await page.waitForTimeout(16);
     }
   };
+  // Shake back and forth: high rotation rate, little net change in where the muzzle points.
+  const wobble = async (rate, n = 15) => {
+    for (let i = 0; i < n; i++) {
+      const r = i % 2 ? rate : -rate;
+      await page.evaluate(r => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+        rotationRate: { alpha: r, beta: r, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), r);
+      await page.waitForTimeout(16);
+    }
+  };
   const st = () => page.evaluate(() => window.__tdt());
   let s;
 
@@ -45,13 +54,13 @@ const check = (name, cond, state) => {
   await touch('touchStart', [REST]); await motion(0, 0, 5);
   s = await st(); check('finger on frame arms and is safe', s.armed && s.onRest, s);
 
-  await motion(80);
+  await wobble(80);
   s = await st(); check('moving with finger on frame: no alarm', !s.alarmActive, s);
 
   await motion(0, 0, 20); await touch('touchEnd', []); await motion(0, 0, 30);
   s = await st(); check('finger off, phone still: no alarm', !s.onRest && !s.alarmActive, s);
 
-  await motion(80);
+  await wobble(80);
   s = await st(); check('finger off, phone moving: alarm', s.alarmActive && s.violations === 1, s);
 
   await motion(0, 0, 10);
@@ -75,16 +84,27 @@ const check = (name, cond, state) => {
   await touch('touchMove', [[TRG[0] - 50, TRG[1], 2]]); await page.waitForTimeout(50);
   s = await st(); check('trigger reset allows follow-up; drift graded as moved', s.shots === 2 && s.lastGrade === 'Moved', s);
 
-  const before = s.violations;
-  await motion(150, 60, 15);                                 // serious jerk with the finger on the trigger
-  s = await st(); check('hard jerk while on the trigger: no alarm', !s.alarmActive && s.violations === before, s);
+  let v = s.violations;
+  await motion(150, 60, 6);                                  // short hard jerk right after the break
+  s = await st(); check('short hard jerk during the press: no alarm', !s.alarmActive && s.violations === v, s);
 
-  await touch('touchEnd', []); await motion(150, 60, 4);     // still swinging as the finger leaves the trigger
-  s = await st(); check('within grace after leaving the trigger: no alarm', !s.alarmActive, s);
+  await motion(0, 0, 40);                                    // press window closes 0.5 s after the break
+  await wobble(80);                                          // finger still resting on the trigger, phone swings
+  s = await st(); check('moving with the finger resting on the trigger: alarm', s.alarmActive && s.violations === v + 1, s);
 
-  await motion(0, 0, 25); await motion(80);                  // finger off, phone moved after the grace period
-  s = await st(); check('moving after leaving the trigger: alarm', s.alarmActive && s.violations === before + 1, s);
+  await touch('touchEnd', []); await touch('touchStart', [REST]); await motion(0, 0, 8);
+  s = await st(); check('back on the frame clears it', s.onRest && !s.alarmActive, s);
 
+  v = s.violations;
+  await touch('touchEnd', []); await motion(0, 0, 25);
+  await touch('touchStart', [TRG]); await motion(0, 0, 3);
+  await touch('touchMove', [[TRG[0] - 20, TRG[1], 2]]); await motion(0, 0, 2);   // press started, not broken
+  await wobble(60, 12);
+  s = await st(); check('brief movement during a press: no alarm', !s.alarmActive, s);
+  await wobble(60, 60);
+  s = await st(); check('movement sustained during a press: alarm', s.alarmActive && s.violations === v + 1, s);
+
+  await touch('touchEnd', []); await motion(0, 0, 3);
   await touch('touchStart', [REST]); await motion(0, 0, 5);
   s = await st(); check('return to frame after shots is safe', s.onRest && !s.alarmActive && !s.trig, s);
 

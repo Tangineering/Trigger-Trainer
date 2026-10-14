@@ -30,8 +30,9 @@ attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`.
 - A **trigger** near the rear of the screen: press with the fingertip, pull backwards → **shot** signal
   (vibration on Android; click + flash on iPhone). The phone must stay steady during the press.
 - Finger back flat on the frame → **OK tone**, and movement is allowed again without the alarm.
-- While the finger is on the trigger, no movement alarm starts, so a serious jerk is graded, not alarmed
-  (D-22).
+- During a trigger press (from the start of the pull until shortly after the break) a short jerk is graded,
+  not alarmed; movement sustained during the press still alarms. A finger resting on the trigger without
+  pulling counts as off the frame (D-24).
 - Layout (D-21): wide grip at the rear, thin slide, frame strip and trigger high; the shot movement
   indicator sits in the empty area under the muzzle.
 
@@ -75,7 +76,9 @@ inside the engine.
 `not armed` → (finger on frame) → `SAFE` (OK tone) → (finger lifts) → `OFF FRAME`
 → either `ON TRIGGER` → `SHOT` → (reset / lift) … → back to `SAFE` (OK tone),
 or (motion > threshold after `graceMs`) → `ALARM` (latched) → (finger on frame) → `SAFE` (OK tone).
-No alarm can start while on the trigger; `graceMs` applies after leaving the frame and after leaving the trigger.
+During a press (pull ≥ 15% → 500 ms after the break) only movement sustained for `sustainMs` alarms; resting on
+the trigger without pulling is treated as off the frame. `graceMs` applies after leaving the frame, after a press,
+and after leaving the trigger.
 Opening settings, backgrounding the page, or rotating to portrait disarms and silences.
 
 ## Known platform facts and unknowns

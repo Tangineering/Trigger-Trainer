@@ -31,6 +31,11 @@ const S = {
     // Hard jerk at the break: muzzle dips low-left at 120 deg/s, far over the alarm limit.
     rot: t => between(t, 1.85, 2.0) ? { a: -120, b: 40, g: 0 } : { a: tiny(t), b: 0, g: 0 },
   },
+  // Fingertip rests on the trigger (no pull) while the phone sweeps back and forth.
+  'trigger-sweep': {
+    dur: 3.2, touches: t => t < 1 || t >= 2.6 ? [REST] : between(t, 1.2, 2.4) ? [TRG] : [],
+    rot: t => between(t, 1.6, 2.2) ? { a: 0, b: 60 * Math.sign(Math.sin(t * 20)) || 60, g: 0 } : { a: tiny(t), b: 0, g: 0 },
+  },
   'axis-up': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 40, b: 0, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
   'axis-right': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 0, b: -40, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
 };

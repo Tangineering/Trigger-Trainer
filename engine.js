@@ -12,13 +12,14 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.3.0';
+  const VERSION = '0.4.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
     moveDps: 25,         // rotation-rate alarm threshold, deg/s
     moveAcc: 1.5,        // linear-acceleration alarm threshold, m/s^2
     graceMs: 300,        // ignore motion this long after the finger leaves the frame
+    sustainMs: 1000,     // during a press, movement this long still alarms (a short jerk doesn't)
     pullPx: 35,          // rearward finger travel (CSS px) that breaks the shot
     steadyDeg: 0.75,     // aim-drift tolerance for a "clean" shot, deg
     requireFlat: false,  // require contact size >= minContactPx (only where reported)
@@ -47,6 +48,10 @@
     REST_LOSS_DEBOUNCE_MS: 60,   // contact flicker tolerance on the frame strip
     RESET_FRACTION: 0.5,         // trigger re-arms after returning forward to this fraction of travel
     FOLLOW_THROUGH_MS: 350,      // keep tracing aim this long after the break
+    PULL_START_FRACTION: 0.15,   // a press starts once the trigger is pulled this fraction of pullPx
+    PRESS_AFTER_BREAK_MS: 500,   // a press ends this long after the break
+    ON_TRIGGER_CONFIRM_MS: 150,  // finger on trigger, not pulling: movement must last this long to alarm
+                                 // (a slap moves the phone and the finger together; let the pull register)
     STALE_MOTION_MS: 250,        // sensor stream stalled: drop smoothed motion to zero
     EMA_TAU_S: 0.08,             // motion smoothing time constant
     MAX_DT_S: 0.1,
@@ -86,7 +91,7 @@
       lastMotionT: 0, motionEvents: 0,
       sizeSupported: false, lastRestSize: 0, restContact: false,
       paused: true, armed: false, onRest: false, wasOnRest: false, restLostAt: null, offSince: 0,
-      trigOffAt: -Infinity,
+      trigOffAt: -Infinity, inPress: false, pressEndAt: -Infinity, movingSince: null,
       alarmActive: false, violations: 0,
       trig: null, lastTrace: null, shots: [],
       touches: new Map(),
@@ -212,6 +217,16 @@
         if (t - st.restLostAt > K.REST_LOSS_DEBOUNCE_MS) { st.onRest = false; st.offSince = st.restLostAt; }
       }
 
+      const moving = st.rotEMA > S.moveDps || st.linEMA > S.moveAcc;
+      if (!moving) st.movingSince = null;
+      else if (st.movingSince == null) st.movingSince = t;
+
+      const tr0 = st.trig;
+      const inPress = !!tr0 && (tr0.fired ? t - tr0.breakT <= K.PRESS_AFTER_BREAK_MS
+                                          : tr0.pull >= S.pullPx * K.PULL_START_FRACTION);
+      if (st.inPress && !inPress) st.pressEndAt = t;
+      st.inPress = inPress;
+
       if (!st.armed) {
         if (st.onRest) { st.armed = true; emit({ type: 'armed', t }); }
       } else {
@@ -219,11 +234,16 @@
           if (st.alarmActive) { st.alarmActive = false; emit({ type: 'alarmStop', t }); }
           emit({ type: 'ok', t });
         }
-        // No new alarm while the finger is on the trigger (a hard jerk is graded, not alarmed),
-        // and the same grace period applies after leaving the trigger as after leaving the frame.
-        if (!st.onRest && !st.alarmActive && !st.trig) {
-          const moving = st.rotEMA > S.moveDps || st.linEMA > S.moveAcc;
-          if (moving && t - st.offSince > S.graceMs && t - st.trigOffAt > S.graceMs) {
+        // Off the frame, movement alarms after the grace period. A finger resting on the trigger
+        // counts as off the frame. During a press (pull started → shortly after the break) a short
+        // jerk is graded, not alarmed, but movement sustained for sustainMs still alarms.
+        // Grace also applies after a press ends and after the finger leaves the trigger.
+        if (!st.onRest && !st.alarmActive) {
+          let alarm;
+          if (st.inPress) alarm = st.movingSince != null && t - st.movingSince > S.sustainMs;
+          else alarm = moving && t - st.offSince > S.graceMs && t - st.pressEndAt > S.graceMs && t - st.trigOffAt > S.graceMs
+                       && (!st.trig || t - st.movingSince > K.ON_TRIGGER_CONFIRM_MS);
+          if (alarm) {
             st.alarmActive = true; st.violations++;
             emit({ type: 'alarmStart', t, rot: st.rotEMA, lin: st.linEMA });
           }

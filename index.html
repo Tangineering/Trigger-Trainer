@@ -347,7 +347,8 @@ const DRILLS = [
   { id: 'off-frame-move',  name: 'Off-frame move',         hint: 'Finger on the frame, then lift it and move the phone. Return to the frame. Expect: alarm.' },
   { id: 'off-frame-still', name: 'Off-frame still',        hint: 'Finger on the frame, lift it, hold the phone still 2–3 s, return to the frame. Expect: no alarm.' },
   { id: 'clean-press',     name: 'Clean presses',          hint: 'From the frame, go to the trigger and press slowly while holding still. A few shots. Expect: clean shots, no alarm.' },
-  { id: 'jerked-press',    name: 'Jerked presses',         hint: 'Same, but deliberately slap or jerk the trigger. Expect: at least one non-clean shot.' },
+  { id: 'jerked-press',    name: 'Jerked presses',         hint: 'Same, but deliberately slap or jerk the trigger. Expect: at least one non-clean shot, no alarm.' },
+  { id: 'trigger-sweep',   name: 'Finger on trigger, moving', hint: 'From the frame, rest the fingertip on the trigger WITHOUT pulling, then move the phone. Return to the frame. Expect: alarm.' },
   { id: 'axis-up',         name: 'Axis check: muzzle up',  hint: 'Finger on the frame. Hold still 1 s, tilt the muzzle UP about 20°, hold 1 s, stop. Answers the gyro-axis question.' },
   { id: 'axis-right',      name: 'Axis check: muzzle right', hint: 'Finger on the frame. Hold still 1 s, swing the muzzle to YOUR RIGHT about 20°, hold 1 s, stop.' },
 ];
@@ -564,6 +565,7 @@ const SLIDERS = {
     { k: 'moveDps', label: 'Rotation limit', min: 5, max: 90, step: 1, unit: '°/s', help: 'Turning the phone faster than this with the finger off the frame trips the alarm.' },
     { k: 'moveAcc', label: 'Linear limit', min: 0.3, max: 5, step: 0.1, unit: 'm/s²', help: 'Shoving the phone harder than this with the finger off the frame trips the alarm.' },
     { k: 'graceMs', label: 'Grace after leaving frame', min: 0, max: 1000, step: 25, unit: 'ms', help: 'Ignores the jolt of lifting the finger.' },
+    { k: 'sustainMs', label: 'Sustained movement during a press', min: 300, max: 3000, step: 100, unit: 'ms', help: 'While pressing the trigger, a short jerk is graded, not alarmed. Movement lasting longer than this still alarms. Resting on the trigger without pulling alarms like being off the frame.' },
   ],
   sliders2: [
     { k: 'pullPx', label: 'Trigger travel to fire', min: 15, max: 100, step: 1, unit: 'px', help: 'How far back the fingertip must slide to break the shot.' },
