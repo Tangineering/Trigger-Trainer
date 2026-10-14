@@ -30,6 +30,8 @@ attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`.
 - A **trigger** near the rear of the screen: press with the fingertip, pull backwards → **shot** signal
   (vibration on Android; click + flash on iPhone). The phone must stay steady during the press.
 - Finger back flat on the frame → **OK tone**, and movement is allowed again without the alarm.
+- Layout (D-21): wide grip at the rear, thin slide, frame strip and trigger high; the shot movement
+  indicator sits in the empty area under the muzzle.
 
 Additions made in the prototype (Claude, proposed — see DECISIONS): aim-drift trace and shot grading on a
 mini target, trigger reset for follow-up shots, handedness mirror, grace period, settings panel, axis-check

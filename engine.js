@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.2.0';
+  const VERSION = '0.3.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -33,13 +33,14 @@
   // Fractions of the viewport for a RIGHT-handed layout (muzzle at x=1). Left-handed mirrors x.
   // Only 'rest' and 'trigger' are touch-sensitive; the rest are drawing only.
   const ZONES = Object.freeze({
-    slide:   { x: .02, y: .03, w: .96, h: .30 },
-    frame:   { x: .15, y: .35, w: .83, h: .26 },
-    grip:    { x: .00, y: .35, w: .16, h: .65 },
-    guard:   { x: .18, y: .60, w: .30, h: .36 },
-    rest:    { x: .30, y: .37, w: .66, h: .22 },
-    trigger: { x: .20, y: .62, w: .22, h: .30 },
-    debug:   { x: .52, y: .64, w: .46, h: .34 },
+    slide:   { x: .02, y: .03, w: .96, h: .21 },
+    frame:   { x: .23, y: .26, w: .75, h: .26 },
+    grip:    { x: .00, y: .26, w: .24, h: .74 },
+    guard:   { x: .26, y: .51, w: .30, h: .38 },
+    rest:    { x: .38, y: .28, w: .58, h: .22 },
+    trigger: { x: .28, y: .53, w: .22, h: .30 },
+    target:  { x: .58, y: .55, w: .40, h: .43 },   // shot movement indicator, under the muzzle
+    debug:   { x: .01, y: .30, w: .22, h: .66 },   // drawn over the grip (grip ignores touches)
   });
 
   const K = Object.freeze({

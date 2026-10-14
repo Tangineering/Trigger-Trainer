@@ -4,8 +4,10 @@ const { chromium } = require('playwright');
 const path = require('path');
 
 const W = 844, H = 390;                       // landscape phone viewport
-const REST = [0.6 * W, 0.48 * H, 1];          // inside ZONES.rest (right-handed)
-const TRG = [0.33 * W, 0.75 * H, 2];          // inside ZONES.trigger
+const { ZONES } = require('../engine.js');
+const mid = z => [(z.x + z.w / 2) * W, (z.y + z.h / 2) * H];
+const REST = [...mid(ZONES.rest), 1];         // centre of the frame strip (right-handed)
+const TRG = [...mid(ZONES.trigger), 2];       // centre of the trigger zone
 
 let failures = 0;
 const check = (name, cond, state) => {

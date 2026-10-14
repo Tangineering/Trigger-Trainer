@@ -7,8 +7,10 @@ const path = require('path');
 const TDT = require('../engine.js');
 
 const W = 844, H = 390;
-const REST = [0.6 * W, 0.48 * H, 1];
-const TRG = [0.33 * W, 0.75 * H, 2];
+const { ZONES } = require('../engine.js');
+const mid = z => [(z.x + z.w / 2) * W, (z.y + z.h / 2) * H];
+const REST = [...mid(ZONES.rest), 1];         // centre of the frame strip (right-handed)
+const TRG = [...mid(ZONES.trigger), 2];       // centre of the trigger zone
 
 let failures = 0;
 const check = (name, cond, extra) => {

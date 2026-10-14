@@ -6,8 +6,9 @@ const path = require('path');
 const TDT = require('../engine.js');
 
 const W = 844, H = 390, FRAME = 1000 / 60, T0 = 1000;
-const REST = { id: 1, cx: 0.6 * W, cy: 0.48 * H, rx: 0, ry: 0 };
-const TRG = { id: 2, cx: 0.33 * W, cy: 0.75 * H, rx: 0, ry: 0 };
+const mid = (z, id) => ({ id, cx: (z.x + z.w / 2) * W, cy: (z.y + z.h / 2) * H, rx: 0, ry: 0 });
+const REST = mid(TDT.ZONES.rest, 1);
+const TRG = mid(TDT.ZONES.trigger, 2);
 const between = (t, a, b) => t >= a && t < b;
 const r = TDT.r4;
 
