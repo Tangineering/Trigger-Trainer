@@ -9,8 +9,9 @@ attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`.
 
 ## Hard constraints (do not change without a logged Ricky decision)
 
-1. **One static page.** `index.html` holds all markup, CSS, and JS. No framework, no bundler, no build step,
-   no runtime dependencies, no CDN scripts. `manifest.webmanifest` and `icon.svg` are the only companions.
+1. **Static files, no build step.** `index.html` (markup, CSS, UI wiring) and `engine.js` (all logic, no DOM)
+   are served as-is. No framework, no bundler, no runtime dependencies, no CDN scripts. Other companions:
+   `manifest.webmanifest`, `icon.svg`. (Was "one file"; relaxed by D-17, pending Ricky's ratification.)
 2. **Free static hosting** (GitHub Pages). It must work by opening a URL. HTTPS is required for motion
    sensors on iOS.
 3. **No data leaves the phone.** No analytics, no network calls, no cookies. Settings live in
@@ -34,19 +35,37 @@ Additions made in the prototype (Claude, proposed — see DECISIONS): aim-drift 
 mini target, trigger reset for follow-up shots, handedness mirror, grace period, settings panel, axis-check
 tool, debug readout, mouse fallback for laptop demos.
 
-## Architecture (inside `index.html`)
+## Architecture
 
-| Block | What it does |
+**The rule:** every decision lives in `engine.js`, and every engine input carries its own timestamp.
+`index.html` only turns browser events into engine inputs and engine events into sound, vibration and
+pixels. That's what makes recordings replay exactly. Never read `performance.now()`, `window`, or the DOM
+inside the engine.
+
+### `engine.js` (works in the browser as `TDT`, and in Node via `require`)
+
+| Piece | What it does |
 |---|---|
-| `DEFAULTS` / `S` | Tunable settings, persisted under `localStorage['tdt.settings.v1']`. Bump the key if the schema changes incompatibly. |
-| `ZONES` | Normalized rectangles for a **right-handed** layout (muzzle at x=1). Left-handed mirrors x in `rectFor()` and `norm()`. Only `rest` and `trigger` are touch-sensitive; `grip` is a visual dead zone. |
-| `Snd` | Web Audio: `ok()`, `shot()`, `startAlarm()/stopAlarm()`. Context is created/resumed inside the Start tap (iOS unlock). Sets `navigator.audioSession.type='playback'` where available so iOS 17+ plays through the silent switch. |
-| `onMotion` | `devicemotion` → rotation-rate magnitude and linear accel (EMA, ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, degrees) for the trace. |
-| `onTouch` / `onMouse` | Maintains `touches` map in normalized right-handed coordinates plus contact size. |
-| `updateTrigger` / `fire` | Trigger engages when a touch enters the trigger zone. Pull = rearward travel in CSS px. Fires at `pullPx`; re-arms after returning forward to `RESET_FRACTION`. Shot drift = aim change from trigger contact (or reset) to the break. |
-| `tick` (rAF) | State machine: debounced frame contact → armed/safe/off-frame/alarm; trace capture; status pill; target redraw. |
-| Settings overlay | Built from the `SLIDERS` table; pauses training while open. Includes live sensor readout and the axis-check canvas. |
-| `window.__tdt()` | Read-only state snapshot used by `tests/smoke.js`. Keep it. |
+| `VERSION` | Bump when outputs change for the same inputs (D-20). |
+| `DEFAULTS`, `ZONES`, `K` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. |
+| `createEngine(S, {ios, onEvent})` | Returns `{motion, touches, tick, setPaused, resetStats, state}`. Emits `armed`, `ok`, `alarmStart`, `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`. Starts paused. |
+| `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace. Axis mapping per `axisMode`. |
+| `touches(t, list, vw, vh)` | Full current touch list in CSS px; drives the trigger (engage on entering the zone, fire at `pullPx` rearward, re-arm at `RESET_FRACTION`). |
+| `tick(t)` | State machine: debounced frame contact → armed / safe / off-frame / alarm; trace capture. |
+| `fromDeviceMotion`, `fromTouch`, `pack*`, `replay(rec, overrides)` | Capture-time rounding, the recording row format, and deterministic replay (`docs/RECORDINGS.md`). |
+
+### `index.html`
+
+| Piece | What it does |
+|---|---|
+| `S` | Settings, persisted under `localStorage['tdt.settings.v1']`. Bump the key if the schema changes incompatibly. |
+| `Snd` | Web Audio: `ok()`, `shot()`, `startAlarm()/stopAlarm()`. Created/resumed inside the Start tap (iOS unlock). Sets `navigator.audioSession.type='playback'` where available (iOS 17+ silent switch). |
+| `onMotion` / `onTouch` / `onMouse` | Convert events with `TDT.fromDeviceMotion` / `fromTouch`, feed the engine, and log the same row if recording. |
+| `tick` (rAF) | Pauses the engine when not running / settings open / portrait / hidden, logs a frame row, calls `engine.tick`, renders. |
+| `onEvent` | Engine events → sound, vibration, flash, alarm overlay; appended to `rec.observed` while recording. |
+| Recorder | `startRecording()` makes a fresh engine; `stopRecording(share)`; `saveRecording()` uses the share sheet when it accepts files, else a download. |
+| Settings overlay | Built from `SLIDERS`; includes live sensor readout, axis-check canvas, and the recorder. |
+| `window.__tdt()` | Read-only snapshot used by the browser tests. Keep it. |
 
 ### State machine
 `not armed` → (finger on frame) → `SAFE` (OK tone) → (finger lifts) → `OFF FRAME`
@@ -62,7 +81,8 @@ Opening settings, backgrounding the page, or rotating to portrait disarms and si
 - **Gyro axis order:** the spec maps `rotationRate` alpha/beta/gamma to z/x/y. Some iOS builds have been
   reported to deliver x/y/z order instead. `axisMode: 'auto'` assumes iOS-style on iOS. **Unverified on
   hardware** — first thing to check (OPEN_QUESTIONS Q1). The alarm uses magnitude, so it's unaffected; only
-  the trace direction and the "low-left" style labels depend on this.
+  the trace direction and the "low-left" style labels depend on this. Resolve it from `axis-up` and
+  `axis-right` recordings: `npm run test:replay` prints the mapping that fits both for each phone.
 - **Orientation:** sign of yaw uses `screen.orientation.angle` (or `window.orientation` on iOS): 90 vs 270.
   iOS can't lock orientation from a web page; Android tries fullscreen + `orientation.lock('landscape')`.
 - **Units:** pull distance is CSS px (~160 px per inch on most phones, so 35 px ≈ 5–6 mm). Drift is degrees
@@ -70,10 +90,15 @@ Opening settings, backgrounding the page, or rotating to portrait disarms and si
 
 ## Working rules
 
-- Test on a real iPhone and a real Android phone before calling any sensor or touch change done. Headless
+- Test on a real iPhone and a real Android phone before calling any sensor or touch change done. Synthetic
   tests prove the state machine, not the sensors.
-- Run `npm test` (Playwright, headless Chromium, simulated multi-touch + `DeviceMotionEvent`) after every
-  change to the state machine.
+- Real phone recordings in `tests/recordings/` are the ground truth. Before changing thresholds or logic,
+  run `npm run test:replay` and say which recordings change outcome. Don't edit a recording to make it pass;
+  re-record it or change the code.
+- `npm test` runs all three suites: `tests/replay.js` (Node, every recording), `tests/smoke.js` (browser
+  state machine with simulated touch + `DeviceMotionEvent`), `tests/roundtrip.js` (records in the page,
+  replays in Node, requires identical events). Run it after every engine or input-wiring change.
+- Bump `engine.js` `VERSION` when outputs change; don't bump it for refactors that keep replays identical.
 - Don't add features that need a server, accounts, or an app store.
 - Keep defaults conservative for beginners; Ricky tunes them in class via Settings.
 - Commit messages: imperative, short; one logical change per commit.
@@ -81,10 +106,17 @@ Opening settings, backgrounding the page, or rotating to portrait disarms and si
 ## Layout of this repo
 
 ```
-index.html              the whole app
+index.html              UI, audio, input wiring, recorder
+engine.js               all trainer logic + record/replay helpers (no DOM)
 manifest.webmanifest    home-screen install (landscape, fullscreen)
 icon.svg
-tests/smoke.js          headless state-machine test
+tests/replay.js         replays every recording; expectations + live==replay + axis diagnosis
+tests/expectations.js   what each drill label must produce
+tests/recordings/       real phone recordings (one folder per phone) + synthetic/ baseline
+tests/make-synthetic.js generates tests/recordings/synthetic/
+tests/smoke.js          browser state-machine test
+tests/roundtrip.js      browser record → Node replay equality test
+docs/RECORDINGS.md      how to record drills; recording file format
 package.json            dev-only: playwright for tests
 docs/DECISIONS.md       decision log with attribution
 docs/CLASS_USE.md       how to run it in a class (student-facing steps)

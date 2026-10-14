@@ -27,13 +27,20 @@ LAN won't get motion data on iPhone.
 
 ## Develop
 
-No build step: edit `index.html`. To run the headless state-machine test:
+No build step. `index.html` is the UI; `engine.js` is the logic. Tests:
 
 ```
 npm install
 npx playwright install chromium
-npm test
+npm test              # replays + browser state-machine test + record/replay round trip
+npm run test:replay   # replays only (no browser needed)
 ```
+
+### Test data from real phones
+
+Settings → **Record test data** records one labeled drill (motion, touches, timing) and hands you a JSON
+file through the share sheet. Put it in `tests/recordings/<phone>/` and the replay tests check it
+automatically. Format and drills: `docs/RECORDINGS.md`.
 
 For on-phone testing before deploying, push to a branch Pages serves, or use any HTTPS tunnel to a local
 static server.

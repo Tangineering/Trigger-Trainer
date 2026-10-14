@@ -62,6 +62,9 @@
   .pill.trig { background: var(--trig); }
   #stats, #lastShot { font-size: 12px; color: #d5dade; white-space: nowrap; }
   #warnLine { font-size: 11px; color: var(--warn); text-align: center; }
+  #recPill { pointer-events: auto; font: inherit; font-size: 12px; font-weight: 700; color: #fff; background: var(--bad);
+             border: none; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+  #recPill[hidden] { display: none; }
   #gear { pointer-events: auto; flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25);
           background: rgba(0,0,0,.3); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; }
 
@@ -88,15 +91,20 @@
   .btn { font: inherit; font-size: 16px; font-weight: 600; padding: 12px 18px; border-radius: 10px; border: 1px solid var(--line);
          background: #262a30; color: var(--ink); cursor: pointer; }
   .btn.primary { background: var(--safe); color: #062814; border-color: transparent; }
+  .btn.rec { background: var(--bad); color: #fff; border-color: transparent; }
+  .btn[hidden] { display: none; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
   .set { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; margin: 10px 0; }
   .set label { font-size: 14px; }
   .set output { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .set input[type=range] { grid-column: 1 / -1; width: 100%; }
-  .set .help { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
+  .help { font-size: 12px; color: var(--muted); }
+  .set .help { grid-column: 1 / -1; }
   .chk { display: flex; align-items: center; gap: 10px; margin: 10px 0; font-size: 14px; }
-  .chk input { width: 20px; height: 20px; }
-  select { font: inherit; font-size: 14px; background: #262a30; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .chk input[type=checkbox] { width: 20px; height: 20px; }
+  select, input[type=text] { font: inherit; font-size: 14px; background: #262a30; color: var(--ink); border: 1px solid var(--line);
+                             border-radius: 8px; padding: 6px 8px; -webkit-user-select: text; user-select: text; }
+  input[type=text] { width: 100%; box-sizing: border-box; }
   .live { font: 12px ui-monospace, Menlo, Consolas, monospace; color: #9fe0b8; background: #0c0d0f; padding: 8px; border-radius: 8px; white-space: pre-wrap; }
   #axisCanvas { display: block; background: #0c0d0f; border-radius: 10px; margin: 8px 0; }
   #rotateOv { z-index: 20; text-align: center; }
@@ -120,6 +128,7 @@
       <div id="status" class="pill">TAP START</div>
       <div id="stats"></div>
       <div id="lastShot"></div>
+      <button id="recPill" class="ui" hidden>● REC</button>
       <div id="warnLine"></div>
     </div>
     <button id="gear" class="ui" aria-label="Settings and pause">⚙︎</button>
@@ -178,6 +187,18 @@
       <select id="axisMode"><option value="auto">Auto</option><option value="spec">Spec / Android</option><option value="ios">iOS-style</option></select>
     </div>
 
+    <h2>Record test data</h2>
+    <p>Records the phone's motion and touch data during one drill so it can be replayed in automated tests.
+       Nothing is sent anywhere — when you stop, you choose where the file goes.</p>
+    <div class="chk"><label for="recLabel">Drill</label><select id="recLabel"></select></div>
+    <p class="help" id="recHint"></p>
+    <input type="text" id="recNotes" placeholder="Notes (optional), e.g. phone model, grip">
+    <div class="row">
+      <button class="btn rec" id="recStart">Start recording</button>
+      <button class="btn" id="recSave" hidden>Save last recording</button>
+    </div>
+    <p class="help" id="recInfo"></p>
+
     <h2>Other</h2>
     <div id="sliders4"></div>
     <div class="chk"><input type="checkbox" id="debugChk"><label for="debugChk">Show sensor readout on the trainer screen</label></div>
@@ -185,75 +206,29 @@
       <button class="btn" id="resetStats">Reset stats &amp; target</button>
       <button class="btn" id="resetDefaults">Restore defaults</button>
     </div>
+    <p class="help" id="versionLine"></p>
   </div>
 </div>
 
 <div id="rotateOv" class="ov ui"><div class="inner"><h1>Rotate to landscape</h1><p>Turn the phone sideways to continue.</p></div></div>
 
+<script src="engine.js"></script>
 <script>
 (() => {
 'use strict';
+const { DEFAULTS, ZONES } = TDT;
 
-/* ======================= configuration ======================= */
+/* ======================= settings ======================= */
 const KEY = 'tdt.settings.v1';
-const DEFAULTS = {
-  hand: 'right',       // 'right' => muzzle at screen right, rear at left
-  moveDps: 25,         // rotation-rate alarm threshold, deg/s
-  moveAcc: 1.5,        // linear-acceleration alarm threshold, m/s^2
-  graceMs: 300,        // ignore motion this long after the finger leaves the frame
-  pullPx: 35,          // rearward finger travel (CSS px) that breaks the shot
-  steadyDeg: 0.75,     // aim-drift tolerance for a "clean" shot, deg
-  requireFlat: false,  // require contact size >= minContactPx (only where reported)
-  minContactPx: 40,
-  volume: 0.8,
-  debug: false,
-  axisMode: 'auto',    // 'auto' | 'spec' | 'ios'
-  flipH: false,
-  flipV: false,
-};
-// Zones as fractions of the viewport, drawn for a RIGHT-handed layout (muzzle at x=1).
-// Left-handed mirrors x. 'rest' and 'trigger' are the only touch-sensitive zones.
-const ZONES = {
-  slide:   { x: .02, y: .03, w: .96, h: .30 },
-  frame:   { x: .15, y: .35, w: .83, h: .26 },
-  grip:    { x: .00, y: .35, w: .16, h: .65 },
-  guard:   { x: .18, y: .60, w: .30, h: .36 },
-  rest:    { x: .30, y: .37, w: .66, h: .22 },
-  trigger: { x: .20, y: .62, w: .22, h: .30 },
-  debug:   { x: .52, y: .64, w: .46, h: .34 },
-};
-const REST_LOSS_DEBOUNCE_MS = 60;   // contact flicker tolerance on the frame strip
-const RESET_FRACTION = 0.5;         // trigger re-arms after returning forward to this fraction of travel
-const FOLLOW_THROUGH_MS = 350;      // keep tracing aim this long after the break
-
-/* ======================= state ======================= */
 let S = Object.assign({}, DEFAULTS);
 try { const raw = localStorage.getItem(KEY); if (raw) Object.assign(S, JSON.parse(raw)); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
 const isIOS = (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function')
   || /iP(hone|ad|od)/.test(navigator.userAgent);
-
-// sensors
-let rotEMA = 0, linEMA = 0, rotNow = 0, linNow = 0;
-let aimH = 0, aimV = 0;               // integrated muzzle angle, deg (right +, up +)
-let lastMotionT = 0, motionEvents = 0;
-let grav = null;
-// touches
-const touches = new Map();            // id -> {x, y (normalized, right-handed frame), cx, size}
-let sizeSupported = false, lastRestSize = 0;
-// training
-let running = false, paused = false, armed = false;
-let onRest = false, wasOnRest = false, restLostAt = null, offSince = 0;
-let alarmActive = false, violations = 0;
-let trig = null, lastTrace = null;
-let shots = [];
-let startedAt = 0;
-let axisZero = { h: 0, v: 0 };
-let wakeLock = null;
-
 const $ = id => document.getElementById(id);
 const stage = $('stage'), statusEl = $('status');
+const now = () => TDT.rt(performance.now());
 
 /* ======================= audio ======================= */
 const Snd = {
@@ -267,8 +242,7 @@ const Snd = {
     this.master = this.ctx.createGain();
     this.master.gain.value = S.volume;
     this.master.connect(this.ctx.destination);
-    // unlock with a silent buffer (iOS)
-    const b = this.ctx.createBuffer(1, 1, 22050), s = this.ctx.createBufferSource();
+    const b = this.ctx.createBuffer(1, 1, 22050), s = this.ctx.createBufferSource();  // iOS unlock
     s.buffer = b; s.connect(this.ctx.destination); s.start(0);
   },
   resume() { if (this.ctx && this.ctx.state !== 'running') this.ctx.resume(); },
@@ -314,11 +288,12 @@ const Snd = {
   },
 };
 const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+function flash() { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 
 /* ======================= geometry ======================= */
 function screenAngle() {
-  let a = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle
-        : (typeof window.orientation === 'number' ? window.orientation : 90);
+  const a = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle
+          : (typeof window.orientation === 'number' ? window.orientation : 90);
   return ((a % 360) + 360) % 360;
 }
 const isPortrait = () => innerHeight > innerWidth;
@@ -327,13 +302,6 @@ function rectFor(z) {
   const x = S.hand === 'left' ? 1 - z.x - z.w : z.x;
   return { left: x * W, top: z.y * H, width: z.w * W, height: z.h * H };
 }
-function norm(cx, cy) {
-  let x = cx / innerWidth;
-  if (S.hand === 'left') x = 1 - x;
-  return { x, y: cy / innerHeight };
-}
-const inZone = (p, z) => p.x >= z.x && p.x <= z.x + z.w && p.y >= z.y && p.y <= z.y + z.h;
-
 function layout() {
   document.querySelectorAll('[data-z]').forEach(el => {
     const r = rectFor(ZONES[el.dataset.z]);
@@ -345,206 +313,165 @@ function layout() {
   $('muzzleTag').textContent = S.hand === 'left' ? '◂ MUZZLE' : 'MUZZLE ▸';
   const sr = rectFor(ZONES.slide);
   sizeCanvas($('target'), Math.max(60, Math.min(sr.height - 12, 150)));
-  drawTarget();
+  if (engine) drawTarget(engine.state);
 }
-function sizeCanvas(cv, css, cssH) {
-  const dpr = window.devicePixelRatio || 1, h = cssH || css;
-  cv.style.width = css + 'px'; cv.style.height = h + 'px';
-  cv.width = Math.round(css * dpr); cv.height = Math.round(h * dpr);
+function sizeCanvas(cv, css) {
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.width = css + 'px'; cv.style.height = css + 'px';
+  cv.width = Math.round(css * dpr); cv.height = Math.round(css * dpr);
   cv.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-/* ======================= sensors ======================= */
-function onMotion(e) {
-  const now = performance.now();
-  const dt = lastMotionT ? Math.min((now - lastMotionT) / 1000, 0.1) : 0;
-  lastMotionT = now; motionEvents++;
+/* ======================= engine + recorder ======================= */
+let engine = null, enginePaused = true;
+let rec = null, lastRec = null;
+const REC_MAX_MS = 180000;
+const DRILLS = [
+  { id: 'free',            name: 'Free (no expectation)',  hint: 'Anything you like. Used to check the replay matches what happened live.' },
+  { id: 'safe-move',       name: 'Safe move',              hint: 'Finger flat on the frame the whole time. Move the phone around a lot. Expect: no alarm.' },
+  { id: 'off-frame-move',  name: 'Off-frame move',         hint: 'Finger on the frame, then lift it and move the phone. Return to the frame. Expect: alarm.' },
+  { id: 'off-frame-still', name: 'Off-frame still',        hint: 'Finger on the frame, lift it, hold the phone still 2–3 s, return to the frame. Expect: no alarm.' },
+  { id: 'clean-press',     name: 'Clean presses',          hint: 'From the frame, go to the trigger and press slowly while holding still. A few shots. Expect: clean shots, no alarm.' },
+  { id: 'jerked-press',    name: 'Jerked presses',         hint: 'Same, but deliberately slap or jerk the trigger. Expect: at least one non-clean shot.' },
+  { id: 'axis-up',         name: 'Axis check: muzzle up',  hint: 'Finger on the frame. Hold still 1 s, tilt the muzzle UP about 20°, hold 1 s, stop. Answers the gyro-axis question.' },
+  { id: 'axis-right',      name: 'Axis check: muzzle right', hint: 'Finger on the frame. Hold still 1 s, swing the muzzle to YOUR RIGHT about 20°, hold 1 s, stop.' },
+];
 
-  const r = e.rotationRate || {};
-  const a = r.alpha || 0, b = r.beta || 0, g = r.gamma || 0;
-  // Device axes: x = short edge (portrait right), y = long edge (portrait up), z = out of screen.
-  // Spec: alpha about z, beta about x, gamma about y. Some iOS builds report them in x,y,z order instead.
-  const mode = S.axisMode === 'auto' ? (isIOS ? 'ios' : 'spec') : S.axisMode;
-  let wx, wy, wz;
-  if (mode === 'ios') { wx = a; wy = b; wz = g; } else { wx = b; wy = g; wz = a; }
-  rotNow = Math.hypot(wx, wy, wz);
-
-  let lin = 0;
-  if (e.acceleration && e.acceleration.x != null) {
-    lin = Math.hypot(e.acceleration.x, e.acceleration.y || 0, e.acceleration.z || 0);
-  } else if (e.accelerationIncludingGravity && e.accelerationIncludingGravity.x != null) {
-    const ag = e.accelerationIncludingGravity;
-    if (!grav) grav = { x: ag.x, y: ag.y, z: ag.z };
-    grav.x += (ag.x - grav.x) * 0.1; grav.y += (ag.y - grav.y) * 0.1; grav.z += (ag.z - grav.z) * 0.1;
-    lin = Math.hypot(ag.x - grav.x, ag.y - grav.y, ag.z - grav.z);
+function newEngine() {
+  engine = TDT.createEngine(S, { ios: isIOS, onEvent });
+  enginePaused = true;
+  stage.classList.remove('alarm'); Snd.stopAlarm();
+  renderStats();
+}
+function onEvent(e) {
+  if (rec) rec.observed.push(TDT.packEvent(e));
+  switch (e.type) {
+    case 'armed': case 'ok': Snd.ok(); break;
+    case 'alarmStart': Snd.startAlarm(); buzz([300, 120, 300]); stage.classList.add('alarm'); renderStats(); break;
+    case 'alarmStop': Snd.stopAlarm(); stage.classList.remove('alarm'); break;
+    case 'shot': Snd.shot(); buzz(45); flash(); renderStats(); break;
   }
-  linNow = lin;
-  const k = dt > 0 ? 1 - Math.exp(-dt / 0.08) : 1;  // ~80 ms smoothing
-  rotEMA += (rotNow - rotEMA) * k;
-  linEMA += (linNow - linEMA) * k;
-
-  // Muzzle pitch/yaw rates. Muzzle = screen-right (RH) or screen-left (LH); screen normal = shooter's side.
-  // Screen-up is device +x at angle 90 and device -x at angle 270.
-  const upSign = screenAngle() === 270 ? -1 : 1;
-  let pitchUp = wz * (S.hand === 'left' ? -1 : 1);
-  let yawRight = -wx * upSign;
-  if (S.flipV) pitchUp = -pitchUp;
-  if (S.flipH) yawRight = -yawRight;
-  aimH += yawRight * dt;
-  aimV += pitchUp * dt;
+}
+const logRow = row => { if (rec) rec.log.push(row); };
+function setEnginePaused(p, t) {
+  if (p === enginePaused) return;
+  enginePaused = p;
+  engine.setPaused(p, t);
+  logRow(['p', t, p ? 1 : 0]);
 }
 
-/* ======================= touch ======================= */
+function startRecording() {
+  newEngine();                                   // fresh state: replays start from the same place
+  rec = {
+    format: 'tdt-recording', version: 1, app: TDT.VERSION,
+    label: $('recLabel').value, notes: $('recNotes').value.trim(), recordedAt: new Date().toISOString(),
+    device: { ua: navigator.userAgent, ios: isIOS, dpr: window.devicePixelRatio || 1, w: innerWidth, h: innerHeight },
+    settings: Object.assign({}, S), t0: now(), log: [], observed: [],
+  };
+  lastRec = null;
+  $('recPill').hidden = false;
+  updateRecUi();
+}
+function stopRecording(share) {
+  if (!rec) return;
+  rec.t1 = now();
+  lastRec = rec; rec = null;
+  $('recPill').hidden = true;
+  updateRecUi();
+  if (share) saveRecording(lastRec);
+}
+function recFileName(r) {
+  return `tdt-${r.label}-${r.recordedAt.slice(0, 19).replace(/[:T]/g, '-')}.json`;
+}
+function saveRecording(r) {
+  if (!r) return;
+  const name = recFileName(r), json = JSON.stringify(r);
+  let file = null;
+  try { file = new File([json], name, { type: 'application/json' }); } catch (e) {}
+  if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: name }).catch(() => {});
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+}
+function updateRecUi() {
+  $('recSave').hidden = !lastRec;
+  $('recInfo').textContent = lastRec
+    ? `Last recording: ${lastRec.label}, ${((lastRec.t1 - lastRec.t0) / 1000).toFixed(1)} s, ${lastRec.log.length} samples, ` +
+      `${lastRec.observed.filter(o => o[1] === 'shot').length} shots, ${lastRec.observed.filter(o => o[1] === 'alarmStart').length} alarms.`
+    : '';
+}
+
+/* ======================= inputs ======================= */
+function onMotion(e) {
+  const m = TDT.fromDeviceMotion(e, now(), screenAngle());
+  engine.motion(m);
+  logRow(TDT.packMotion(m));
+}
 const isUi = t => t && t.closest && t.closest('.ui');
+let curTouches = [], mousePt = null, mouseDown = false;
+function feedTouches() {
+  const t = now(), list = mousePt ? curTouches.concat([mousePt]) : curTouches;
+  engine.touches(t, list, innerWidth, innerHeight);
+  logRow(TDT.packTouches(t, list, innerWidth, innerHeight));
+}
 function onTouch(e) {
   if (isUi(e.target)) return;
   e.preventDefault();
-  const seen = new Set();
-  for (const t of e.touches) {
-    seen.add(t.identifier);
-    const p = norm(t.clientX, t.clientY);
-    const size = 2 * Math.max(t.radiusX || 0, t.radiusY || 0);
-    touches.set(t.identifier, { x: p.x, y: p.y, cx: t.clientX, size });
-  }
-  for (const id of [...touches.keys()]) if (!seen.has(id) && id !== 'mouse') touches.delete(id);
-  updateTrigger();
+  curTouches = Array.from(e.touches).filter(tc => !isUi(tc.target)).map(TDT.fromTouch);
+  feedTouches();
 }
 // Mouse fallback so the page can be demonstrated on a laptop (no motion sensors there).
-let mouseDown = false;
 function onMouse(e) {
   if (isUi(e.target)) return;
   if (e.type === 'mousedown') mouseDown = true;
-  if (e.type === 'mouseup') { mouseDown = false; touches.delete('mouse'); updateTrigger(); return; }
+  if (e.type === 'mouseup') { mouseDown = false; mousePt = null; feedTouches(); return; }
   if (!mouseDown) return;
-  const p = norm(e.clientX, e.clientY);
-  touches.set('mouse', { x: p.x, y: p.y, cx: e.clientX, size: 0 });
-  updateTrigger();
-}
-
-function restTouch() {
-  let best = null;
-  for (const t of touches.values()) {
-    if (!inZone(t, ZONES.rest)) continue;
-    if (t.size > 2) { sizeSupported = true; lastRestSize = t.size; }
-    if (S.requireFlat && sizeSupported && t.size < S.minContactPx) continue;
-    best = t;
-  }
-  return best;
-}
-
-/* ======================= trigger ======================= */
-const rearPx = t => (S.hand === 'left' ? t.cx : -t.cx);   // larger = further rearward
-
-function updateTrigger() {
-  if (trig && !touches.has(trig.id)) endTrigger();
-  if (!trig) {
-    for (const [id, t] of touches) {
-      if (inZone(t, ZONES.trigger)) {
-        trig = { id, base: rearPx(t), pull: 0, fired: false, breakT: 0, breakIdx: -1,
-                 oh: aimH, ov: aimV, trace: [] };
-        $('trigZone').classList.add('on');
-        break;
-      }
-    }
-  }
-  if (!trig) return;
-  const t = touches.get(trig.id);
-  let pull = rearPx(t) - trig.base;
-  if (pull < 0 && !trig.fired) { trig.base = rearPx(t); pull = 0; }  // finger slid forward: re-zero
-  trig.pull = Math.max(0, pull);
-  if (!trig.fired && pull >= S.pullPx) fire();
-  else if (trig.fired && pull <= S.pullPx * RESET_FRACTION) {          // trigger reset -> ready for follow-up
-    trig.fired = false; lastTrace = trig;
-    trig = Object.assign({}, trig, { fired: false, breakT: 0, breakIdx: -1, oh: aimH, ov: aimV, trace: [] });
-  }
-  const bladeShift = Math.min(trig.pull, S.pullPx * 1.2) * (S.hand === 'left' ? 1 : -1);
-  $('blade').style.transform = `translateX(${bladeShift}px)`;
-}
-function endTrigger() {
-  if (trig && trig.trace.length) lastTrace = trig;
-  trig = null;
-  $('trigZone').classList.remove('on');
-  $('blade').style.transform = '';
-}
-
-function fire() {
-  const h = aimH - trig.oh, v = aimV - trig.ov, dev = Math.hypot(h, v);
-  const tol = S.steadyDeg;
-  const grade = dev <= tol ? 'Clean' : dev <= 2.5 * tol ? 'Moved' : 'Jerked';
-  let dir = '';
-  if (dev > tol) {
-    const vv = v < -0.4 * dev ? 'low' : v > 0.4 * dev ? 'high' : '';
-    const hh = h < -0.4 * dev ? 'left' : h > 0.4 * dev ? 'right' : '';
-    dir = [vv, hh].filter(Boolean).join('-');
-  }
-  const shot = { h, v, dev, grade, dir, unsafe: alarmActive, motion: motionEvents > 0 };
-  shots.push(shot);
-  if (shots.length > 200) shots.shift();
-  trig.fired = true; trig.breakT = performance.now(); trig.breakIdx = trig.trace.length;
-  Snd.shot(); buzz(45);
-  const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
-  renderStats();
+  mousePt = { id: 'mouse', cx: TDT.r2(e.clientX), cy: TDT.r2(e.clientY), rx: 0, ry: 0 };
+  feedTouches();
 }
 
 /* ======================= main loop ======================= */
-function tick(now) {
+let running = false, startedAt = 0;
+function tick() {
   requestAnimationFrame(tick);
+  const t = now();
   const settingsOpen = $('settingsOv').classList.contains('show');
   if (settingsOpen) { renderLive(); drawAxis(); }
-  if (!running || paused || isPortrait()) {
-    if (alarmActive) { alarmActive = false; Snd.stopAlarm(); stage.classList.remove('alarm'); }
-    armed = false; onRest = wasOnRest = false;
-    return;
+  setEnginePaused(!running || settingsOpen || isPortrait() || document.visibilityState !== 'visible', t);
+  logRow(['f', t]);
+  engine.tick(t);
+  if (rec) {
+    const el = t - rec.t0;
+    if (el > REC_MAX_MS) { stopRecording(false); $('warnLine').textContent = 'Recording hit the 3-minute limit. Save it from Settings.'; }
+    else $('recPill').textContent = `● REC ${Math.floor(el / 60000)}:${String(Math.floor(el / 1000) % 60).padStart(2, '0')} · tap to stop & save`;
   }
-
-  if (lastMotionT && now - lastMotionT > 250) { rotEMA = 0; linEMA = 0; }  // sensor stream stalled: don't hold a stale value
-
-  const rest = restTouch();
-  $('restZone').classList.toggle('on', !!rest);
-  if (rest) { restLostAt = null; onRest = true; }
-  else if (onRest) {
-    if (restLostAt == null) restLostAt = now;
-    if (now - restLostAt > REST_LOSS_DEBOUNCE_MS) { onRest = false; offSince = restLostAt; }
-  }
-
-  if (!armed) {
-    if (onRest) { armed = true; Snd.ok(); }
-  } else {
-    if (onRest && !wasOnRest) {
-      if (alarmActive) { alarmActive = false; Snd.stopAlarm(); stage.classList.remove('alarm'); }
-      Snd.ok();
-    }
-    if (!onRest && !alarmActive) {
-      const moving = rotEMA > S.moveDps || linEMA > S.moveAcc;
-      if (moving && now - offSince > S.graceMs) {
-        alarmActive = true; violations++;
-        Snd.startAlarm(); buzz([300, 120, 300]);
-        stage.classList.add('alarm');
-        renderStats();
-      }
-    }
-  }
-  wasOnRest = onRest;
-
-  if (trig && (!trig.fired || now - trig.breakT < FOLLOW_THROUGH_MS) && trig.trace.length < 1500) {
-    trig.trace.push([aimH - trig.oh, aimV - trig.ov]);
-  }
-
-  // status
-  if (!armed) setStatus('', 'PLACE FINGER ON FRAME');
-  else if (alarmActive) setStatus('bad', 'ALARM — FINGER OFF, MUZZLE MOVED');
-  else if (onRest) setStatus('safe', 'SAFE');
-  else if (trig) setStatus('trig', trig.fired ? 'SHOT — RESET OR RETURN TO FRAME' : 'ON TRIGGER — HOLD STILL');
-  else setStatus('warn', 'OFF FRAME — HOLD STILL');
-
-  if (startedAt && now - startedAt > 2000 && motionEvents === 0) {
-    $('warnLine').textContent = 'No motion sensor data — movement alarm and aim trace inactive.';
-  } else $('warnLine').textContent = '';
-
-  drawTarget();
-  if (S.debug) renderDebug(now);
+  render(t);
 }
 
+function render(t) {
+  const s = engine.state;
+  $('restZone').classList.toggle('on', s.restContact);
+  $('trigZone').classList.toggle('on', !!s.trig);
+  const shift = s.trig ? Math.min(s.trig.pull, S.pullPx * 1.2) * (S.hand === 'left' ? 1 : -1) : 0;
+  $('blade').style.transform = shift ? `translateX(${shift}px)` : '';
+
+  if (!s.armed) setStatus('', 'PLACE FINGER ON FRAME');
+  else if (s.alarmActive) setStatus('bad', 'ALARM — FINGER OFF, MUZZLE MOVED');
+  else if (s.onRest) setStatus('safe', 'SAFE');
+  else if (s.trig) setStatus('trig', s.trig.fired ? 'SHOT — RESET OR RETURN TO FRAME' : 'ON TRIGGER — HOLD STILL');
+  else setStatus('warn', 'OFF FRAME — HOLD STILL');
+
+  if (running && startedAt && t - startedAt > 2000 && s.motionEvents === 0) {
+    $('warnLine').textContent = 'No motion sensor data — movement alarm and aim trace inactive.';
+  } else if (s.motionEvents > 0 && $('warnLine').textContent.startsWith('No motion')) $('warnLine').textContent = '';
+
+  drawTarget(s);
+  if (S.debug) renderDebug(s);
+}
 function setStatus(cls, text) {
   const key = cls + '|' + text;
   if (statusEl.dataset.k === key) return;
@@ -553,27 +480,28 @@ function setStatus(cls, text) {
   statusEl.textContent = text;
 }
 function renderStats() {
-  const clean = shots.filter(s => s.grade === 'Clean').length;
-  $('stats').textContent = `Shots ${shots.length} · Clean ${clean} · Alarms ${violations}`;
-  const s = shots[shots.length - 1];
-  $('lastShot').textContent = !s ? '' :
-    `Last: ${s.grade} ${s.motion ? s.dev.toFixed(2) + '°' : '(no sensor)'}${s.dir ? ' ' + s.dir : ''}${s.unsafe ? ' · during alarm' : ''}`;
+  const s = engine.state, shots = s.shots;
+  const clean = shots.filter(x => x.grade === 'Clean').length;
+  $('stats').textContent = `Shots ${shots.length} · Clean ${clean} · Alarms ${s.violations}`;
+  const x = shots[shots.length - 1];
+  $('lastShot').textContent = !x ? '' :
+    `Last: ${x.grade} ${x.motion ? x.dev.toFixed(2) + '°' : '(no sensor)'}${x.dir ? ' ' + x.dir : ''}${x.unsafe ? ' · during alarm' : ''}`;
 }
-function renderDebug(now) {
-  const tl = [...touches.entries()].map(([id, t]) =>
-    `  #${id} x${t.x.toFixed(2)} y${t.y.toFixed(2)} size ${t.size ? t.size.toFixed(0) + 'px' : 'n/a'}`).join('\n');
+function renderDebug(s) {
+  const tl = [...s.touches.entries()].map(([id, tc]) =>
+    `  #${id} x${tc.x.toFixed(2)} y${tc.y.toFixed(2)} size ${tc.size ? tc.size.toFixed(0) + 'px' : 'n/a'}`).join('\n');
   $('debug').textContent =
-    `rot ${rotEMA.toFixed(1)}°/s (limit ${S.moveDps})\n` +
-    `lin ${linEMA.toFixed(2)} m/s² (limit ${S.moveAcc})\n` +
-    `aim h ${aimH.toFixed(2)}° v ${aimV.toFixed(2)}°\n` +
-    `orient ${screenAngle()}  axes ${S.axisMode}${isIOS ? ' (iOS)' : ''}  evts ${motionEvents}\n` +
-    `rest ${onRest} armed ${armed} alarm ${alarmActive}\n` +
-    `trigger ${trig ? 'pull ' + trig.pull.toFixed(0) + '/' + S.pullPx + 'px' + (trig.fired ? ' FIRED' : '') : '-'}\n` +
+    `rot ${s.rotEMA.toFixed(1)}°/s (limit ${S.moveDps})\n` +
+    `lin ${s.linEMA.toFixed(2)} m/s² (limit ${S.moveAcc})\n` +
+    `aim h ${s.aimH.toFixed(2)}° v ${s.aimV.toFixed(2)}°\n` +
+    `orient ${screenAngle()}  axes ${S.axisMode}${isIOS ? ' (iOS)' : ''}  evts ${s.motionEvents}\n` +
+    `rest ${s.onRest} armed ${s.armed} alarm ${s.alarmActive}${rec ? '  REC ' + rec.log.length : ''}\n` +
+    `trigger ${s.trig ? 'pull ' + s.trig.pull.toFixed(0) + '/' + S.pullPx + 'px' + (s.trig.fired ? ' FIRED' : '') : '-'}\n` +
     `touches:\n${tl || '  none'}`;
 }
 
 /* ======================= target drawing ======================= */
-function drawTarget() {
+function drawTarget(s) {
   const cv = $('target'), ctx = cv.getContext('2d');
   const W = parseFloat(cv.style.width) || 100, c = W / 2, R = c - 3;
   const scale = R / (3.5 * S.steadyDeg);
@@ -589,23 +517,24 @@ function drawTarget() {
     if (m > R) { x *= R / m; y *= R / m; }
     return [c + x, c + y];
   };
-  const tr = (trig && trig.trace.length) ? trig : lastTrace;
+  const tr = (s.trig && s.trig.trace.length) ? s.trig : s.lastTrace;
   if (tr && tr.trace.length > 1) {
     const brk = tr.breakIdx < 0 ? tr.trace.length : tr.breakIdx;
+    const line = (pts, col) => {
+      ctx.strokeStyle = col; ctx.beginPath();
+      pts.forEach(([h, v], i) => { const [x, y] = P(h, v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      ctx.stroke();
+    };
     ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(59,130,246,.9)';
-    ctx.beginPath(); tr.trace.slice(0, brk + 1).forEach(([h, v], i) => { const [x, y] = P(h, v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
-    if (brk < tr.trace.length - 1) {
-      ctx.strokeStyle = 'rgba(255,255,255,.35)';
-      ctx.beginPath(); tr.trace.slice(brk).forEach(([h, v], i) => { const [x, y] = P(h, v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
-    }
+    line(tr.trace.slice(0, brk + 1), 'rgba(59,130,246,.9)');
+    if (brk < tr.trace.length - 1) line(tr.trace.slice(brk), 'rgba(255,255,255,.35)');
   }
-  const recent = shots.slice(-10);
-  recent.forEach((s, i) => {
-    const [x, y] = P(s.h, s.v), last = i === recent.length - 1;
-    ctx.fillStyle = s.grade === 'Clean' ? '#2fbf71' : s.grade === 'Moved' ? '#f0a020' : '#e5484d';
+  const recent = s.shots.slice(-10);
+  recent.forEach((x, i) => {
+    const [px, py] = P(x.h, x.v), last = i === recent.length - 1;
+    ctx.fillStyle = x.grade === 'Clean' ? '#2fbf71' : x.grade === 'Moved' ? '#f0a020' : '#e5484d';
     ctx.globalAlpha = last ? 1 : 0.55;
-    ctx.beginPath(); ctx.arc(x, y, last ? 5 : 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, last ? 5 : 3.5, 0, Math.PI * 2); ctx.fill();
     if (last) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); }
   });
   ctx.globalAlpha = 1;
@@ -648,22 +577,36 @@ function buildSettings() {
   $('axisMode').value = S.axisMode;
   ['requireFlat', 'flipH', 'flipV'].forEach(k => { $(k).checked = !!S[k]; });
   $('debugChk').checked = !!S.debug;
+  updateRecUi();
 }
+let axisZero = { h: 0, v: 0 };
 function bindSettings() {
   $('hand').addEventListener('change', e => { S.hand = e.target.value; save(); layout(); });
   $('axisMode').addEventListener('change', e => { S.axisMode = e.target.value; save(); });
   ['requireFlat', 'flipH', 'flipV'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; save(); }));
   $('debugChk').addEventListener('change', e => { S.debug = e.target.checked; save(); layout(); });
-  $('axisZero').addEventListener('click', () => { axisZero = { h: aimH, v: aimV }; });
-  $('resetStats').addEventListener('click', () => { shots = []; violations = 0; lastTrace = null; renderStats(); drawTarget(); });
-  $('resetDefaults').addEventListener('click', () => { S = Object.assign({}, DEFAULTS); save(); buildSettings(); Snd.setVolume(S.volume); layout(); });
+  $('axisZero').addEventListener('click', () => { axisZero = { h: engine.state.aimH, v: engine.state.aimV }; });
+  $('resetStats').addEventListener('click', () => { engine.resetStats(); renderStats(); drawTarget(engine.state); });
+  $('resetDefaults').addEventListener('click', () => { S = Object.assign({}, DEFAULTS); save(); newEngine(); buildSettings(); Snd.setVolume(S.volume); layout(); });
+
+  $('recLabel').innerHTML = DRILLS.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  const showHint = () => { $('recHint').textContent = (DRILLS.find(d => d.id === $('recLabel').value) || {}).hint || ''; };
+  $('recLabel').addEventListener('change', showHint); showHint();
+  $('recStart').addEventListener('click', async () => {
+    if (!running) await start();
+    startRecording();
+    closeSettings();
+  });
+  $('recSave').addEventListener('click', () => saveRecording(lastRec));
+  $('recPill').addEventListener('click', () => stopRecording(true));
 }
 function renderLive() {
-  $('liveSensors').textContent = motionEvents
-    ? `now: rotation ${rotEMA.toFixed(1)} °/s · linear ${linEMA.toFixed(2)} m/s²`
+  const s = engine.state;
+  $('liveSensors').textContent = s.motionEvents
+    ? `now: rotation ${s.rotEMA.toFixed(1)} °/s · linear ${s.linEMA.toFixed(2)} m/s²`
     : 'no motion data yet (start the trainer first; needs HTTPS and, on iPhone, permission)';
-  $('liveContact').textContent = sizeSupported
-    ? `last frame contact: ${lastRestSize.toFixed(0)} px (this phone reports touch size)`
+  $('liveContact').textContent = s.sizeSupported
+    ? `last frame contact: ${s.lastRestSize.toFixed(0)} px (this phone reports touch size)`
     : 'this phone has not reported touch size yet — flat-finger check will be skipped';
 }
 function drawAxis() {
@@ -676,45 +619,45 @@ function drawAxis() {
   ctx.beginPath(); ctx.arc(c, c, R, 0, Math.PI * 2); ctx.stroke();
   ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = '11px system-ui';
   ctx.fillText('UP', c + 4, 16); ctx.fillText('RIGHT', W - 44, c - 4);
-  let x = (aimH - axisZero.h) * scale, y = -(aimV - axisZero.v) * scale; const m = Math.hypot(x, y);
+  const s = engine.state;
+  let x = (s.aimH - axisZero.h) * scale, y = -(s.aimV - axisZero.v) * scale; const m = Math.hypot(x, y);
   if (m > R) { x *= R / m; y *= R / m; }
   ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.arc(c + x, c + y, 7, 0, Math.PI * 2); ctx.fill();
 }
 
 /* ======================= lifecycle ======================= */
 async function requestWakeLock() {
-  try { if ('wakeLock' in navigator && document.visibilityState === 'visible') wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+  try { if ('wakeLock' in navigator && document.visibilityState === 'visible') await navigator.wakeLock.request('screen'); } catch (e) {}
 }
 let motionBound = false;
+function bindMotion() { if (!motionBound) { window.addEventListener('devicemotion', onMotion); motionBound = true; } }
 async function start() {
   Snd.init(); Snd.resume();                         // must happen inside the tap
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
     try { await DeviceMotionEvent.requestPermission(); } catch (e) {}
   }
-  if (!motionBound) { window.addEventListener('devicemotion', onMotion); motionBound = true; }
+  bindMotion();
   if (!isIOS && document.documentElement.requestFullscreen) {
     try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
     try { await screen.orientation.lock('landscape'); } catch (e) {}
   }
   requestWakeLock();
-  running = true; paused = false; armed = false; startedAt = performance.now();
+  running = true; startedAt = now();
   $('startOv').classList.remove('show');
   $('rotateOv').classList.add('armed');
   layout(); renderStats();
 }
 function openSettings() {
   Snd.init(); Snd.resume();
-  if (!motionBound && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission !== 'function') {
-    window.addEventListener('devicemotion', onMotion); motionBound = true;
-  }
-  paused = true; buildSettings();
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission !== 'function') bindMotion();
+  if (rec) stopRecording(false);                    // settings can't change mid-recording
+  buildSettings();
   $('startOv').classList.remove('show');
   $('settingsOv').classList.add('show');
 }
 function closeSettings() {
   $('settingsOv').classList.remove('show');
   save(); layout();
-  if (running) paused = false;
 }
 
 document.addEventListener('touchstart', onTouch, { passive: false });
@@ -727,8 +670,9 @@ document.addEventListener('mouseup', onMouse);
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') { if (running) requestWakeLock(); }
-  else { Snd.stopAlarm(); alarmActive = false; stage.classList.remove('alarm'); armed = false; }
+  // rAF stops while hidden, so pause here rather than in tick().
+  if (document.visibilityState !== 'visible') setEnginePaused(true, now());
+  else if (running) requestWakeLock();
 });
 addEventListener('resize', layout);
 if (screen.orientation) screen.orientation.addEventListener('change', layout);
@@ -741,14 +685,19 @@ $('doneBtn').addEventListener('click', () => { closeSettings(); if (!running) $(
 $('platformNote').textContent = isIOS
   ? 'iPhone: allow motion access when asked. If you hear nothing, turn off Silent mode. The shot is a click and a flash (no vibration).'
   : 'Android: the shot also vibrates. Rotate to landscape after starting if the screen does not lock automatically.';
+$('versionLine').textContent = `Engine ${TDT.VERSION}`;
 
-bindSettings(); buildSettings(); layout(); renderStats();
+newEngine(); bindSettings(); buildSettings(); layout(); renderStats();
 requestAnimationFrame(tick);
 
-// Test hook (read-only snapshot) for automated checks.
-window.__tdt = () => ({ running, armed, onRest, alarmActive, violations, shots: shots.length,
-  lastGrade: shots.length ? shots[shots.length - 1].grade : null, trig: trig ? { pull: trig.pull, fired: trig.fired } : null,
-  rotEMA, aimH, aimV });
+// Test hooks (read-only).
+window.__tdt = () => {
+  const s = engine.state;
+  return { running, armed: s.armed, onRest: s.onRest, alarmActive: s.alarmActive, violations: s.violations,
+    shots: s.shots.length, lastGrade: s.shots.length ? s.shots[s.shots.length - 1].grade : null,
+    trig: s.trig ? { pull: s.trig.pull, fired: s.trig.fired } : null, rotEMA: s.rotEMA, aimH: s.aimH, aimV: s.aimV,
+    recording: !!rec };
+};
 })();
 </script>
 </body>
