@@ -86,6 +86,7 @@
       lastMotionT: 0, motionEvents: 0,
       sizeSupported: false, lastRestSize: 0, restContact: false,
       paused: true, armed: false, onRest: false, wasOnRest: false, restLostAt: null, offSince: 0,
+      trigOffAt: -Infinity,
       alarmActive: false, violations: 0,
       trig: null, lastTrace: null, shots: [],
       touches: new Map(),
@@ -184,6 +185,7 @@
     function endTrigger(t) {
       if (st.trig && st.trig.trace.length) st.lastTrace = st.trig;
       st.trig = null;
+      st.trigOffAt = t;
       emit({ type: 'trigOff', t });
     }
 
@@ -217,9 +219,11 @@
           if (st.alarmActive) { st.alarmActive = false; emit({ type: 'alarmStop', t }); }
           emit({ type: 'ok', t });
         }
-        if (!st.onRest && !st.alarmActive) {
+        // No new alarm while the finger is on the trigger (a hard jerk is graded, not alarmed),
+        // and the same grace period applies after leaving the trigger as after leaving the frame.
+        if (!st.onRest && !st.alarmActive && !st.trig) {
           const moving = st.rotEMA > S.moveDps || st.linEMA > S.moveAcc;
-          if (moving && t - st.offSince > S.graceMs) {
+          if (moving && t - st.offSince > S.graceMs && t - st.trigOffAt > S.graceMs) {
             st.alarmActive = true; st.violations++;
             emit({ type: 'alarmStart', t, rot: st.rotEMA, lin: st.linEMA });
           }

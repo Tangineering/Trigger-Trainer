@@ -75,7 +75,16 @@ const check = (name, cond, state) => {
   await touch('touchMove', [[TRG[0] - 50, TRG[1], 2]]); await page.waitForTimeout(50);
   s = await st(); check('trigger reset allows follow-up; drift graded as moved', s.shots === 2 && s.lastGrade === 'Moved', s);
 
-  await touch('touchEnd', []); await motion(0, 0, 3);
+  const before = s.violations;
+  await motion(150, 60, 15);                                 // serious jerk with the finger on the trigger
+  s = await st(); check('hard jerk while on the trigger: no alarm', !s.alarmActive && s.violations === before, s);
+
+  await touch('touchEnd', []); await motion(150, 60, 4);     // still swinging as the finger leaves the trigger
+  s = await st(); check('within grace after leaving the trigger: no alarm', !s.alarmActive, s);
+
+  await motion(0, 0, 25); await motion(80);                  // finger off, phone moved after the grace period
+  s = await st(); check('moving after leaving the trigger: alarm', s.alarmActive && s.violations === before + 1, s);
+
   await touch('touchStart', [REST]); await motion(0, 0, 5);
   s = await st(); check('return to frame after shots is safe', s.onRest && !s.alarmActive && !s.trig, s);
 

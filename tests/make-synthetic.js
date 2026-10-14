@@ -28,7 +28,8 @@ const S = {
     dur: 3.2,
     touches: t => t < 1 || t >= 2.6 ? [REST]
       : between(t, 1.3, 2.3) ? [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (t - 1.85) / 0.15)) * 45 })] : [],
-    rot: t => between(t, 1.85, 2.0) ? { a: -25, b: 10, g: 0 } : { a: tiny(t), b: 0, g: 0 },   // muzzle dips low-left at the break
+    // Hard jerk at the break: muzzle dips low-left at 120 deg/s, far over the alarm limit.
+    rot: t => between(t, 1.85, 2.0) ? { a: -120, b: 40, g: 0 } : { a: tiny(t), b: 0, g: 0 },
   },
   'axis-up': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 40, b: 0, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
   'axis-right': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 0, b: -40, g: 0 } : { a: tiny(t), b: 0, g: 0 } },

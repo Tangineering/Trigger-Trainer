@@ -28,6 +28,7 @@ module.exports = {
   'jerked-press': r => [
     ['at least one shot', r.shots.length >= 1],
     ['at least one shot graded Moved or Jerked', r.shots.some(s => s.grade !== 'Clean')],
+    ['no alarm: a jerk on the trigger is graded, not alarmed', r.alarms === 0],
   ],
   'axis-up': r => [
     ['largest excursion reads as muzzle UP', dominant(r.peak, 'v', +1)],
