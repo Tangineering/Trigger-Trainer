@@ -33,6 +33,9 @@ attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`.
 - During a trigger press (from the start of the pull until shortly after the break) a short jerk is graded,
   not alarmed; movement sustained during the press still alarms. A finger resting on the trigger without
   pulling counts as off the frame (D-24).
+- **180 rule** (D-26): downrange is where the muzzle points when the trainer arms. If the muzzle points more
+  than 90° from downrange (any mix of left/right and up/down), a distinct alarm sounds even with the finger on
+  the frame; it clears once the muzzle is back downrange with the finger on the frame.
 - Layout (D-21): wide grip at the rear, thin slide, frame strip and trigger high; the shot movement
   indicator sits in the empty area under the muzzle.
 
@@ -53,7 +56,7 @@ inside the engine.
 |---|---|
 | `VERSION` | Bump when outputs change for the same inputs (D-20). |
 | `DEFAULTS`, `ZONES`, `K` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. |
-| `createEngine(S, {ios, onEvent})` | Returns `{motion, touches, tick, setPaused, resetStats, state}`. Emits `armed`, `ok`, `alarmStart`, `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`. Starts paused. |
+| `createEngine(S, {ios, onEvent})` | Returns `{motion, touches, tick, setPaused, resetStats, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`. Starts paused. |
 | `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace. Axis mapping per `axisMode`. |
 | `touches(t, list, vw, vh)` | Full current touch list in CSS px; drives the trigger (engage on entering the zone, fire at `pullPx` rearward, re-arm at `RESET_FRACTION`). |
 | `tick(t)` | State machine: debounced frame contact → armed / safe / off-frame / alarm; trace capture. |
@@ -79,6 +82,8 @@ or (motion > threshold after `graceMs`) → `ALARM` (latched) → (finger on fra
 During a press (pull ≥ 15% → 500 ms after the break) only movement sustained for `sustainMs` alarms; resting on
 the trigger without pulling is treated as off the frame. `graceMs` applies after leaving the frame, after a press,
 and after leaving the trigger.
+180 rule (any state while armed): muzzle > `limit180Deg` from downrange → `ALARM (180)`, which also escalates a movement
+alarm; clears when back inside the limit by `HYST_180_DEG` with the finger on the frame. Arming resets downrange.
 Opening settings, backgrounding the page, or rotating to portrait disarms and silences.
 
 ## Known platform facts and unknowns
@@ -93,6 +98,9 @@ Opening settings, backgrounding the page, or rotating to portrait disarms and si
   `axis-right` recordings: `npm run test:replay` prints the mapping that fits both for each phone.
 - **Orientation:** sign of yaw uses `screen.orientation.angle` (or `window.orientation` on iOS): 90 vs 270.
   iOS can't lock orientation from a web page; Android tries fullscreen + `orientation.lock('landscape')`.
+- **180 orientation:** integrated from the gyro rates (quaternion, `motion()`), so it depends on the axis mapping
+  (Q1) and drifts slowly (Q10). The muzzle lies along device ±y in both landscape directions and both hands, so
+  the deviation is simply the angle between R·ŷ and ŷ (sign-independent; roll-invariant).
 - **Units:** pull distance is CSS px (~160 px per inch on most phones, so 35 px ≈ 5–6 mm). Drift is degrees
   of muzzle angle (1° ≈ 6.3" at 10 yd).
 

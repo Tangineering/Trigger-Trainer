@@ -108,6 +108,24 @@ const check = (name, cond, state) => {
   await touch('touchStart', [REST]); await motion(0, 0, 5);
   s = await st(); check('return to frame after shots is safe', s.onRest && !s.alarmActive && !s.trig, s);
 
+  // 180 rule: finger stays on the frame; swing the muzzle (yaw) until past the limit, then back.
+  const swingUntil = async (beta, cond, max = 200) => {
+    for (let i = 0; i < max; i++) {
+      await page.evaluate(b => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+        rotationRate: { alpha: 0, beta: b, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), beta);
+      await page.waitForTimeout(16);
+      if (cond(await st())) return true;
+    }
+    return false;
+  };
+  await swingUntil(-120, x => x.dev180 > 65);
+  s = await st(); check('swing to ~65° with finger on the frame: no alarm', !s.alarmActive && s.onRest, s);
+  await swingUntil(-120, x => x.dev180 > 95);
+  s = await st(); check('swing past 90° with finger on the frame: 180 alarm', s.alarmActive && s.alarmReason === '180' && s.breaks180 === 1, s);
+  await swingUntil(120, x => x.dev180 < 30);
+  await motion(0, 0, 5);
+  s = await st(); check('back downrange with finger on the frame: 180 alarm clears', !s.alarmActive && s.onRest, s);
+
   check('no page errors', errors.length === 0, errors);
   await browser.close();
   console.log(failures ? `\n${failures} failed` : '\nall passed');

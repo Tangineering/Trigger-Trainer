@@ -34,6 +34,14 @@ module.exports = {
     ['alarm when moving with the finger resting on the trigger', r.alarms >= 1],
     ['no shot fired', r.shots.length === 0],
   ],
+  '180-break': r => [
+    ['180 alarm when the muzzle passes 90° from downrange', r.b180 >= 1],
+    ['alarm clears once back downrange with the finger on the frame', !r.finalAlarm],
+  ],
+  '180-safe': r => [
+    ['no 180 alarm while within 90° of downrange', r.b180 === 0],
+    ['no alarm at all (finger stays on the frame)', r.alarms === 0],
+  ],
   'axis-up': r => [
     ['largest excursion reads as muzzle UP', dominant(r.peak, 'v', +1)],
   ],

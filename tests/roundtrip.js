@@ -40,11 +40,13 @@ const check = (name, cond, extra) => {
   const cdp = await ctx.newCDPSession(page);
   const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', {
     type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 22, radiusY: 22 })) });
+  // Alternate sign each sample: high rotation rate, little net turn (keeps clear of the 180 limit).
   const motion = async (alpha, beta = alpha, n = 15) => {
     for (let i = 0; i < n; i++) {
+      const sg = i % 2 ? -1 : 1;
       await page.evaluate(([a, b]) => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
         rotationRate: { alpha: a, beta: b, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 },
-        accelerationIncludingGravity: { x: 0, y: 0, z: 9.81 }, interval: 16 })), [alpha, beta]);
+        accelerationIncludingGravity: { x: 0, y: 0, z: 9.81 }, interval: 16 })), [alpha * sg, beta * sg]);
       await page.waitForTimeout(16);
     }
   };

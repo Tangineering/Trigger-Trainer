@@ -9,7 +9,8 @@
 1. Open the link, tap **Start**. iPhone: tap **Allow** for motion access.
 2. Turn the phone sideways. Left-handed: Settings → Shooting hand → Left.
 3. Hold the phone so the screen faces your trigger-finger side, muzzle toward the arrow.
-4. Lay the index finger flat on the dashed strip. It turns green and plays the OK tone.
+4. **Point the muzzle downrange**, then lay the index finger flat on the dashed strip. It turns green and plays
+   the OK tone. That moment sets downrange for the 180 check (it resets whenever the trainer is resumed).
 
 ## Drills
 - **Ready and move:** finger on the frame, move between "targets" around the room. No alarm should sound.
@@ -17,6 +18,10 @@
 - **Press, don't slap:** slow rearward press; watch the blue trace and the shot dot. Green ring = clean.
 - **Reset and follow-up:** after a shot, let the trigger forward until it re-arms, press again.
 - **Back to the frame:** after every string, finger flat on the frame → OK tone before moving.
+- **Finger on the trigger is not a rest:** resting the fingertip on the trigger and moving alarms, and so does
+  moving for more than a second during a press. A short jerk during the press is graded, not alarmed.
+- **180:** turn and move freely with the finger on the frame. Past 90° from downrange a lower "wail" alarm
+  sounds even with the finger on the frame. "Muzzle N° from downrange" under the muzzle shows how close they are.
 
 ## Reading the target
 - Dot in the green ring: clean press.

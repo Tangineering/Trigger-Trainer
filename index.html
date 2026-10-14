@@ -63,6 +63,8 @@
   #shotText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: right; }
   .lh #shotText { text-align: left; }
   #lastShot { font-size: 13px; line-height: 1.35; color: #d5dade; }
+  #dirLine { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  #dirLine.warn { color: var(--warn); } #dirLine.bad { color: var(--bad); font-weight: 700; }
   .pill { font-weight: 700; font-size: 15px; letter-spacing: .06em; padding: 5px 14px; border-radius: 999px;
           background: #3a3f46; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .pill.safe { background: var(--safe); color: #062814; }
@@ -143,6 +145,7 @@
   </div>
   <div id="shotPanel" data-z="target">
     <div id="shotText">
+      <div id="dirLine"></div>
       <div id="lastShot"></div>
       <div id="warnLine"></div>
     </div>
@@ -201,6 +204,14 @@
     <div class="chk"><label for="axisMode">Gyro axis mapping</label>
       <select id="axisMode"><option value="auto">Auto</option><option value="spec">Spec / Android</option><option value="ios">iOS-style</option></select>
     </div>
+
+    <h2>180 rule</h2>
+    <div class="chk"><input type="checkbox" id="rule180"><label for="rule180">Alarm when the muzzle points past the limit from downrange (even with the finger on the frame)</label></div>
+    <div id="sliders180"></div>
+    <p class="help">Downrange is set each time the trainer arms: the direction the muzzle points when the finger first
+      goes flat on the frame after Start or Resume. Point downrange first. Canting the phone doesn't count;
+      only where the muzzle points does.</p>
+    <div class="live" id="live180">not armed</div>
 
     <h2>Record test data</h2>
     <p>Records the phone's motion and touch data during one drill so it can be replayed in automated tests.
@@ -284,15 +295,23 @@ const Snd = {
     src.connect(bp); bp.connect(g); g.connect(this.master); src.start(t);
     this.tone(110, 0, 0.08, 'square', 0.4);
   },
-  startAlarm() {
-    if (!this.ctx || this.alarm) return;
+  // kind 'move': fast high beeps. kind '180': slow low wail, so the instructor can tell them apart.
+  startAlarm(kind) {
+    if (!this.ctx) return;
+    if (this.alarm && this.alarm.kind === kind) return;
+    this.stopAlarm();
     const c = this.ctx, o = c.createOscillator(), lfo = c.createOscillator(), lg = c.createGain(), g = c.createGain();
-    o.type = 'square'; o.frequency.value = 850;
-    lfo.type = 'square'; lfo.frequency.value = 4; lg.gain.value = 250;
+    if (kind === '180') {
+      o.type = 'sawtooth'; o.frequency.value = 560;
+      lfo.type = 'sine'; lfo.frequency.value = 1.6; lg.gain.value = 220;
+    } else {
+      o.type = 'square'; o.frequency.value = 850;
+      lfo.type = 'square'; lfo.frequency.value = 4; lg.gain.value = 250;
+    }
     lfo.connect(lg); lg.connect(o.frequency);
     g.gain.value = 0.35; o.connect(g); g.connect(this.master);
     o.start(); lfo.start();
-    this.alarm = { o, lfo, g };
+    this.alarm = { o, lfo, g, kind };
   },
   stopAlarm() {
     if (!this.alarm) return;
@@ -349,6 +368,8 @@ const DRILLS = [
   { id: 'clean-press',     name: 'Clean presses',          hint: 'From the frame, go to the trigger and press slowly while holding still. A few shots. Expect: clean shots, no alarm.' },
   { id: 'jerked-press',    name: 'Jerked presses',         hint: 'Same, but deliberately slap or jerk the trigger. Expect: at least one non-clean shot, no alarm.' },
   { id: 'trigger-sweep',   name: 'Finger on trigger, moving', hint: 'From the frame, rest the fingertip on the trigger WITHOUT pulling, then move the phone. Return to the frame. Expect: alarm.' },
+  { id: '180-break',       name: '180: break it',          hint: 'Point downrange, finger flat on the frame. Keeping the finger there, swing the muzzle well past 90° to one side, then back downrange. Expect: 180 alarm, clears when back.' },
+  { id: '180-safe',        name: '180: stay inside',       hint: 'Point downrange, finger on the frame. Swing to about 70° left, right, up and down, returning each time. Expect: no alarm.' },
   { id: 'axis-up',         name: 'Axis check: muzzle up',  hint: 'Finger on the frame. Hold still 1 s, tilt the muzzle UP about 20°, hold 1 s, stop. Answers the gyro-axis question.' },
   { id: 'axis-right',      name: 'Axis check: muzzle right', hint: 'Finger on the frame. Hold still 1 s, swing the muzzle to YOUR RIGHT about 20°, hold 1 s, stop.' },
 ];
@@ -363,7 +384,7 @@ function onEvent(e) {
   if (rec) rec.observed.push(TDT.packEvent(e));
   switch (e.type) {
     case 'armed': case 'ok': Snd.ok(); break;
-    case 'alarmStart': Snd.startAlarm(); buzz([300, 120, 300]); stage.classList.add('alarm'); renderStats(); break;
+    case 'alarmStart': Snd.startAlarm(e.reason); buzz(e.reason === '180' ? [600, 150, 600] : [300, 120, 300]); stage.classList.add('alarm'); renderStats(); break;
     case 'alarmStop': Snd.stopAlarm(); stage.classList.remove('alarm'); break;
     case 'shot': Snd.shot(); buzz(45); flash(); renderStats(); break;
   }
@@ -476,7 +497,8 @@ function render(t) {
   $('blade').style.transform = shift ? `translateX(${shift}px)` : '';
 
   if (!s.armed) setStatus('', 'PLACE FINGER ON FRAME');
-  else if (s.alarmActive) setStatus('bad', 'ALARM — FINGER OFF, MUZZLE MOVED');
+  else if (s.alarmActive && s.alarmReason === '180') setStatus('bad', '180 — TURN BACK DOWNRANGE');
+  else if (s.alarmActive) setStatus('bad', 'ALARM — MOVED, FINGER OFF FRAME');
   else if (s.onRest) setStatus('safe', 'SAFE');
   else if (s.trig) setStatus('trig', s.trig.fired ? 'SHOT — RESET OR RETURN TO FRAME' : 'ON TRIGGER — HOLD STILL');
   else setStatus('warn', 'OFF FRAME — HOLD STILL');
@@ -484,6 +506,12 @@ function render(t) {
   if (running && startedAt && t - startedAt > 2000 && s.motionEvents === 0) {
     $('warnLine').textContent = 'No motion sensor data — movement alarm and aim trace inactive.';
   } else if (s.motionEvents > 0 && $('warnLine').textContent.startsWith('No motion')) $('warnLine').textContent = '';
+
+  const dl = $('dirLine');
+  if (s.armed && s.motionEvents > 0 && S.rule180) {
+    dl.textContent = `Muzzle ${Math.round(s.dev180)}° from downrange`;
+    dl.className = s.dev180 > S.limit180Deg ? 'bad' : s.dev180 > S.limit180Deg - 20 ? 'warn' : '';
+  } else dl.textContent = '';
 
   drawTarget(s);
   if (S.debug) renderDebug(s);
@@ -498,7 +526,7 @@ function setStatus(cls, text) {
 function renderStats() {
   const s = engine.state, shots = s.shots;
   const clean = shots.filter(x => x.grade === 'Clean').length;
-  $('stats').textContent = `Shots ${shots.length} · Clean ${clean} · Alarms ${s.violations}`;
+  $('stats').textContent = `Shots ${shots.length} · Clean ${clean} · Alarms ${s.violations}` + (S.rule180 ? ` · 180s ${s.breaks180}` : '');
   const x = shots[shots.length - 1];
   // One unbreakable phrase per line: "Last: Jerked 4.19°" / "high-left" / "during alarm"
   const parts = !x ? [] : [`Last: ${x.grade} ${x.motion ? x.dev.toFixed(2) + '°' : '(no sensor)'}`, x.dir, x.unsafe ? 'during alarm' : ''];
@@ -514,7 +542,8 @@ function renderDebug(s) {
     `lin ${s.linEMA.toFixed(2)} m/s² (limit ${S.moveAcc})\n` +
     `aim h ${s.aimH.toFixed(2)}° v ${s.aimV.toFixed(2)}°\n` +
     `orient ${screenAngle()}  axes ${S.axisMode}${isIOS ? ' (iOS)' : ''}  evts ${s.motionEvents}\n` +
-    `rest ${s.onRest} armed ${s.armed} alarm ${s.alarmActive}${rec ? '  REC ' + rec.log.length : ''}\n` +
+    `rest ${s.onRest} armed ${s.armed} alarm ${s.alarmActive ? s.alarmReason : '-'}${rec ? '  REC ' + rec.log.length : ''}\n` +
+    `180 ${s.dev180.toFixed(1)}° (limit ${S.limit180Deg}${S.rule180 ? '' : ', off'})  press ${s.inPress}\n` +
     `trigger ${s.trig ? 'pull ' + s.trig.pull.toFixed(0) + '/' + S.pullPx + 'px' + (s.trig.fired ? ' FIRED' : '') : '-'}\n` +
     `touches:\n${tl || '  none'}`;
 }
@@ -571,6 +600,9 @@ const SLIDERS = {
     { k: 'pullPx', label: 'Trigger travel to fire', min: 15, max: 100, step: 1, unit: 'px', help: 'How far back the fingertip must slide to break the shot.' },
     { k: 'steadyDeg', label: 'Clean-shot tolerance', min: 0.2, max: 3, step: 0.05, unit: '°', help: 'Muzzle drift from trigger contact to the break. Green ring = clean, amber = moved.' },
   ],
+  sliders180: [
+    { k: 'limit180Deg', label: 'Limit from downrange', min: 45, max: 90, step: 5, unit: '°', help: '90° is the 180 rule. Lower it for a tighter safe zone.' },
+  ],
   sliders3: [
     { k: 'minContactPx', label: 'Minimum contact size', min: 10, max: 150, step: 1, unit: 'px', help: 'Only used where the phone reports touch size (most Android). iPhone browsers usually do not.' },
   ],
@@ -595,7 +627,7 @@ function buildSettings() {
   }
   $('hand').value = S.hand;
   $('axisMode').value = S.axisMode;
-  ['requireFlat', 'flipH', 'flipV'].forEach(k => { $(k).checked = !!S[k]; });
+  ['requireFlat', 'flipH', 'flipV', 'rule180'].forEach(k => { $(k).checked = !!S[k]; });
   $('debugChk').checked = !!S.debug;
   updateRecUi();
 }
@@ -603,7 +635,7 @@ let axisZero = { h: 0, v: 0 };
 function bindSettings() {
   $('hand').addEventListener('change', e => { S.hand = e.target.value; save(); layout(); });
   $('axisMode').addEventListener('change', e => { S.axisMode = e.target.value; save(); });
-  ['requireFlat', 'flipH', 'flipV'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; save(); }));
+  ['requireFlat', 'flipH', 'flipV', 'rule180'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; save(); renderStats(); }));
   $('debugChk').addEventListener('change', e => { S.debug = e.target.checked; save(); layout(); });
   $('axisZero').addEventListener('click', () => { axisZero = { h: engine.state.aimH, v: engine.state.aimV }; });
   $('resetStats').addEventListener('click', () => { engine.resetStats(); renderStats(); drawTarget(engine.state); });
@@ -625,6 +657,8 @@ function renderLive() {
   $('liveSensors').textContent = s.motionEvents
     ? `now: rotation ${s.rotEMA.toFixed(1)} °/s · linear ${s.linEMA.toFixed(2)} m/s²`
     : 'no motion data yet (start the trainer first; needs HTTPS and, on iPhone, permission)';
+  $('live180').textContent = s.armed && s.motionEvents
+    ? `muzzle ${s.dev180.toFixed(0)}° from downrange (set when armed)` : 'not armed — downrange is set when the finger goes on the frame';
   $('liveContact').textContent = s.sizeSupported
     ? `last frame contact: ${s.lastRestSize.toFixed(0)} px (this phone reports touch size)`
     : 'this phone has not reported touch size yet — flat-finger check will be skipped';
@@ -716,7 +750,7 @@ window.__tdt = () => {
   return { running, armed: s.armed, onRest: s.onRest, alarmActive: s.alarmActive, violations: s.violations,
     shots: s.shots.length, lastGrade: s.shots.length ? s.shots[s.shots.length - 1].grade : null,
     trig: s.trig ? { pull: s.trig.pull, fired: s.trig.fired } : null, rotEMA: s.rotEMA, aimH: s.aimH, aimV: s.aimV,
-    recording: !!rec };
+    recording: !!rec, alarmReason: s.alarmReason, dev180: s.dev180, breaks180: s.breaks180, inPress: s.inPress };
 };
 })();
 </script>

@@ -36,6 +36,19 @@ const S = {
     dur: 3.2, touches: t => t < 1 || t >= 2.6 ? [REST] : between(t, 1.2, 2.4) ? [TRG] : [],
     rot: t => between(t, 1.6, 2.2) ? { a: 0, b: 60 * Math.sign(Math.sin(t * 20)) || 60, g: 0 } : { a: tiny(t), b: 0, g: 0 },
   },
+  // Finger stays on the frame; yaw 120° to the right (past the 180 limit), hold, come back.
+  '180-break': {
+    dur: 3.6, touches: () => [REST],
+    rot: t => between(t, 0.8, 1.6) ? { a: 0, b: -150, g: 0 } : between(t, 2.2, 3.0) ? { a: 0, b: 150, g: 0 } : { a: tiny(t), b: 0, g: 0 },
+  },
+  // Finger on the frame; 70° right and back, 70° up and back, 70.7° diagonal and back, then a full cant.
+  '180-safe': {
+    dur: 5.4, touches: () => [REST],
+    rot: t => between(t, 0.5, 1.0) ? { a: 0, b: -140, g: 0 } : between(t, 1.0, 1.5) ? { a: 0, b: 140, g: 0 }
+      : between(t, 1.5, 2.0) ? { a: 140, b: 0, g: 0 } : between(t, 2.0, 2.5) ? { a: -140, b: 0, g: 0 }
+      : between(t, 2.5, 3.0) ? { a: 100, b: -100, g: 0 } : between(t, 3.0, 3.5) ? { a: -100, b: 100, g: 0 }
+      : between(t, 3.6, 4.6) ? { a: 0, b: 0, g: 180 } : { a: tiny(t), b: 0, g: 0 },
+  },
   'axis-up': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 40, b: 0, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
   'axis-right': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 0, b: -40, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
 };

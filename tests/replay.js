@@ -28,7 +28,11 @@ function summarize(res) {
   }
   return {
     armed: ev.filter(e => e.type === 'armed').length,
-    alarms: ev.filter(e => e.type === 'alarmStart').length,
+    alarms: ev.filter(e => e.type === 'alarmStart').length,                      // any reason
+    alarmsMove: ev.filter(e => e.type === 'alarmStart' && e.reason === 'move').length,
+    b180: ev.filter(e => e.type === 'alarmStart' && e.reason === '180').length,
+    finalAlarm: res.state.alarmActive,
+    maxDev: Math.max(0, ...res.path.map(p => p[3] || 0)),
     shots: ev.filter(e => e.type === 'shot').map(e => e.shot),
     peak,
   };
@@ -56,7 +60,7 @@ for (const f of files) {
   const sum = summarize(res);
   const dur = rec.t1 && rec.t0 ? ((rec.t1 - rec.t0) / 1000).toFixed(1) + ' s' : '';
   console.log(`\n${rel}  [${rec.label}${rec.synthetic ? ', synthetic' : ''}] ${dur}` +
-    `  shots ${sum.shots.length} (${sum.shots.map(s => s.grade[0]).join('') || '-'})  alarms ${sum.alarms}`);
+    `  shots ${sum.shots.length} (${sum.shots.map(s => s.grade[0]).join('') || '-'})  alarms ${sum.alarmsMove}  180s ${sum.b180} (max ${sum.maxDev.toFixed(0)}°)`);
 
   const check = EXPECT[rec.label];
   if (!check) { console.log(`  WARN  unknown label "${rec.label}" — no expectations`); }

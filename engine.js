@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.4.0';
+  const VERSION = '0.5.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -20,6 +20,8 @@
     moveAcc: 1.5,        // linear-acceleration alarm threshold, m/s^2
     graceMs: 300,        // ignore motion this long after the finger leaves the frame
     sustainMs: 1000,     // during a press, movement this long still alarms (a short jerk doesn't)
+    rule180: true,       // alarm when the muzzle points more than limit180Deg from downrange
+    limit180Deg: 90,
     pullPx: 35,          // rearward finger travel (CSS px) that breaks the shot
     steadyDeg: 0.75,     // aim-drift tolerance for a "clean" shot, deg
     requireFlat: false,  // require contact size >= minContactPx (only where reported)
@@ -56,6 +58,7 @@
     EMA_TAU_S: 0.08,             // motion smoothing time constant
     MAX_DT_S: 0.1,
     TRACE_MAX: 1500,
+    HYST_180_DEG: 5,             // a 180 alarm can clear only once the muzzle is this far back inside the limit
   });
 
   const inZone = (p, z) => p.x >= z.x && p.x <= z.x + z.w && p.y >= z.y && p.y <= z.y + z.h;
@@ -80,7 +83,7 @@
   /**
    * @param S     settings object (read live; the page may mutate it between sessions)
    * @param opts  { ios: bool, onEvent: fn({type, t, ...}) }
-   * Events: armed, ok, alarmStart, alarmStop, trigOn, trigOff, shot, reset
+   * Events: armed, ok, alarmStart {reason: 'move'|'180'}, alarmStop, trigOn, trigOff, shot, reset
    */
   function createEngine(S, opts) {
     opts = opts || {};
@@ -92,7 +95,9 @@
       sizeSupported: false, lastRestSize: 0, restContact: false,
       paused: true, armed: false, onRest: false, wasOnRest: false, restLostAt: null, offSince: 0,
       trigOffAt: -Infinity, inPress: false, pressEndAt: -Infinity, movingSince: null,
-      alarmActive: false, violations: 0,
+      alarmActive: false, alarmReason: null, violations: 0, breaks180: 0,
+      // Orientation since downrange was set (quaternion w,x,y,z, device frame → reference frame).
+      q: [1, 0, 0, 0], dev180: 0,
       trig: null, lastTrace: null, shots: [],
       touches: new Map(),
     };
@@ -134,6 +139,26 @@
       if (S.flipH) yawRight = -yawRight;
       st.aimH += yawRight * dt;
       st.aimV += pitchUp * dt;
+
+      // 180 rule: integrate full 3-D orientation (body-frame rates). In landscape the muzzle lies
+      // along device ±y for either hand and either landscape direction, and the angle between two
+      // vectors doesn't depend on sign, so deviation = angle between R·ŷ and ŷ. Roll (canting,
+      // rotation about the muzzle axis) correctly leaves it unchanged.
+      const D2R = Math.PI / 180, ox = wx * D2R * dt, oy = wy * D2R * dt, oz = wz * D2R * dt;
+      const th = Math.hypot(ox, oy, oz);
+      if (th > 0) {
+        const sn = Math.sin(th / 2) / th, c = Math.cos(th / 2);
+        const [w, x, y, z] = st.q, dx = ox * sn, dy = oy * sn, dz = oz * sn;
+        const nq = [w * c - x * dx - y * dy - z * dz, w * dx + x * c + y * dz - z * dy,
+                    w * dy - x * dz + y * c + z * dx, w * dz + x * dy - y * dx + z * c];
+        const n = Math.hypot(nq[0], nq[1], nq[2], nq[3]);
+        st.q = nq.map(v => v / n);
+      }
+    }
+
+    function deviation180() {
+      const [, x, , z] = st.q;
+      return Math.acos(Math.max(-1, Math.min(1, 1 - 2 * (x * x + z * z)))) * 180 / Math.PI;
     }
 
     /** list = [{id, cx, cy, rx, ry}] in CSS px; w/h = viewport */
@@ -228,10 +253,21 @@
       st.inPress = inPress;
 
       if (!st.armed) {
-        if (st.onRest) { st.armed = true; emit({ type: 'armed', t }); }
+        // Arming sets downrange: wherever the muzzle points when the finger first lands on the frame.
+        if (st.onRest) { st.armed = true; st.q = [1, 0, 0, 0]; st.dev180 = 0; emit({ type: 'armed', t }); }
       } else {
-        if (st.onRest && !st.wasOnRest) {
-          if (st.alarmActive) { st.alarmActive = false; emit({ type: 'alarmStop', t }); }
+        st.dev180 = deviation180();
+        if (S.rule180 && st.dev180 > S.limit180Deg && st.alarmReason !== '180') {
+          st.alarmActive = true; st.alarmReason = '180'; st.breaks180++;     // also escalates a movement alarm
+          emit({ type: 'alarmStart', t, reason: '180', rot: st.rotEMA, lin: st.linEMA, dev: st.dev180 });
+        }
+        if (st.alarmActive) {
+          const back = st.alarmReason !== '180' || !S.rule180 || st.dev180 < S.limit180Deg - K.HYST_180_DEG;
+          if (st.onRest && back) {
+            st.alarmActive = false; st.alarmReason = null;
+            emit({ type: 'alarmStop', t }); emit({ type: 'ok', t });
+          }
+        } else if (st.onRest && !st.wasOnRest) {
           emit({ type: 'ok', t });
         }
         // Off the frame, movement alarms after the grace period. A finger resting on the trigger
@@ -244,8 +280,8 @@
           else alarm = moving && t - st.offSince > S.graceMs && t - st.pressEndAt > S.graceMs && t - st.trigOffAt > S.graceMs
                        && (!st.trig || t - st.movingSince > K.ON_TRIGGER_CONFIRM_MS);
           if (alarm) {
-            st.alarmActive = true; st.violations++;
-            emit({ type: 'alarmStart', t, rot: st.rotEMA, lin: st.linEMA });
+            st.alarmActive = true; st.alarmReason = 'move'; st.violations++;
+            emit({ type: 'alarmStart', t, reason: 'move', rot: st.rotEMA, lin: st.linEMA, dev: st.dev180 });
           }
         }
       }
@@ -262,7 +298,7 @@
       if (p === st.paused) return;
       st.paused = p;
       if (p) {
-        if (st.alarmActive) { st.alarmActive = false; emit({ type: 'alarmStop', t }); }
+        if (st.alarmActive) { st.alarmActive = false; st.alarmReason = null; emit({ type: 'alarmStop', t }); }
         st.armed = false; st.onRest = st.wasOnRest = false; st.restLostAt = null; st.restContact = false;
         if (st.trig) endTrigger(t);
       } else if (st.touches.size) {
@@ -270,7 +306,7 @@
       }
     }
 
-    function resetStats() { st.shots = []; st.violations = 0; st.lastTrace = null; }
+    function resetStats() { st.shots = []; st.violations = 0; st.breaks180 = 0; st.lastTrace = null; }
 
     return { motion, touches, tick, setPaused, resetStats, state: st, version: VERSION };
   }
@@ -298,7 +334,7 @@
   const unpackTouchList = rows => rows.map(r => ({ id: r[0], cx: r[1], cy: r[2], rx: r[3], ry: r[4] }));
   function packEvent(e) {
     if (e.type === 'shot') return [e.t, 'shot', e.shot.grade, r4(e.shot.dev)];
-    if (e.type === 'alarmStart') return [e.t, 'alarmStart', r4(e.rot), r4(e.lin)];
+    if (e.type === 'alarmStart') return [e.t, 'alarmStart', e.reason, r4(e.rot), r4(e.lin), r4(e.dev)];
     return [e.t, e.type];
   }
 
@@ -312,7 +348,7 @@
         case 'm': eng.motion(unpackMotion(row)); break;
         case 't': eng.touches(row[1], unpackTouchList(row[4]), row[2], row[3]); break;
         case 'p': eng.setPaused(!!row[2], row[1]); break;
-        case 'f': eng.tick(row[1]); path.push([row[1], eng.state.aimH, eng.state.aimV]); break;
+        case 'f': eng.tick(row[1]); path.push([row[1], eng.state.aimH, eng.state.aimV, eng.state.dev180]); break;
       }
     }
     return { S, events, packed: events.map(packEvent), path, state: eng.state };
