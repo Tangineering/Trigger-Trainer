@@ -1,6 +1,7 @@
 # Open Questions
 
-Answer these on real phones before polishing. Record answers in `docs/DECISIONS.md`.
+Answer these on real phones before polishing. Record answers in `docs/DECISIONS.md`. Ideas
+that aren't blocking anything belong in `docs/IDEAS.md`.
 
 | ID | Question | Why it matters | How to answer | Blocking? |
 |---|---|---|---|---|

@@ -5,7 +5,8 @@ side of a pistol: the student keeps the index finger flat on the frame while mov
 trigger when the "gun" is still. Free, no accounts, no tracking, no money — ever.
 
 **Ricky owns scope and decisions.** Record anything you decide or propose in `docs/DECISIONS.md` using the
-attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`.
+attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`. Ideas for later (not
+committed to) go in `docs/IDEAS.md`; never build one without a Ricky decision. The workflow is in that file.
 
 ## Hard constraints (do not change without a logged Ricky decision)
 
@@ -119,6 +120,8 @@ Opening settings, backgrounding the page, or rotating to portrait disarms and si
 - Bump `engine.js` `VERSION` when outputs change; don't bump it for refactors that keep replays identical.
 - Don't add features that need a server, accounts, or an app store.
 - Keep defaults conservative for beginners; Ricky tunes them in class via Settings.
+- When you notice something worth exploring that's out of scope for the current task, add it to
+  `docs/IDEAS.md` instead of building it or leaving it in chat.
 - Commit messages: imperative, short; one logical change per commit.
 
 ## Layout of this repo
@@ -137,6 +140,7 @@ tests/roundtrip.js      browser record → Node replay equality test
 docs/RECORDINGS.md      how to record drills; recording file format
 package.json            dev-only: playwright for tests
 docs/DECISIONS.md       decision log with attribution
+docs/IDEAS.md           ideas for later exploration (not committed to)
 docs/CLASS_USE.md       how to run it in a class (student-facing steps)
 OPEN_QUESTIONS.md       blocking/pending questions for Ricky
 README.md               short public description + deploy steps
