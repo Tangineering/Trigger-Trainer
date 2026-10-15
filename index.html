@@ -108,6 +108,7 @@
   .loud { font-size: 14px; line-height: 1.45; color: #ffe2b3; background: rgba(240,160,32,.14);
           border: 1px solid rgba(240,160,32,.55); border-radius: 10px; padding: 10px 12px 0; margin: 8px 0 4px; }
   .loud .row { margin: 10px 0; }
+  .loud .set label, .loud .set output { color: #ffe2b3; } .loud .help { color: #d9c29a; }
   .btn[hidden] { display: none; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
   .set { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; margin: 10px 0; }
@@ -165,7 +166,8 @@
     <h1>Trigger Discipline Trainer</h1>
     <div class="loud" role="alert">
       <b>⚠ Loud sounds.</b> This trainer plays loud alarm tones. Check your volume before you start:
-      hold <b>Test sound</b> and adjust the phone's volume. Keep the phone away from your ears.
+      hold <b>Test sound</b> and set the volume here and on the phone. Keep the phone away from your ears.
+      <div id="slidersStart"></div>
       <div class="row"><button class="btn hold" id="testSoundStart">Test sound (hold)</button></div>
     </div>
     <ol>
@@ -600,6 +602,8 @@ function drawTarget(s) {
 }
 
 /* ======================= settings UI ======================= */
+const VOLUME = { k: 'volume', label: 'Volume', min: 0, max: 1, step: 0.05, fmt: v => Math.round(v * 100) + '%',
+                 help: 'App volume, on top of the phone\'s own volume. Hold Test sound while adjusting.' };
 const SLIDERS = {
   sliders1: [
     { k: 'moveDps', label: 'Rotation limit', min: 5, max: 90, step: 1, unit: '°/s', help: 'Turning the phone faster than this with the finger off the frame trips the alarm.' },
@@ -617,23 +621,30 @@ const SLIDERS = {
   sliders3: [
     { k: 'minContactPx', label: 'Minimum contact size', min: 10, max: 150, step: 1, unit: 'px', help: 'Only used where the phone reports touch size (most Android). iPhone browsers usually do not.' },
   ],
-  sliders4: [
-    { k: 'volume', label: 'Volume', min: 0, max: 1, step: 0.05, unit: '', help: '' },
-  ],
+  sliders4: [VOLUME],
+  slidersStart: [VOLUME],   // same control on the start screen
 };
+// Keep copies of the same setting (e.g. Volume on the start screen and in Settings) in step.
+function syncSliders(k) {
+  document.querySelectorAll(`input[type=range][data-k="${k}"]`).forEach(inp => {
+    if (+inp.value !== +S[k]) { inp.value = S[k]; inp.dispatchEvent(new Event('input')); }
+  });
+}
 function buildSettings() {
   for (const [host, list] of Object.entries(SLIDERS)) {
     const el = $(host); el.innerHTML = '';
     for (const s of list) {
       const wrap = document.createElement('div'); wrap.className = 'set';
-      wrap.innerHTML = `<label for="s_${s.k}">${s.label}</label><output id="o_${s.k}"></output>
-        <input type="range" id="s_${s.k}" min="${s.min}" max="${s.max}" step="${s.step}">
+      const id = `s_${host}_${s.k}`;   // the same setting can appear in more than one place
+      wrap.innerHTML = `<label for="${id}">${s.label}</label><output></output>
+        <input type="range" id="${id}" data-k="${s.k}" min="${s.min}" max="${s.max}" step="${s.step}">
         ${s.help ? `<div class="help">${s.help}</div>` : ''}`;
       el.appendChild(wrap);
       const inp = wrap.querySelector('input'), out = wrap.querySelector('output');
-      const show = () => { out.textContent = (+S[s.k]).toFixed(s.step < 1 ? (s.step < 0.1 ? 2 : 1) : 0) + (s.unit ? ' ' + s.unit : ''); };
+      const show = () => { out.textContent = s.fmt ? s.fmt(+S[s.k]) : (+S[s.k]).toFixed(s.step < 1 ? (s.step < 0.1 ? 2 : 1) : 0) + (s.unit ? ' ' + s.unit : ''); };
       inp.value = S[s.k]; show();
       inp.addEventListener('input', () => { S[s.k] = +inp.value; show(); if (s.k === 'volume') Snd.setVolume(S.volume); save(); });
+      inp.addEventListener('change', () => syncSliders(s.k));
     }
   }
   $('hand').value = S.hand;
@@ -768,7 +779,7 @@ bindTestSound($('testSoundStart'));
 bindTestSound($('testSoundSettings'));
 $('startSettingsBtn').addEventListener('click', openSettings);
 $('gear').addEventListener('click', openSettings);
-$('doneBtn').addEventListener('click', () => { closeSettings(); if (!running) $('startOv').classList.add('show'); });
+$('doneBtn').addEventListener('click', () => { closeSettings(); if (!running) { buildSettings(); $('startOv').classList.add('show'); } });
 
 $('platformNote').textContent = isIOS
   ? 'iPhone: allow motion access when asked. If you hear nothing, turn off Silent mode. The shot is a click and a flash (no vibration).'

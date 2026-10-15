@@ -30,6 +30,12 @@ const check = (name, cond, state) => {
   const tb = await page.$('#testSoundStart'); await tb.scrollIntoViewIfNeeded(); const bb = await tb.boundingBox();
   await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.mouse.down(); await page.waitForTimeout(100);
   s0 = await st(); check('holding Test sound plays the alarm', s0.alarmSound === 'move', s0);
+  // Volume on the start screen: same control as Settings, same stored value.
+  await page.$eval('#s_slidersStart_volume', el => { el.value = '0.35'; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); });
+  check('start-screen volume slider sets the app volume',
+    await page.evaluate(() => JSON.parse(localStorage.getItem('tdt.settings.v1')).volume) === 0.35);
+  check('settings volume slider shows the same value',
+    await page.$eval('#s_sliders4_volume', el => +el.value) === 0.35);
   await page.mouse.up(); await page.waitForTimeout(50);
   s0 = await st(); check('releasing Test sound stops it', s0.alarmSound === null && !s0.running, s0);
 
