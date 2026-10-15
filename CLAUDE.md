@@ -97,9 +97,9 @@ Opening settings or the summary, backgrounding the page, or rotating to portrait
   flat-finger check is opt-in and auto-skips when size isn't reported.
 - **Vibration:** `navigator.vibrate` doesn't exist on iOS Safari. Don't build hacks for it (not required).
 - **Gyro axis order:** the spec maps `rotationRate` alpha/beta/gamma to z/x/y. Some iOS builds have been
-  reported to deliver x/y/z order instead. `axisMode: 'auto'` assumes iOS-style on iOS. **Unverified on
-  hardware** — first thing to check (OPEN_QUESTIONS Q1). The alarm uses magnitude, so it's unaffected; only
-  the trace direction and the "low-left" style labels depend on this. Resolve it from `axis-up` and
+  reported to deliver x/y/z order instead. `axisMode: 'auto'` assumes iOS-style on iOS. Correct on a Pixel 11
+  by eye (D-37); **unverified on iPhone** — first thing to check (OPEN_QUESTIONS Q1). The alarm uses magnitude,
+  so it's unaffected; only the trace direction and the "low-left" style labels depend on this. Resolve it from `axis-up` and
   `axis-right` recordings: `npm run test:replay` prints the mapping that fits both for each phone.
 - **Orientation:** sign of yaw uses `screen.orientation.angle` (or `window.orientation` on iOS): 90 vs 270.
   iOS can't lock orientation from a web page; Android tries fullscreen + `orientation.lock('landscape')`.
