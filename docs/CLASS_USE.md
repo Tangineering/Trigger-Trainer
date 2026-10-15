@@ -2,7 +2,8 @@
 
 ## Before class
 - Scan-to-open QR code for the site URL on a slide or handout.
-- Check volume on a demo phone. iPhones: Silent mode off.
+- Check volume on a demo phone: hold **Test sound** on the start screen (also in Settings). iPhones: Silent mode off.
+- Have students hold **Test sound** and turn their volume down before starting; the alarms are loud.
 - Pick starting thresholds in Settings on your demo phone and tell students the same numbers if they need tuning.
 
 ## Student setup (about 1 minute)

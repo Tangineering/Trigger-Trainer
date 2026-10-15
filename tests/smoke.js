@@ -24,6 +24,15 @@ const check = (name, cond, state) => {
   await page.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
   await page.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
   await page.reload();
+  let s0; const st = () => page.evaluate(() => window.__tdt());
+  // Start screen: loud-sound warning and hold-to-test button.
+  check('start screen warns about loud sounds', /loud/i.test(await page.textContent('.loud')));
+  const tb = await page.$('#testSoundStart'); await tb.scrollIntoViewIfNeeded(); const bb = await tb.boundingBox();
+  await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.mouse.down(); await page.waitForTimeout(100);
+  s0 = await st(); check('holding Test sound plays the alarm', s0.alarmSound === 'move', s0);
+  await page.mouse.up(); await page.waitForTimeout(50);
+  s0 = await st(); check('releasing Test sound stops it', s0.alarmSound === null && !s0.running, s0);
+
   await page.click('#startBtn');
   await page.waitForTimeout(150);
 
@@ -46,7 +55,6 @@ const check = (name, cond, state) => {
       await page.waitForTimeout(16);
     }
   };
-  const st = () => page.evaluate(() => window.__tdt());
   let s;
 
   s = await st(); check('starts unarmed', !s.armed, s);
