@@ -8,8 +8,8 @@ pistol: keep the index finger flat on the frame while moving; go to the trigger 
 - **Trigger** (rear of the screen): press and pull back to fire. Android vibrates; iPhone clicks and flashes.
   The mini target shows how much the muzzle drifted during the press.
 - **Finger back on the frame** → OK tone.
-- **180 rule:** downrange is set when the finger first goes on the frame; pointing the muzzle more than 90° from
-  it sounds a separate alarm, finger on the frame or not.
+- **180 rule:** point downrange and tap **Set downrange**; pointing the muzzle more than 90° from it then sounds a
+  separate alarm, finger on the frame or not.
 
 No install, no accounts, no data collection. Settings stay on the phone.
 

@@ -52,6 +52,7 @@ const check = (name, cond, extra) => {
   };
 
   await touch('touchStart', [REST]); await motion(0, 0, 10);
+  await page.click('#downrangeBtn'); await motion(0, 0, 3);    // Set downrange mid-recording
   await motion(70, 20, 15);                                  // move while safe
   await motion(0, 0, 20); await touch('touchEnd', []); await motion(0, 0, 25);
   await motion(80, -30, 15);                                 // move off-frame -> alarm
@@ -69,7 +70,8 @@ const check = (name, cond, extra) => {
 
   check('saved file is a tdt recording with the chosen label', rec.format === 'tdt-recording' && rec.label === 'off-frame-move' && rec.notes === 'roundtrip test');
   check('file name carries the label', /^tdt-off-frame-move-.*\.json$/.test(download.suggestedFilename()), download.suggestedFilename());
-  check('log has motion, touch, pause and frame rows', ['m', 't', 'p', 'f'].every(k => rec.log.some(r => r[0] === k)));
+  check('log has motion, touch, pause, frame and downrange rows', ['m', 't', 'p', 'f', 'd'].every(k => rec.log.some(r => r[0] === k)));
+  check('live run recorded the downrange event', rec.observed.some(o => o[1] === 'downrange'));
   check('live run had an alarm and a shot', live.violations >= 1 && live.shots >= 1, live);
 
   const res = TDT.replay(rec);

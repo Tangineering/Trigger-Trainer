@@ -132,6 +132,15 @@ const check = (name, cond, state) => {
     }
     return false;
   };
+  s = await st(); check('180 check starts off (downrange not set)', !s.refSet, s);
+  const h0 = s.aimH;
+  await swingUntil(-120, x => Math.abs(x.aimH - h0) > 110);
+  s = await st(); check('before Set downrange, swinging past 90°: no 180 alarm', !s.alarmActive && s.breaks180 === 0, s);
+  await swingUntil(120, x => Math.abs(x.aimH - h0) < 5);
+  await page.click('#downrangeBtn'); await motion(0, 0, 3);
+  s = await st(); check('Set downrange turns the 180 check on', s.refSet && s.dev180 < 2, s);
+  check('the button now reads Reset downrange', (await page.textContent('#downrangeBtn')) === 'Reset downrange');
+
   await swingUntil(-120, x => x.dev180 > 65);
   s = await st(); check('swing to ~65° with finger on the frame: no alarm', !s.alarmActive && s.onRest, s);
   await swingUntil(-120, x => x.dev180 > 95);

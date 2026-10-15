@@ -38,12 +38,12 @@ const S = {
   },
   // Finger stays on the frame; yaw 120° to the right (past the 180 limit), hold, come back.
   '180-break': {
-    dur: 3.6, touches: () => [REST],
+    dur: 3.6, downrangeAt: 0.3, touches: () => [REST],
     rot: t => between(t, 0.8, 1.6) ? { a: 0, b: -150, g: 0 } : between(t, 2.2, 3.0) ? { a: 0, b: 150, g: 0 } : { a: tiny(t), b: 0, g: 0 },
   },
   // Finger on the frame; 70° right and back, 70° up and back, 70.7° diagonal and back, then a full cant.
   '180-safe': {
-    dur: 5.4, touches: () => [REST],
+    dur: 5.4, downrangeAt: 0.3, touches: () => [REST],
     rot: t => between(t, 0.5, 1.0) ? { a: 0, b: -140, g: 0 } : between(t, 1.0, 1.5) ? { a: 0, b: 140, g: 0 }
       : between(t, 1.5, 2.0) ? { a: 140, b: 0, g: 0 } : between(t, 2.0, 2.5) ? { a: -140, b: 0, g: 0 }
       : between(t, 2.5, 3.0) ? { a: 100, b: -100, g: 0 } : between(t, 3.0, 3.5) ? { a: -100, b: 100, g: 0 }
@@ -65,6 +65,7 @@ for (const [label, sc] of Object.entries(S)) {
     const list = sc.touches(ts).map(p => ({ id: p.id, cx: TDT.r2(p.cx), cy: TDT.r2(p.cy), rx: 0, ry: 0 }));
     const key = JSON.stringify(list);
     if (key !== lastTouchKey) { log.push(TDT.packTouches(t, list, W, H)); lastTouchKey = key; }
+    if (sc.downrangeAt != null && Math.abs(ts - sc.downrangeAt) < FRAME / 2000) log.push(['d', TDT.rt(t + 0.5)]);
     log.push(['f', TDT.rt(t + 1)]);
   }
   const rec = {

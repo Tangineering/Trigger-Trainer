@@ -27,8 +27,8 @@ Nothing is sent anywhere unless you share the file.
 | `clean-press` | Frame → trigger, slow press while still; a few shots | ≥ 1 shot; no alarm; all Clean |
 | `jerked-press` | Same, but slap or jerk the trigger | ≥ 1 shot; ≥ 1 Moved/Jerked; no alarm |
 | `trigger-sweep` | Frame → rest fingertip on the trigger **without pulling** → move the phone → back to frame | ≥ 1 alarm; no shot |
-| `180-break` | Point downrange, finger on frame. Keeping it there, swing well past 90° to one side, then back | ≥ 1 180 alarm; cleared at the end |
-| `180-safe` | Point downrange, finger on frame. Swing ~70° left, right, up, down, returning each time | No alarm of any kind |
+| `180-break` | Point downrange, tap **Set downrange**, finger on frame. Keeping it there, swing well past 90° to one side, then back | ≥ 1 180 alarm; cleared at the end |
+| `180-safe` | Point downrange, tap **Set downrange**, finger on frame. Swing ~70° left, right, up, down, returning each time | No alarm of any kind |
 | `axis-up` | Finger on frame; still 1 s; tilt muzzle **up** ~20°; hold 1 s; stop | Biggest excursion reads as up |
 | `axis-right` | Finger on frame; still 1 s; swing muzzle to **your right** ~20°; hold 1 s; stop | Biggest excursion reads as right |
 
@@ -63,7 +63,8 @@ wasn't done as labeled (re-record it) or the thresholds/logic need changing; tha
     ["m", t, a, b, g, ax, ay, az, gx, gy, gz, angle],   // rotationRate α β γ (deg/s), acceleration,
                                                         // accelerationIncludingGravity (m/s²), screen angle
     ["t", t, vw, vh, [[id, cx, cy, rx, ry], ...]],      // all current touches, CSS px
-    ["f", t]                            // animation frame (engine tick)
+    ["f", t],                           // animation frame (engine tick)
+    ["d", t]                            // Set downrange pressed
   ],
   "observed": [[t, "armed"], [t, "alarmStart", "move"|"180", rot, lin, dev180], [t, "shot", "Clean", dev], ...]
 }

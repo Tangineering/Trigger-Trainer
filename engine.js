@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.5.0';
+  const VERSION = '0.6.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -58,7 +58,8 @@
     EMA_TAU_S: 0.08,             // motion smoothing time constant
     MAX_DT_S: 0.1,
     TRACE_MAX: 1500,
-    HYST_180_DEG: 5,             // a 180 alarm can clear only once the muzzle is this far back inside the limit
+    HYST_180_DEG: 5,
+    ORIENT_GAP_MS: 1000,         // motion data gap this long (page hidden, sensor stall) invalidates downrange             // a 180 alarm can clear only once the muzzle is this far back inside the limit
   });
 
   const inZone = (p, z) => p.x >= z.x && p.x <= z.x + z.w && p.y >= z.y && p.y <= z.y + z.h;
@@ -83,7 +84,8 @@
   /**
    * @param S     settings object (read live; the page may mutate it between sessions)
    * @param opts  { ios: bool, onEvent: fn({type, t, ...}) }
-   * Events: armed, ok, alarmStart {reason: 'move'|'180'}, alarmStop, trigOn, trigOff, shot, reset
+   * Events: armed, ok, alarmStart {reason: 'move'|'180'}, alarmStop, trigOn, trigOff, shot, reset,
+   *         downrange (set by the user), downrangeLost (orientation tracking interrupted)
    */
   function createEngine(S, opts) {
     opts = opts || {};
@@ -97,7 +99,7 @@
       trigOffAt: -Infinity, inPress: false, pressEndAt: -Infinity, movingSince: null,
       alarmActive: false, alarmReason: null, violations: 0, breaks180: 0,
       // Orientation since downrange was set (quaternion w,x,y,z, device frame → reference frame).
-      q: [1, 0, 0, 0], dev180: 0,
+      q: [1, 0, 0, 0], dev180: 0, refSet: false,    // 180 check is off until setDownrange()
       trig: null, lastTrace: null, shots: [],
       touches: new Map(),
     };
@@ -107,6 +109,10 @@
 
     /** m = {t, a, b, g, ax, ay, az, gx, gy, gz, angle}; a/b/g = rotationRate alpha/beta/gamma (deg/s) */
     function motion(m) {
+      if (st.refSet && st.lastMotionT && m.t - st.lastMotionT > K.ORIENT_GAP_MS) {
+        st.refSet = false; st.dev180 = 0;            // orientation since downrange is unknown; must set it again
+        emit({ type: 'downrangeLost', t: m.t });
+      }
       const dt = st.lastMotionT ? Math.max(0, Math.min((m.t - st.lastMotionT) / 1000, K.MAX_DT_S)) : 0;
       st.lastMotionT = m.t; st.motionEvents++;
 
@@ -252,17 +258,16 @@
       if (st.inPress && !inPress) st.pressEndAt = t;
       st.inPress = inPress;
 
+      st.dev180 = st.refSet ? deviation180() : 0;     // live readout even before arming
       if (!st.armed) {
-        // Arming sets downrange: wherever the muzzle points when the finger first lands on the frame.
-        if (st.onRest) { st.armed = true; st.q = [1, 0, 0, 0]; st.dev180 = 0; emit({ type: 'armed', t }); }
+        if (st.onRest) { st.armed = true; emit({ type: 'armed', t }); }
       } else {
-        st.dev180 = deviation180();
-        if (S.rule180 && st.dev180 > S.limit180Deg && st.alarmReason !== '180') {
+        if (S.rule180 && st.refSet && st.dev180 > S.limit180Deg && st.alarmReason !== '180') {
           st.alarmActive = true; st.alarmReason = '180'; st.breaks180++;     // also escalates a movement alarm
           emit({ type: 'alarmStart', t, reason: '180', rot: st.rotEMA, lin: st.linEMA, dev: st.dev180 });
         }
         if (st.alarmActive) {
-          const back = st.alarmReason !== '180' || !S.rule180 || st.dev180 < S.limit180Deg - K.HYST_180_DEG;
+          const back = st.alarmReason !== '180' || !S.rule180 || !st.refSet || st.dev180 < S.limit180Deg - K.HYST_180_DEG;
           if (st.onRest && back) {
             st.alarmActive = false; st.alarmReason = null;
             emit({ type: 'alarmStop', t }); emit({ type: 'ok', t });
@@ -306,9 +311,15 @@
       }
     }
 
+    /** The user pressed Set downrange: wherever the muzzle points now is downrange. */
+    function setDownrange(t) {
+      st.q = [1, 0, 0, 0]; st.refSet = true; st.dev180 = 0;
+      emit({ type: 'downrange', t });
+    }
+
     function resetStats() { st.shots = []; st.violations = 0; st.breaks180 = 0; st.lastTrace = null; }
 
-    return { motion, touches, tick, setPaused, resetStats, state: st, version: VERSION };
+    return { motion, touches, tick, setPaused, setDownrange, resetStats, state: st, version: VERSION };
   }
 
   /* ---------- record / replay helpers ---------- */
@@ -317,6 +328,7 @@
   //   ['t', t, vw, vh, [[id, cx, cy, rx, ry], ...]]       full touch list after a touch event
   //   ['p', t, 0|1]                                       engine paused (1) / resumed (0)
   //   ['f', t]                                            animation-frame tick
+  //   ['d', t]                                            Set downrange pressed
   function fromDeviceMotion(e, t, angle) {
     const r = e.rotationRate || {}, a = e.acceleration, g = e.accelerationIncludingGravity;
     const hasA = a && a.x != null, hasG = g && g.x != null;
@@ -348,6 +360,7 @@
         case 'm': eng.motion(unpackMotion(row)); break;
         case 't': eng.touches(row[1], unpackTouchList(row[4]), row[2], row[3]); break;
         case 'p': eng.setPaused(!!row[2], row[1]); break;
+        case 'd': eng.setDownrange(row[1]); break;
         case 'f': eng.tick(row[1]); path.push([row[1], eng.state.aimH, eng.state.aimV, eng.state.dev180]); break;
       }
     }

@@ -10,8 +10,9 @@
 1. Open the link, tap **Start**. iPhone: tap **Allow** for motion access.
 2. Turn the phone sideways. Left-handed: Settings → Shooting hand → Left.
 3. Hold the phone so the screen faces your trigger-finger side, muzzle toward the arrow.
-4. **Point the muzzle downrange**, then lay the index finger flat on the dashed strip. It turns green and plays
-   the OK tone. That moment sets downrange for the 180 check (it resets whenever the trainer is resumed).
+4. Lay the index finger flat on the dashed strip. It turns green and plays the OK tone.
+5. **Point the muzzle downrange and tap Set downrange** (bottom right, next to the target). Until then the 180
+   check is off. Tap it again to reset; if the page goes to the background, set it again.
 
 ## Drills
 - **Ready and move:** finger on the frame, move between "targets" around the room. No alarm should sound.
