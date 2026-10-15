@@ -149,6 +149,19 @@ const check = (name, cond, state) => {
   await motion(0, 0, 5);
   s = await st(); check('back downrange with finger on the frame: 180 alarm clears', !s.alarmActive && s.onRest, s);
 
+  // Finish (Settings) → session summary; New session clears it and returns to the start screen.
+  const shotsSoFar = (await st()).shots;
+  await page.click('#gear'); await page.click('#finishBtn'); await page.waitForTimeout(50);
+  s = await st(); check('Finish opens the session summary with the session totals',
+    s.summaryOpen && s.summary.shots === shotsSoFar && s.summary.breaks180 === 1 && s.summary.moveAlarms === s.violations, s);
+  check('summary lists the shot count', (await page.textContent('#sumRows')).includes('Shots' + shotsSoFar));
+  await motion(200, 200, 10);
+  s = await st(); check('trainer is paused while the summary is open', !s.alarmActive && s.summaryOpen, s);
+  await page.click('#sumNew'); await page.waitForTimeout(50);
+  s = await st(); check('New session resets the stats and shows the start screen',
+    !s.summaryOpen && !s.running && s.summary.shots === 0 && s.violations === 0 &&
+    await page.evaluate(() => document.getElementById('startOv').classList.contains('show')), s);
+
   check('no page errors', errors.length === 0, errors);
   await browser.close();
   console.log(failures ? `\n${failures} failed` : '\nall passed');

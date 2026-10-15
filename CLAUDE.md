@@ -58,6 +58,7 @@ inside the engine.
 |---|---|
 | `VERSION` | Bump when outputs change for the same inputs (D-20). |
 | `DEFAULTS`, `ZONES`, `K` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. |
+| `summarize(state)` | Session totals for the summary screen, from `state.tally` (not capped like `state.shots`) and the alarm counters. |
 | `createEngine(S, {ios, onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`. Starts paused. |
 | `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace. Axis mapping per `axisMode`. |
 | `touches(t, list, vw, vh)` | Full current touch list in CSS px; drives the trigger (engage on entering the zone, fire at `pullPx` rearward, re-arm at `RESET_FRACTION`). |
@@ -74,7 +75,8 @@ inside the engine.
 | `tick` (rAF) | Pauses the engine when not running / settings open / portrait / hidden, logs a frame row, calls `engine.tick`, renders. |
 | `onEvent` | Engine events → sound, vibration, flash, alarm overlay; appended to `rec.observed` while recording. |
 | Recorder | `startRecording()` makes a fresh engine; `stopRecording(share)`; `saveRecording()` uses the share sheet when it accepts files, else a download. |
-| Settings overlay | Built from `SLIDERS`; includes live sensor readout, axis-check canvas, and the recorder. |
+| Settings overlay | Built from `SLIDERS`; includes live sensor readout, axis-check canvas, and the recorder. **Finish** opens the summary. |
+| Summary overlay | `showSummary()`: `TDT.summarize` table + plot of kept shots (`drawTarget` with no trace). **Keep training** / **New session** (resets stats, back to the start screen). `sessionT0` is the start of the summarized time. |
 | `window.__tdt()` | Read-only snapshot used by the browser tests. Keep it. |
 
 ### State machine
@@ -87,7 +89,7 @@ and after leaving the trigger.
 180 rule (any state while armed): muzzle > `limit180Deg` from downrange → `ALARM (180)`, which also escalates a movement
 alarm; clears when back inside the limit by `HYST_180_DEG` with the finger on the frame. Only active after `setDownrange`;
 a motion gap > `ORIENT_GAP_MS` clears downrange (`downrangeLost`).
-Opening settings, backgrounding the page, or rotating to portrait disarms and silences.
+Opening settings or the summary, backgrounding the page, or rotating to portrait disarms and silences.
 
 ## Known platform facts and unknowns
 

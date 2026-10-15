@@ -81,6 +81,32 @@
     return { dev, grade, dir };
   }
 
+  /* ---------- session totals (never trimmed, unlike st.shots) ---------- */
+  const newTally = () => ({ shots: 0, Clean: 0, Moved: 0, Jerked: 0, unsafe: 0, devSum: 0, devN: 0, best: null, dirs: {} });
+  function addToTally(ty, shot) {
+    ty.shots++; ty[shot.grade]++;
+    if (shot.unsafe) ty.unsafe++;
+    if (shot.motion) {
+      ty.devSum += shot.dev; ty.devN++;
+      if (ty.best === null || shot.dev < ty.best) ty.best = shot.dev;
+    }
+    if (shot.dir) ty.dirs[shot.dir] = (ty.dirs[shot.dir] || 0) + 1;
+  }
+
+  /** Session summary from engine state. Pure; reads only st.tally / counters. */
+  function summarize(st) {
+    const ty = st.tally;
+    const dirs = Object.entries(ty.dirs).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+    return {
+      shots: ty.shots, clean: ty.Clean, moved: ty.Moved, jerked: ty.Jerked,
+      cleanPct: ty.shots ? Math.round(100 * ty.Clean / ty.shots) : null,
+      unsafeShots: ty.unsafe,
+      avgDev: ty.devN ? ty.devSum / ty.devN : null, bestDev: ty.best,
+      commonMiss: dirs.length ? { dir: dirs[0][0], n: dirs[0][1] } : null,
+      moveAlarms: st.violations, breaks180: st.breaks180,
+    };
+  }
+
   /**
    * @param S     settings object (read live; the page may mutate it between sessions)
    * @param opts  { ios: bool, onEvent: fn({type, t, ...}) }
@@ -100,7 +126,7 @@
       alarmActive: false, alarmReason: null, violations: 0, breaks180: 0,
       // Orientation since downrange was set (quaternion w,x,y,z, device frame → reference frame).
       q: [1, 0, 0, 0], dev180: 0, refSet: false,    // 180 check is off until setDownrange()
-      trig: null, lastTrace: null, shots: [],
+      trig: null, lastTrace: null, shots: [], tally: newTally(),
       touches: new Map(),
     };
     let grav = null, vw = 1, vh = 1;
@@ -231,7 +257,8 @@
       const g = gradeShot(h, v, S.steadyDeg);
       const shot = { t, h, v, dev: g.dev, grade: g.grade, dir: g.dir, unsafe: st.alarmActive, motion: st.motionEvents > 0 };
       st.shots.push(shot);
-      if (st.shots.length > 200) st.shots.shift();
+      if (st.shots.length > 200) st.shots.shift();       // drawing only; totals live in st.tally
+      addToTally(st.tally, shot);
       tr.fired = true; tr.breakT = t; tr.breakIdx = tr.trace.length;
       emit({ type: 'shot', t, shot });
     }
@@ -317,7 +344,7 @@
       emit({ type: 'downrange', t });
     }
 
-    function resetStats() { st.shots = []; st.violations = 0; st.breaks180 = 0; st.lastTrace = null; }
+    function resetStats() { st.shots = []; st.violations = 0; st.breaks180 = 0; st.lastTrace = null; st.tally = newTally(); }
 
     return { motion, touches, tick, setPaused, setDownrange, resetStats, state: st, version: VERSION };
   }
@@ -368,7 +395,7 @@
   }
 
   return {
-    VERSION, DEFAULTS, ZONES, K, inZone, gradeShot, createEngine,
+    VERSION, DEFAULTS, ZONES, K, inZone, gradeShot, createEngine, summarize,
     rt, r2, r4, fromDeviceMotion, fromTouch, packMotion, unpackMotion, packTouches, unpackTouchList, packEvent, replay,
   };
 });
