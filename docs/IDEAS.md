@@ -32,3 +32,4 @@ Status: `parked`, `exploring`, `promoted to D-xx`, `moved to Q-xx`, `dropped`.
 |---|---|---|---|---|---|
 | I-01 | Per-student layout calibration (hold the phone, touch where the frame and trigger naturally fall) | Hands and phones vary; fixed `ZONES` may not fit everyone | Claude | parked | Fallback mentioned in OPEN_QUESTIONS Q3; only worth it if class testing shows the fixed layout fails |
 | I-02 | Gravity correction for the up/down part of the 180 orientation | Cancels gyro drift over long drills | Claude | parked | Fallback mentioned in OPEN_QUESTIONS Q10; only needed if recordings show large drift |
+| I-03 | Operating modes, picked on the start screen. Today's behavior becomes **Freeform Training**; other modes could be specific drills or games | More structure and variety for class: guided drills, scored challenges | Ricky | parked | Ricky will add specific modes to this row later |
