@@ -30,6 +30,9 @@ module.exports = {
     ['at least one shot graded Moved or Jerked', r.shots.some(s => s.grade !== 'Clean')],
     ['no alarm: a jerk on the trigger is graded, not alarmed', r.alarms === 0],
   ],
+  'press-wobble': r => [
+    ['alarm when the phone keeps moving during a press', r.alarms >= 1],
+  ],
   'trigger-sweep': r => [
     ['alarm when moving with the finger resting on the trigger', r.alarms >= 1],
     ['no shot fired', r.shots.length === 0],

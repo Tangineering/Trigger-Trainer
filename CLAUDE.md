@@ -31,7 +31,7 @@ attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`.
   (vibration on Android; click + flash on iPhone). The phone must stay steady during the press.
 - Finger back flat on the frame → **OK tone**, and movement is allowed again without the alarm.
 - During a trigger press (from the start of the pull until shortly after the break) a short jerk is graded,
-  not alarmed; movement sustained during the press still alarms. A finger resting on the trigger without
+  not alarmed; any other movement during the press alarms (D-34). A finger resting on the trigger without
   pulling counts as off the frame (D-24).
 - **180 rule** (D-26, D-31): the student points downrange and taps **Set downrange** (bottom right, next to the
   shot radar). Until then the 180 check is off and everything else works. Once set, if the muzzle points more
@@ -80,7 +80,7 @@ inside the engine.
 `not armed` → (finger on frame) → `SAFE` (OK tone) → (finger lifts) → `OFF FRAME`
 → either `ON TRIGGER` → `SHOT` → (reset / lift) … → back to `SAFE` (OK tone),
 or (motion > threshold after `graceMs`) → `ALARM` (latched) → (finger on frame) → `SAFE` (OK tone).
-During a press (pull ≥ 15% → 500 ms after the break) only movement sustained for `sustainMs` alarms; resting on
+During a press (pull ≥ 15% → 500 ms after the break) movement alarms once its total exceeds `jerkMs`; resting on
 the trigger without pulling is treated as off the frame. `graceMs` applies after leaving the frame, after a press,
 and after leaving the trigger.
 180 rule (any state while armed): muzzle > `limit180Deg` from downrange → `ALARM (180)`, which also escalates a movement

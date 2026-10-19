@@ -31,6 +31,15 @@ const S = {
     // Hard jerk at the break: muzzle dips low-left at 120 deg/s, far over the alarm limit.
     rot: t => between(t, 1.85, 2.0) ? { a: -120, b: 40, g: 0 } : { a: tiny(t), b: 0, g: 0 },
   },
+  // Slow press (breaks at 2.3 s) while the phone wobbles in short bursts: no single burst is long,
+  // but together they exceed the jerk allowance.
+  'press-wobble': {
+    dur: 3.2,
+    touches: t => t < 1 || t >= 2.6 ? [REST]
+      : between(t, 1.2, 2.4) ? [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (t - 1.3) / 1.0)) * 45 })] : [],
+    rot: t => between(t, 1.5, 2.2) && (t - 1.5) % 0.3 < 0.2 ? { a: 0, b: (Math.floor((t - 1.5) / 0.3) % 2 ? -50 : 50), g: 0 }
+      : { a: tiny(t), b: 0, g: 0 },
+  },
   // Fingertip rests on the trigger (no pull) while the phone sweeps back and forth.
   'trigger-sweep': {
     dur: 3.2, touches: t => t < 1 || t >= 2.6 ? [REST] : between(t, 1.2, 2.4) ? [TRG] : [],

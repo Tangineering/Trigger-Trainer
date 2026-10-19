@@ -388,6 +388,7 @@ const DRILLS = [
   { id: 'off-frame-still', name: 'Off-frame still',        hint: 'Finger on the frame, lift it, hold the phone still 2–3 s, return to the frame. Expect: no alarm.' },
   { id: 'clean-press',     name: 'Clean presses',          hint: 'From the frame, go to the trigger and press slowly while holding still. A few shots. Expect: clean shots, no alarm.' },
   { id: 'jerked-press',    name: 'Jerked presses',         hint: 'Same, but deliberately slap or jerk the trigger. Expect: at least one non-clean shot, no alarm.' },
+  { id: 'press-wobble',    name: 'Moving during a press', hint: 'From the frame, start a slow press and, before it breaks, keep wobbling or swinging the phone for a second or more. Return to the frame. Expect: alarm.' },
   { id: 'trigger-sweep',   name: 'Finger on trigger, moving', hint: 'From the frame, rest the fingertip on the trigger WITHOUT pulling, then move the phone. Return to the frame. Expect: alarm.' },
   { id: '180-break',       name: '180: break it',          hint: 'Point downrange and tap Set downrange, then finger flat on the frame. Keeping the finger there, swing the muzzle well past 90° to one side, then back downrange. Expect: 180 alarm, clears when back.' },
   { id: '180-safe',        name: '180: stay inside',       hint: 'Point downrange and tap Set downrange, then finger on the frame. Swing to about 70° left, right, up and down, returning each time. Expect: no alarm.' },
@@ -629,7 +630,7 @@ const SLIDERS = {
     { k: 'moveDps', label: 'Rotation limit', min: 5, max: 90, step: 1, unit: '°/s', help: 'Turning the phone faster than this with the finger off the frame trips the alarm.' },
     { k: 'moveAcc', label: 'Linear limit', min: 0.3, max: 5, step: 0.1, unit: 'm/s²', help: 'Shoving the phone harder than this with the finger off the frame trips the alarm.' },
     { k: 'graceMs', label: 'Grace after leaving frame', min: 0, max: 1000, step: 25, unit: 'ms', help: 'Ignores the jolt of lifting the finger.' },
-    { k: 'sustainMs', label: 'Sustained movement during a press', min: 300, max: 3000, step: 100, unit: 'ms', help: 'While pressing the trigger, a short jerk is graded, not alarmed. Movement lasting longer than this still alarms. Resting on the trigger without pulling alarms like being off the frame.' },
+    { k: 'jerkMs', label: 'Jerk allowance during a press', min: 100, max: 1500, step: 50, unit: 'ms', help: 'While pressing the trigger, one short jerk is graded, not alarmed. If the phone moves for longer than this in total during the press (one long movement or several short ones), it alarms. Resting on the trigger without pulling alarms like being off the frame.' },
   ],
   sliders2: [
     { k: 'pullPx', label: 'Trigger travel to fire', min: 15, max: 100, step: 1, unit: 'px', help: 'How far back the fingertip must slide to break the shot.' },

@@ -12,14 +12,14 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.6.0';
+  const VERSION = '0.7.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
     moveDps: 25,         // rotation-rate alarm threshold, deg/s
     moveAcc: 1.5,        // linear-acceleration alarm threshold, m/s^2
     graceMs: 300,        // ignore motion this long after the finger leaves the frame
-    sustainMs: 1000,     // during a press, movement this long still alarms (a short jerk doesn't)
+    jerkMs: 500,         // during a press, total movement longer than this alarms (one short jerk doesn't)
     rule180: true,       // alarm when the muzzle points more than limit180Deg from downrange
     limit180Deg: 90,
     pullPx: 35,          // rearward finger travel (CSS px) that breaks the shot
@@ -96,7 +96,7 @@
       lastMotionT: 0, motionEvents: 0,
       sizeSupported: false, lastRestSize: 0, restContact: false,
       paused: true, armed: false, onRest: false, wasOnRest: false, restLostAt: null, offSince: 0,
-      trigOffAt: -Infinity, inPress: false, pressEndAt: -Infinity, movingSince: null,
+      trigOffAt: -Infinity, inPress: false, pressEndAt: -Infinity, movingSince: null, lastTickT: null,
       alarmActive: false, alarmReason: null, violations: 0, breaks180: 0,
       // Orientation since downrange was set (quaternion w,x,y,z, device frame → reference frame).
       q: [1, 0, 0, 0], dev180: 0, refSet: false,    // 180 check is off until setDownrange()
@@ -198,7 +198,7 @@
         for (const [id, tc] of st.touches) {
           if (inZone(tc, ZONES.trigger)) {
             st.trig = { id, base: rearPx(tc), pull: 0, fired: false, breakT: 0, breakIdx: -1,
-                        oh: st.aimH, ov: st.aimV, trace: [] };
+                        oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0 };
             emit({ type: 'trigOn', t });
             break;
           }
@@ -213,7 +213,7 @@
       if (!tr.fired && pull >= S.pullPx) fire(t);
       else if (tr.fired && pull <= S.pullPx * K.RESET_FRACTION) {      // trigger reset -> follow-up
         st.lastTrace = tr;
-        st.trig = Object.assign({}, tr, { fired: false, breakT: 0, breakIdx: -1, oh: st.aimH, ov: st.aimV, trace: [] });
+        st.trig = Object.assign({}, tr, { fired: false, breakT: 0, breakIdx: -1, oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0 });
         emit({ type: 'reset', t });
       }
     }
@@ -257,6 +257,11 @@
                                           : tr0.pull >= S.pullPx * K.PULL_START_FRACTION);
       if (st.inPress && !inPress) st.pressEndAt = t;
       st.inPress = inPress;
+      // Total time moving during this press (each follow-up shot starts its own count), so a wobble
+      // broken into short bursts adds up instead of restarting the clock.
+      const dtMs = st.lastTickT == null ? 0 : Math.max(0, Math.min(t - st.lastTickT, K.MAX_DT_S * 1000));
+      st.lastTickT = t;
+      if (inPress && moving) tr0.moveMs += dtMs;
 
       st.dev180 = st.refSet ? deviation180() : 0;     // live readout even before arming
       if (!st.armed) {
@@ -276,12 +281,12 @@
           emit({ type: 'ok', t });
         }
         // Off the frame, movement alarms after the grace period. A finger resting on the trigger
-        // counts as off the frame. During a press (pull started → shortly after the break) a short
-        // jerk is graded, not alarmed, but movement sustained for sustainMs still alarms.
+        // counts as off the frame. During a press (pull started → shortly after the break) one short
+        // jerk is graded, not alarmed, but more than jerkMs of movement in total still alarms.
         // Grace also applies after a press ends and after the finger leaves the trigger.
         if (!st.onRest && !st.alarmActive) {
           let alarm;
-          if (st.inPress) alarm = st.movingSince != null && t - st.movingSince > S.sustainMs;
+          if (st.inPress) alarm = st.trig.moveMs > S.jerkMs;
           else alarm = moving && t - st.offSince > S.graceMs && t - st.pressEndAt > S.graceMs && t - st.trigOffAt > S.graceMs
                        && (!st.trig || t - st.movingSince > K.ON_TRIGGER_CONFIRM_MS);
           if (alarm) {
@@ -302,6 +307,7 @@
       p = !!p;
       if (p === st.paused) return;
       st.paused = p;
+      st.lastTickT = null;
       if (p) {
         if (st.alarmActive) { st.alarmActive = false; st.alarmReason = null; emit({ type: 'alarmStop', t }); }
         st.armed = false; st.onRest = st.wasOnRest = false; st.restLostAt = null; st.restContact = false;

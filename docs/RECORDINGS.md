@@ -26,6 +26,7 @@ Nothing is sent anywhere unless you share the file.
 | `off-frame-still` | Frame → lift finger → hold still 2–3 s → back to frame | Arms; no alarm |
 | `clean-press` | Frame → trigger, slow press while still; a few shots | ≥ 1 shot; no alarm; all Clean |
 | `jerked-press` | Same, but slap or jerk the trigger | ≥ 1 shot; ≥ 1 Moved/Jerked; no alarm |
+| `press-wobble` | Frame → start a slow press → before the break, keep wobbling or swinging the phone ≥ 1 s → back to frame | ≥ 1 alarm |
 | `trigger-sweep` | Frame → rest fingertip on the trigger **without pulling** → move the phone → back to frame | ≥ 1 alarm; no shot |
 | `180-break` | Point downrange, tap **Set downrange**, finger on frame. Keeping it there, swing well past 90° to one side, then back | ≥ 1 180 alarm; cleared at the end |
 | `180-safe` | Point downrange, tap **Set downrange**, finger on frame. Swing ~70° left, right, up, down, returning each time | No alarm of any kind |
