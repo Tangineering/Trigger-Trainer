@@ -462,7 +462,7 @@ function startRecording() {
 function stopRecording(share) {
   if (!rec) return;
   rec.t1 = now();
-  lastRec = rec; rec = null;
+  lastRec = rec; rec = null; saveMsg = '';
   $('recPill').hidden = true;
   updateRecUi();
   if (share) saveRecording(lastRec);
@@ -470,25 +470,49 @@ function stopRecording(share) {
 function recFileName(r) {
   return `tdt-${r.label}-${r.recordedAt.slice(0, 19).replace(/[:T]/g, '-')}.json`;
 }
+// Android Chrome only shares a fixed list of file types and .json isn't on it, so try the share sheet with
+// JSON, then as a .txt (same contents; the replay tests read both), then fall back to a download.
+// Every outcome is shown to the user: a silent failure looks exactly like success.
 function saveRecording(r) {
   if (!r) return;
   const name = recFileName(r), json = JSON.stringify(r);
-  let file = null;
-  try { file = new File([json], name, { type: 'application/json' }); } catch (e) {}
-  if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], title: name }).catch(() => {});
+  const asFile = (n, type) => { try { return new File([json], n, { type }); } catch (e) { return null; } };
+  const shareable = f => f && navigator.canShare && navigator.canShare({ files: [f] });
+  const file = [asFile(name, 'application/json'), asFile(name.replace(/\.json$/, '.txt'), 'text/plain')].find(shareable);
+  if (file) {
+    navigator.share({ files: [file], title: file.name }).then(
+      () => saveNote(`Shared ${file.name}.`),
+      e => e && e.name === 'AbortError'
+        ? saveNote('Not saved (share cancelled). Use Save last recording in Settings.')
+        : download(name, json));
     return;
   }
-  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-  const a = document.createElement('a');
-  a.href = url; a.download = name; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+  download(name, json);
+}
+function download(name, json) {
+  try {
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 60000);   // Android may read the blob late
+    saveNote(`Downloaded ${name}. Look in Files › Downloads.`);
+  } catch (e) {
+    saveNote(`Couldn't save the recording (${e.name || e}).`);
+  }
+}
+let saveMsg = '';
+function saveNote(msg) {
+  saveMsg = msg;
+  $('warnLine').textContent = msg;
+  setTimeout(() => { if ($('warnLine').textContent === msg) $('warnLine').textContent = ''; }, 10000);
+  updateRecUi();
 }
 function updateRecUi() {
   $('recSave').hidden = !lastRec;
   $('recInfo').textContent = lastRec
     ? `Last recording: ${lastRec.label}, ${((lastRec.t1 - lastRec.t0) / 1000).toFixed(1)} s, ${lastRec.log.length} samples, ` +
-      `${lastRec.observed.filter(o => o[1] === 'shot').length} shots, ${lastRec.observed.filter(o => o[1] === 'alarmStart').length} alarms.`
+      `${lastRec.observed.filter(o => o[1] === 'shot').length} shots, ${lastRec.observed.filter(o => o[1] === 'alarmStart').length} alarms.` +
+      (saveMsg ? ' ' + saveMsg : '')
     : '';
 }
 
