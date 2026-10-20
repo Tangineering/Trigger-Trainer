@@ -35,10 +35,10 @@ updated: 2026-10-20
 | WQ-003 | Fail the replay test when `auto` disagrees with a phone's axis verdict | P1 | S | queued | WQ-001 | axis |
 | WQ-002 | Replace the `isIOS` platform check with feature checks | P1 | S | queued | — | platform |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-004 | Build an offline gyro-axis estimator harness over the recordings | P2 | M | queued | — | axis |
-| WQ-005 | Record a long `free` drill with downrange set to measure gyro drift (Q10) | P2 | S | blocked:owner-machine | — | recordings |
 | WQ-009 | Remove the contact-size (flat-finger) check (D-46) | P1 | S | queued | — | grading |
 | WQ-010 | Lower the `jerkMs` default to 300 ms (D-47) | P1 | S | queued | — | grading |
+| WQ-004 | Build an offline gyro-axis estimator harness over the recordings | P2 | M | queued | — | axis |
+| WQ-005 | Record a long `free` drill with downrange set to measure gyro drift (Q10) | P2 | S | blocked:owner-machine | — | recordings |
 | WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
