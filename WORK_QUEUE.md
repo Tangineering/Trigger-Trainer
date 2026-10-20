@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-009
+next_id: WQ-011
 updated: 2026-10-20
 ```
 
@@ -37,8 +37,9 @@ updated: 2026-10-20
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-004 | Build an offline gyro-axis estimator harness over the recordings | P2 | M | queued | — | axis |
 | WQ-005 | Record a long `free` drill with downrange set to measure gyro drift (Q10) | P2 | S | blocked:owner-machine | — | recordings |
-| WQ-007 | Decide how shots fired during an alarm are counted (Q5) | P2 | S | blocked:user | — | grading |
-| WQ-008 | Ratify or reject the `proposed` rows in `docs/DECISIONS.md` | P2 | S | blocked:user | — | decisions |
+| WQ-009 | Remove the contact-size (flat-finger) check (D-46) | P1 | S | queued | — | grading |
+| WQ-010 | Lower the `jerkMs` default to 300 ms (D-47) | P1 | S | queued | — | grading |
+| WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -279,62 +280,116 @@ Pixel-specific. Three short drills per phone answer all three.
 
 ---
 
-### WQ-007 — Decide how shots fired during an alarm are counted (Q5)
+### WQ-007 — Exclude shots fired during an alarm from the summary percentages (D-45)
 
-- **Status:** blocked:user · **Priority:** P2 · **Size:** S · **Track:** grading · **Env:** any
-- **Added:** 2026-10-20 by recordings-review session
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** grading · **Env:** any
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-20 by recordings-review session (Ricky chose option 2 → D-45; re-queued)
 - **Depends on:** — · **Blocks:** —
 
-**Context.** Q5 asks whether a shot fired during an alarm should count differently. The two
-`press-wobble` recordings in `tests/recordings/pixel-11/` now show the real case: 5 of 5 shots fired
+**Context.** Q5 asked whether a shot fired during an alarm should count differently. The two
+`press-wobble` recordings in `tests/recordings/pixel-11/` show the real case: 5 of 5 shots fired
 within 0.3 s of a movement alarm, all graded Jerked (8°–50°). The summary (`TDT.summarize`,
-`engine.js`; D-39) already shows "shots during an alarm" as a separate count but includes them in
-the shot total and the Clean/Moved/Jerked percentages.
+`engine.js`; D-39) shows "shots during an alarm" as a separate count but includes them in the shot
+total and the Clean / Moved / Jerked percentages. Ricky decided (D-45): keep them counted, graded and
+plotted, but exclude them from the percentages and the "steadiest press" stat.
 
-**Owner decision needed.** How should a shot fired while a movement or 180 alarm is active be
-treated in the session summary? Candidate answers:
-1. As today: counted as a shot and graded; shown separately as well. (No change; close this item.)
-2. Counted and graded, but excluded from the Clean/Moved/Jerked percentages and the "steadiest" stat.
-3. Not counted as a shot at all: tallied only as a safety violation, no grade, no plot point.
-Each is a small change in `summarize` or the engine's shot tally; option 3 changes engine outputs
-and needs a `VERSION` bump.
+**Scope.**
+- `engine.js` `summarize(state)`: the Clean / Moved / Jerked counts and percentages, the average
+  movement and the "steadiest" value use only shots whose `duringAlarm` (or equivalent flag — verify
+  the field name in the shot record and `state.tally`) is false. The total shot count, the
+  "shots during an alarm" line and the plot keep every shot. If the tally does not yet separate
+  grades by alarm state, extend `newTally` and the place shots are tallied; this is a summary-only
+  change, so no `shot` event changes and no `VERSION` bump (D-20).
+- `index.html` `showSummary()`: label the percentage rows so it is clear they exclude alarmed shots
+  (for example "of N shots with no alarm").
+- `tests/smoke.js`: extend or add a case that fires one clean shot and one shot during an alarm and
+  checks the summary numbers.
+- Docs pass: D-39's description in `docs/DECISIONS.md` gets a note pointing at D-45; `docs/CLASS_USE.md`
+  if it describes the summary percentages.
+- Out of scope: alarm thresholds (Q2, WQ-010); the engine's shot event or grading.
 
-**Scope.** (after the decision) Implement the chosen option in `engine.js`, update `tests/smoke.js`
-if the summary expectations change, record the decision in `docs/DECISIONS.md` (attribution `Ricky`)
-and mark Q5 resolved in `OPEN_QUESTIONS.md`. Out of scope: alarm thresholds (Q2).
+**Acceptance.**
+- `npm test` passes, with the new smoke case.
+- Replaying `tests/recordings/pixel-11/tdt-press-wobble-2026-10-20-21-50-38.json` and calling
+  `TDT.summarize` gives 3 shots total, 3 during an alarm, and percentages computed over 0 no-alarm
+  shots (shown as "—", not NaN).
+- `npm run test:replay` output is unchanged (no `VERSION` bump).
 
-**Acceptance.** `npm test` passes; the summary screen shows the chosen treatment; DECISIONS and
-OPEN_QUESTIONS updated.
-
-**Verification.** `npm test`; the summary table from a `press-wobble` replay described in the entry.
+**Verification.** `npm test`; the summary numbers from the replay above quoted in the completion entry.
 
 ---
 
-### WQ-008 — Ratify or reject the `proposed` rows in `docs/DECISIONS.md`
+### WQ-009 — Remove the contact-size (flat-finger) check (D-46)
 
-- **Status:** blocked:user · **Priority:** P2 · **Size:** S · **Track:** decisions · **Env:** any
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** grading · **Env:** any
 - **Added:** 2026-10-20 by recordings-review session
 - **Depends on:** — · **Blocks:** —
 
-**Context.** `docs/DECISIONS.md` has 20 rows with status `proposed` (Claude's choices, implemented
-but not ratified): D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-17, D-18, D-19, D-20, D-29,
-D-32, D-35, D-37, D-39, D-41, D-43, and WQ-002's successor to D-44 once it lands. D-17 (logic in
-`engine.js`, so the deliverable is no longer one file) is also flagged in `CLAUDE.md` hard
-constraint 1 as "pending Ricky's ratification". The behaviour they describe is already in the
-deployed page, so each is a yes/no.
+**Context.** Ricky decided (D-46, 2026-10-20) that a touch inside the frame strip is "finger on
+frame" and that the contact-size check goes away; the flat-finger concept is taught outside the
+tool. The check never worked on the Pixel 11 anyway (every touch reports radius 0; `CLAUDE.md`
+"Contact size"). Anchors at commit 1caad13.
 
-**Owner decision needed.** For each listed D-number: `accepted`, `modified` (say how), or
-`rejected`. A single line such as "accept all except D-11 (make reset 75% of travel)" is enough.
+**Scope.**
+- `engine.js`: remove `requireFlat` and `minContactPx` from `DEFAULTS` (lines 27–28), the
+  `sizeSupported` / `lastRestSize` state (line 123) and the two lines in `touches()` that set and use
+  them (lines 212–213). Keep `rx`/`ry` in the recording row format (D-18) so old recordings still parse;
+  `fromTouch` / `packTouches` / `unpackTouchList` are unchanged. No output changes for any existing
+  recording (none has `requireFlat: true`), so no `VERSION` bump; state that in the entry after checking
+  `grep -l '"requireFlat":true' tests/recordings -r`.
+- `index.html`: remove the `requireFlat` checkbox (line 222), the `minContactPx` slider (line 693), the
+  two `requireFlat` entries in the checkbox wiring (lines 723, 731), and the `liveContact` readout
+  (lines 755–756) with its element. Settings saved under `tdt.settings.v1` may still contain the two
+  keys; ignore them (do not bump the storage key).
+- `tests/smoke.js` and `tests/roundtrip.js`: remove any use of the two settings; `window.__tdt()` may
+  drop `sizeSupported` / `lastRestSize`.
+- Docs pass: `CLAUDE.md` — hard constraint 4 keeps "true finger-flatness detection is not required";
+  drop the "Contact size" bullet under "Known platform facts" and the "flat-finger check" mention in
+  the `touches` row of the engine table; `docs/CLASS_USE.md` if it mentions the setting; D-06 in
+  `docs/DECISIONS.md` is already marked superseded.
+- Out of scope: the frame-strip geometry (`ZONES`), debounce timing, anything in WQ-007 or WQ-010.
 
-**Scope.** (after the decision) Update the Attribution column to `Claude → Ricky accepted` /
-`Claude → Ricky modified` and Status to `active` or `rejected`; for a `modified` or `rejected` row,
-raise a new queue item for the code change and name it in the row. Remove the "pending Ricky's
-ratification" note from `CLAUDE.md` constraint 1 if D-17 is accepted. Out of scope: any code change.
+**Acceptance.**
+- `npm test` passes; `npm run test:replay` prints the same events as before for every recording.
+- `grep -rn "requireFlat\|minContactPx\|sizeSupported\|lastRestSize" engine.js index.html tests/*.js`
+  finds nothing.
+- Owner-verifiable (any phone): Settings no longer shows the checkbox, slider or contact readout.
 
-**Acceptance.** No row in `docs/DECISIONS.md` carries status `proposed` without a newer
-`Updated`-style note explaining why; `CLAUDE.md` constraint 1 reflects D-17's outcome.
+**Verification.** `npm test`; the grep output quoted in the completion entry.
 
-**Verification.** `grep -c "| proposed |" docs/DECISIONS.md` quoted before and after.
+---
+
+### WQ-010 — Lower the `jerkMs` default to 300 ms (D-47)
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** grading · **Env:** any
+- **Added:** 2026-10-20 by recordings-review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Ricky decided (D-47, 2026-10-20) to reduce the movement allowance during a press from
+500 ms to 300 ms "for now". Measured before queuing: replaying every Pixel 11 recording with
+`jerkMs: 300` changes the event sequence in `tdt-press-wobble-2026-10-20-21-49-46.json`,
+`tdt-press-wobble-2026-10-20-21-50-38.json` (alarm/shot order) and `tdt-free-2026-10-20-22-40-27.json`
+(one extra alarm); the other 11 are identical, and every drill expectation still passes.
+
+**Scope.**
+- `engine.js` `DEFAULTS.jerkMs` 500 → 300 (line 22 at commit 1caad13); update the comment.
+- Bump `VERSION` (D-20) and `package.json` `version`: outputs change for the same inputs when the
+  recording's settings omit `jerkMs`. Note that recordings carry their own `settings`, so the three
+  files above still replay with 500 ms and their live-equals-replay check still passes; the bump is
+  for the default itself.
+- `index.html` line 683: the slider's range (100–1500, step 50) stays; only the default moves.
+- Docs pass: the "State machine" paragraph in `CLAUDE.md` mentions `jerkMs`; `docs/CLASS_USE.md` and
+  `docs/RECORDINGS.md` where they quote 500 ms; D-35 in `docs/DECISIONS.md` already notes D-47.
+- Out of scope: `moveDps`, `moveAcc`, `graceMs`, `steadyDeg` (Q2); the alarm logic itself.
+
+**Acceptance.**
+- `npm test` passes; `npm run test:replay` reports "all passed", and the completion entry names which
+  recordings the entry's author re-ran with `jerkMs: 300` overridden and what changed (expected: the
+  three files above).
+- `grep -rn "500 ms\|jerkMs: 500" CLAUDE.md docs index.html engine.js` finds no stale default.
+
+**Verification.** `npm test`; `npm run test:replay`; a one-off replay with `TDT.replay(rec, { jerkMs: 300 })`
+over `tests/recordings/pixel-11/` quoted in the entry.
 
 ---
 
