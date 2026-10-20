@@ -38,7 +38,6 @@ updated: 2026-10-20
 | WQ-009 | Remove the contact-size (flat-finger) check (D-46) | P1 | S | queued | — | grading |
 | WQ-010 | Lower the `jerkMs` default to 300 ms (D-47) | P1 | S | queued | — | grading |
 | WQ-004 | Build an offline gyro-axis estimator harness over the recordings | P2 | M | queued | — | axis |
-| WQ-005 | Record a long `free` drill with downrange set to measure gyro drift (Q10) | P2 | S | blocked:owner-machine | — | recordings |
 | WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -218,37 +217,6 @@ entry; `npm test` still passes (unchanged).
 
 ---
 
-### WQ-005 — Record a long `free` drill with downrange set to measure gyro drift (Q10)
-
-- **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session
-- **Depends on:** — · **Blocks:** —
-
-**Context.** Q10 asks whether gyro drift moves "downrange" noticeably over a long drill. The replay
-prints the maximum 180 deviation per recording, so one long recording answers it. The existing
-`tests/recordings/pixel-11/tdt-free-2026-10-20-22-40-27.json` (91 s) does not set downrange
-(`180s 0 (max 0°)`), so it cannot answer Q10.
-
-**Scope.** On the Pixel 11, with the current deployed page:
-- Settings → Record test data → drill `free`, note "drift test".
-- Start, point at a fixed mark, tap **Set downrange**, finger on the frame, then move normally for
-  2–3 minutes (the recorder stops itself at 3 minutes) and end pointing at the same mark, held still
-  for the last 5 s.
-- Save the file into `tests/recordings/pixel-11/` and commit it.
-- Then (agent-verifiable half, any session): run `npm run test:replay`, read the `max` deviation for
-  that file, and record the answer to Q10 in `OPEN_QUESTIONS.md` (resolved, or promote `docs/IDEAS.md`
-  I-02 to an item if drift exceeds about 10°).
-- Out of scope: implementing gravity correction (I-02).
-
-**Acceptance.**
-- Owner-verifiable: a `tdt-free-*.json` with a `d` row in its log and a duration over 120 s exists in
-  `tests/recordings/pixel-11/`.
-- Agent-verifiable: Q10 in `OPEN_QUESTIONS.md` carries the measured number and a resolution.
-
-**Verification.** `npm run test:replay` line for the new file quoted in the completion entry.
-
----
-
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
@@ -406,8 +374,6 @@ promote one with `work-queue-add`):
   fallback is `docs/IDEAS.md` I-01 (per-student layout calibration).
 - **Re-record the three `safe-move` drills with the current engine.** The 0.6.0 recordings still pass
   with current defaults; only worth doing so every real recording has a live-equals-replay check.
-- **Gravity correction for the up/down part of the 180 orientation** (`docs/IDEAS.md` I-02). Only if
-  WQ-005 shows large drift.
 - **Operating modes on the start screen** (`docs/IDEAS.md` I-03, Ricky). Waiting for Ricky to list the modes.
 - **`CLAUDE.md` says recordings go "one folder per phone"** — the 2026-10-20 set has been moved to
   `pixel-11/`; nothing left to do unless a second Pixel appears.
