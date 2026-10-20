@@ -30,3 +30,9 @@
 - Dot in the green ring: clean press.
 - Amber: the muzzle moved. Red: jerked. The label gives the direction (e.g. "low-left").
 - Only valid once the axis check has been done on that phone (Settings → Aim trace axis check).
+
+## End of the session
+- **⚙︎ → Finish** shows the session summary: time, shots and how many were clean / moved / jerked, average and
+  steadiest movement during the press, most common miss direction, shots fired during an alarm, movement alarms
+  and 180 violations. Students can show it to you or screenshot it; nothing is saved.
+- **Keep training** goes back with the stats kept. **New session** clears them and returns to the start screen.

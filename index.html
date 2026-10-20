@@ -130,6 +130,11 @@
   input[type=text] { width: 100%; box-sizing: border-box; }
   .live { font: 12px ui-monospace, Menlo, Consolas, monospace; color: #9fe0b8; background: #0c0d0f; padding: 8px; border-radius: 8px; white-space: pre-wrap; }
   #axisCanvas { display: block; background: #0c0d0f; border-radius: 10px; margin: 8px 0; }
+  #sumBody { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  #sumTable { border-collapse: collapse; font-size: 15px; flex: 1 1 260px; }
+  #sumTable td { padding: 5px 0; border-bottom: 1px solid var(--line); color: #cfd4d9; }
+  #sumTable td:last-child { text-align: right; font-weight: 600; color: #fff; padding-left: 16px; white-space: nowrap; }
+  #sumPlot { flex: 0 0 auto; text-align: center; }
   #rotateOv { z-index: 20; text-align: center; }
   #rotateOv .inner { padding-top: 30vh; }
   @media (orientation: portrait) { #rotateOv.armed { display: block; } }
@@ -196,7 +201,10 @@
 <div id="settingsOv" class="ov ui">
   <div class="inner">
     <h1>Settings <span style="font-size:13px;color:var(--muted);font-weight:400">(training paused)</span></h1>
-    <div class="row"><button class="btn primary" id="doneBtn">Resume</button></div>
+    <div class="row">
+      <button class="btn primary" id="doneBtn">Resume</button>
+      <button class="btn" id="finishBtn">Finish</button>
+    </div>
 
     <h2>Shooter</h2>
     <div class="chk"><label for="hand">Shooting hand</label>
@@ -233,7 +241,7 @@
       Canting the phone doesn't count; only where the muzzle points does.</p>
     <div class="live" id="live180">not armed</div>
 
-    <h2>Record test data</h2>
+    <h2 id="recSection">Record test data</h2>
     <p>Records the phone's motion and touch data during one drill so it can be replayed in automated tests.
        Nothing is sent anywhere — when you stop, you choose where the file goes.</p>
     <div class="chk"><label for="recLabel">Drill</label><select id="recLabel"></select></div>
@@ -254,6 +262,21 @@
       <button class="btn" id="resetDefaults">Restore defaults</button>
     </div>
     <p class="help" id="versionLine"></p>
+  </div>
+</div>
+
+<div id="summaryOv" class="ov ui">
+  <div class="inner">
+    <h1>Session summary</h1>
+    <div class="row">
+      <button class="btn primary" id="sumNew">New session</button>
+      <button class="btn" id="sumBack">Keep training</button>
+    </div>
+    <div id="sumBody">
+      <table id="sumTable"><tbody id="sumRows"></tbody></table>
+      <div id="sumPlot"><canvas id="sumTarget"></canvas><p class="help" id="sumPlotNote"></p></div>
+    </div>
+    <p class="help">Nothing is saved or sent. Take a screenshot to keep it or show your instructor.</p>
   </div>
 </div>
 
@@ -440,33 +463,58 @@ function startRecording() {
 function stopRecording(share) {
   if (!rec) return;
   rec.t1 = now();
-  lastRec = rec; rec = null;
+  lastRec = rec; rec = null; saveMsg = '';
   $('recPill').hidden = true;
   updateRecUi();
-  if (share) saveRecording(lastRec);
+  if (share) saveRecording(lastRec);                // first: sharing needs the tap's user activation
+  openSettings('recorder');                         // land on the recorder, not back in the trainer
 }
 function recFileName(r) {
   return `tdt-${r.label}-${r.recordedAt.slice(0, 19).replace(/[:T]/g, '-')}.json`;
 }
+// Android Chrome only shares a fixed list of file types and .json isn't on it, so try the share sheet with
+// JSON, then as a .txt (same contents; the replay tests read both), then fall back to a download.
+// Every outcome is shown to the user: a silent failure looks exactly like success.
 function saveRecording(r) {
   if (!r) return;
   const name = recFileName(r), json = JSON.stringify(r);
-  let file = null;
-  try { file = new File([json], name, { type: 'application/json' }); } catch (e) {}
-  if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], title: name }).catch(() => {});
+  const asFile = (n, type) => { try { return new File([json], n, { type }); } catch (e) { return null; } };
+  const shareable = f => f && navigator.canShare && navigator.canShare({ files: [f] });
+  const file = [asFile(name, 'application/json'), asFile(name.replace(/\.json$/, '.txt'), 'text/plain')].find(shareable);
+  if (file) {
+    navigator.share({ files: [file], title: file.name }).then(
+      () => saveNote(`Shared ${file.name}.`),
+      e => e && e.name === 'AbortError'
+        ? saveNote('Not saved (share cancelled). Use Save last recording in Settings.')
+        : download(name, json));
     return;
   }
-  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-  const a = document.createElement('a');
-  a.href = url; a.download = name; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+  download(name, json);
+}
+function download(name, json) {
+  try {
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 60000);   // Android may read the blob late
+    saveNote(`Downloaded ${name}. Look in Files › Downloads.`);
+  } catch (e) {
+    saveNote(`Couldn't save the recording (${e.name || e}).`);
+  }
+}
+let saveMsg = '';
+function saveNote(msg) {
+  saveMsg = msg;
+  $('warnLine').textContent = msg;
+  setTimeout(() => { if ($('warnLine').textContent === msg) $('warnLine').textContent = ''; }, 10000);
+  updateRecUi();
 }
 function updateRecUi() {
   $('recSave').hidden = !lastRec;
   $('recInfo').textContent = lastRec
     ? `Last recording: ${lastRec.label}, ${((lastRec.t1 - lastRec.t0) / 1000).toFixed(1)} s, ${lastRec.log.length} samples, ` +
-      `${lastRec.observed.filter(o => o[1] === 'shot').length} shots, ${lastRec.observed.filter(o => o[1] === 'alarmStart').length} alarms.`
+      `${lastRec.observed.filter(o => o[1] === 'shot').length} shots, ${lastRec.observed.filter(o => o[1] === 'alarmStart').length} alarms.` +
+      (saveMsg ? ' ' + saveMsg : '')
     : '';
 }
 
@@ -500,18 +548,19 @@ function onMouse(e) {
 }
 
 /* ======================= main loop ======================= */
-let running = false, startedAt = 0;
+let running = false, startedAt = 0, sessionT0 = 0;   // sessionT0: start of the stats shown in the summary
 function tick() {
   requestAnimationFrame(tick);
   const t = now();
   const settingsOpen = $('settingsOv').classList.contains('show');
   if (settingsOpen) { renderLive(); drawAxis(); }
-  setEnginePaused(!running || settingsOpen || isPortrait() || document.visibilityState !== 'visible', t);
+  const summaryOpen = $('summaryOv').classList.contains('show');
+  setEnginePaused(!running || settingsOpen || summaryOpen || isPortrait() || document.visibilityState !== 'visible', t);
   logRow(['f', t]);
   engine.tick(t);
   if (rec) {
     const el = t - rec.t0;
-    if (el > REC_MAX_MS) { stopRecording(false); $('warnLine').textContent = 'Recording hit the 3-minute limit. Save it from Settings.'; }
+    if (el > REC_MAX_MS) { stopRecording(false); saveNote('Recording hit the 3-minute limit. Tap Save last recording.'); }
     else $('recPill').textContent = `● REC ${Math.floor(el / 60000)}:${String(Math.floor(el / 1000) % 60).padStart(2, '0')} · tap to stop`;
   }
   render(t);
@@ -583,8 +632,9 @@ function renderDebug(s) {
 }
 
 /* ======================= target drawing ======================= */
-function drawTarget(s) {
-  const cv = $('target'), ctx = cv.getContext('2d');
+// cv/count/trace: the summary reuses this to plot every kept shot without the live trace.
+function drawTarget(s, cv = $('target'), count = 10, trace = true) {
+  const ctx = cv.getContext('2d');
   const W = parseFloat(cv.style.width) || 100, c = W / 2, R = c - 3;
   const scale = R / (3.5 * S.steadyDeg);
   ctx.clearRect(0, 0, W, W);
@@ -599,7 +649,7 @@ function drawTarget(s) {
     if (m > R) { x *= R / m; y *= R / m; }
     return [c + x, c + y];
   };
-  const tr = (s.trig && s.trig.trace.length) ? s.trig : s.lastTrace;
+  const tr = !trace ? null : (s.trig && s.trig.trace.length) ? s.trig : s.lastTrace;
   if (tr && tr.trace.length > 1) {
     const brk = tr.breakIdx < 0 ? tr.trace.length : tr.breakIdx;
     const line = (pts, col) => {
@@ -611,7 +661,7 @@ function drawTarget(s) {
     line(tr.trace.slice(0, brk + 1), 'rgba(59,130,246,.9)');
     if (brk < tr.trace.length - 1) line(tr.trace.slice(brk), 'rgba(255,255,255,.35)');
   }
-  const recent = s.shots.slice(-10);
+  const recent = s.shots.slice(-count);
   recent.forEach((x, i) => {
     const [px, py] = P(x.h, x.v), last = i === recent.length - 1;
     ctx.fillStyle = x.grade === 'Clean' ? '#2fbf71' : x.grade === 'Moved' ? '#f0a020' : '#e5484d';
@@ -681,7 +731,7 @@ function bindSettings() {
   ['requireFlat', 'flipH', 'flipV', 'rule180'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; save(); renderStats(); }));
   $('debugChk').addEventListener('change', e => { S.debug = e.target.checked; save(); layout(); });
   $('axisZero').addEventListener('click', () => { axisZero = { h: engine.state.aimH, v: engine.state.aimV }; });
-  $('resetStats').addEventListener('click', () => { engine.resetStats(); renderStats(); drawTarget(engine.state); });
+  $('resetStats').addEventListener('click', () => { engine.resetStats(); sessionT0 = running ? now() : 0; renderStats(); drawTarget(engine.state); });
   $('resetDefaults').addEventListener('click', () => { S = Object.assign({}, DEFAULTS); save(); newEngine(); buildSettings(); Snd.setVolume(S.volume); layout(); });
 
   $('recLabel').innerHTML = DRILLS.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
@@ -740,17 +790,19 @@ async function start() {
   }
   requestWakeLock();
   running = true; startedAt = now();
+  if (!sessionT0) sessionT0 = startedAt;
   $('startOv').classList.remove('show');
   $('rotateOv').classList.add('armed');
   layout(); renderStats();
 }
-function openSettings() {
+function openSettings(section) {
   Snd.init(); Snd.resume();
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission !== 'function') bindMotion();
-  if (rec) stopRecording(false);                    // settings can't change mid-recording
+  if (rec) { stopRecording(false); return; }        // settings can't change mid-recording; reopens at the recorder
   buildSettings();
   $('startOv').classList.remove('show');
   $('settingsOv').classList.add('show');
+  if (section === 'recorder') $('recSection').scrollIntoView({ block: 'start' });
 }
 function closeSettings() {
   $('settingsOv').classList.remove('show');
@@ -808,6 +860,52 @@ $('startSettingsBtn').addEventListener('click', openSettings);
 $('gear').addEventListener('click', openSettings);
 $('doneBtn').addEventListener('click', () => { closeSettings(); if (!running) { buildSettings(); $('startOv').classList.add('show'); } });
 
+/* ======================= session summary ======================= */
+function showSummary() {
+  const m = TDT.summarize(engine.state);
+  const secs = sessionT0 ? Math.max(0, Math.round((now() - sessionT0) / 1000)) : 0;
+  const pct = n => m.shots ? ` (${Math.round(100 * n / m.shots)}%)` : '';
+  const deg = x => x === null ? '—' : x.toFixed(2) + '°';
+  const rows = [
+    ['Time', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`],
+    ['Shots', m.shots],
+    ['Clean', m.clean + pct(m.clean)],
+    ['Moved', m.moved + pct(m.moved)],
+    ['Jerked', m.jerked + pct(m.jerked)],
+    ['Average movement during the press', deg(m.avgDev)],
+    ['Steadiest shot', deg(m.bestDev)],
+    ['Most common miss', m.commonMiss ? `${m.commonMiss.dir} (${m.commonMiss.n})` : '—'],
+    ['Shots fired during an alarm', m.unsafeShots],
+    ['Movement alarms (finger off the frame)', m.moveAlarms],
+  ];
+  if (S.rule180) rows.push(['180 violations', m.breaks180]);
+  $('sumRows').replaceChildren(...rows.map(([k, v]) => {
+    const tr = document.createElement('tr');
+    [k, v].forEach(x => { const td = document.createElement('td'); td.textContent = x; tr.appendChild(td); });
+    return tr;
+  }));
+  $('summaryOv').classList.add('show');
+  const n = engine.state.shots.length;
+  sizeCanvas($('sumTarget'), Math.max(120, Math.min(220, innerHeight - 140)));
+  drawTarget(engine.state, $('sumTarget'), Infinity, false);
+  $('sumPlotNote').textContent = !n ? 'No shots yet' : m.shots > n ? `Last ${n} of ${m.shots} shots` : 'All shots';
+}
+$('finishBtn').addEventListener('click', () => {
+  closeSettings();                                  // opening settings already stopped any recording
+  showSummary();
+});
+$('sumBack').addEventListener('click', () => {
+  $('summaryOv').classList.remove('show');
+  if (!running) $('startOv').classList.add('show');
+});
+$('sumNew').addEventListener('click', () => {
+  engine.resetStats(); sessionT0 = 0; renderStats(); drawTarget(engine.state);
+  running = false;
+  $('rotateOv').classList.remove('armed');
+  $('summaryOv').classList.remove('show');
+  buildSettings(); $('startOv').classList.add('show');
+});
+
 $('platformNote').textContent = isIOS
   ? 'iPhone: allow motion access when asked. If you hear nothing, turn off Silent mode. The shot is a click and a flash (no vibration).'
   : 'Android: the shot also vibrates. Rotate to landscape after starting if the screen does not lock automatically.';
@@ -822,7 +920,8 @@ window.__tdt = () => {
   return { running, armed: s.armed, onRest: s.onRest, alarmActive: s.alarmActive, violations: s.violations,
     shots: s.shots.length, lastGrade: s.shots.length ? s.shots[s.shots.length - 1].grade : null,
     trig: s.trig ? { pull: s.trig.pull, fired: s.trig.fired } : null, rotEMA: s.rotEMA, aimH: s.aimH, aimV: s.aimV,
-    recording: !!rec, alarmSound: Snd.alarm ? Snd.alarm.kind : null, refSet: s.refSet, alarmReason: s.alarmReason, dev180: s.dev180, breaks180: s.breaks180, inPress: s.inPress };
+    recording: !!rec, alarmSound: Snd.alarm ? Snd.alarm.kind : null, refSet: s.refSet, alarmReason: s.alarmReason, dev180: s.dev180, breaks180: s.breaks180, inPress: s.inPress,
+    summary: TDT.summarize(s), summaryOpen: $('summaryOv').classList.contains('show') };
 };
 })();
 </script>

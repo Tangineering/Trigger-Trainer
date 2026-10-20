@@ -5,7 +5,8 @@ side of a pistol: the student keeps the index finger flat on the frame while mov
 trigger when the "gun" is still. Free, no accounts, no tracking, no money — ever.
 
 **Ricky owns scope and decisions.** Record anything you decide or propose in `docs/DECISIONS.md` using the
-attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`.
+attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`. Ideas for later (not
+committed to) go in `docs/IDEAS.md`; never build one without a Ricky decision. The workflow is in that file.
 
 ## Hard constraints (do not change without a logged Ricky decision)
 
@@ -57,6 +58,7 @@ inside the engine.
 |---|---|
 | `VERSION` | Bump when outputs change for the same inputs (D-20). |
 | `DEFAULTS`, `ZONES`, `K` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. |
+| `summarize(state)` | Session totals for the summary screen, from `state.tally` (not capped like `state.shots`) and the alarm counters. |
 | `createEngine(S, {ios, onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`. Starts paused. |
 | `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace. Axis mapping per `axisMode`. |
 | `touches(t, list, vw, vh)` | Full current touch list in CSS px; drives the trigger (engage on entering the zone, fire at `pullPx` rearward, re-arm at `RESET_FRACTION`). |
@@ -72,8 +74,9 @@ inside the engine.
 | `onMotion` / `onTouch` / `onMouse` | Convert events with `TDT.fromDeviceMotion` / `fromTouch`, feed the engine, and log the same row if recording. |
 | `tick` (rAF) | Pauses the engine when not running / settings open / portrait / hidden, logs a frame row, calls `engine.tick`, renders. |
 | `onEvent` | Engine events → sound, vibration, flash, alarm overlay; appended to `rec.observed` while recording. |
-| Recorder | `startRecording()` makes a fresh engine; `stopRecording(share)`; `saveRecording()` uses the share sheet when it accepts files, else a download. |
-| Settings overlay | Built from `SLIDERS`; includes live sensor readout, axis-check canvas, and the recorder. |
+| Recorder | `startRecording()` makes a fresh engine; `stopRecording(share)` saves (if `share`) and then opens Settings scrolled to the recorder (`openSettings('recorder')`); `saveRecording()` uses the share sheet when it accepts files, else a download. |
+| Settings overlay | Built from `SLIDERS`; includes live sensor readout, axis-check canvas, and the recorder. **Finish** opens the summary. |
+| Summary overlay | `showSummary()`: `TDT.summarize` table + plot of kept shots (`drawTarget` with no trace). **Keep training** / **New session** (resets stats, back to the start screen). `sessionT0` is the start of the summarized time. |
 | `window.__tdt()` | Read-only snapshot used by the browser tests. Keep it. |
 
 ### State machine
@@ -86,7 +89,7 @@ and after leaving the trigger.
 180 rule (any state while armed): muzzle > `limit180Deg` from downrange → `ALARM (180)`, which also escalates a movement
 alarm; clears when back inside the limit by `HYST_180_DEG` with the finger on the frame. Only active after `setDownrange`;
 a motion gap > `ORIENT_GAP_MS` clears downrange (`downrangeLost`).
-Opening settings, backgrounding the page, or rotating to portrait disarms and silences.
+Opening settings or the summary, backgrounding the page, or rotating to portrait disarms and silences.
 
 ## Known platform facts and unknowns
 
@@ -94,9 +97,9 @@ Opening settings, backgrounding the page, or rotating to portrait disarms and si
   flat-finger check is opt-in and auto-skips when size isn't reported.
 - **Vibration:** `navigator.vibrate` doesn't exist on iOS Safari. Don't build hacks for it (not required).
 - **Gyro axis order:** the spec maps `rotationRate` alpha/beta/gamma to z/x/y. Some iOS builds have been
-  reported to deliver x/y/z order instead. `axisMode: 'auto'` assumes iOS-style on iOS. **Unverified on
-  hardware** — first thing to check (OPEN_QUESTIONS Q1). The alarm uses magnitude, so it's unaffected; only
-  the trace direction and the "low-left" style labels depend on this. Resolve it from `axis-up` and
+  reported to deliver x/y/z order instead. `axisMode: 'auto'` assumes iOS-style on iOS. Correct on a Pixel 11
+  by eye (D-40); **unverified on iPhone** — first thing to check (OPEN_QUESTIONS Q1). The alarm uses magnitude,
+  so it's unaffected; only the trace direction and the "low-left" style labels depend on this. Resolve it from `axis-up` and
   `axis-right` recordings: `npm run test:replay` prints the mapping that fits both for each phone.
 - **Orientation:** sign of yaw uses `screen.orientation.angle` (or `window.orientation` on iOS): 90 vs 270.
   iOS can't lock orientation from a web page; Android tries fullscreen + `orientation.lock('landscape')`.
@@ -119,6 +122,8 @@ Opening settings, backgrounding the page, or rotating to portrait disarms and si
 - Bump `engine.js` `VERSION` when outputs change; don't bump it for refactors that keep replays identical.
 - Don't add features that need a server, accounts, or an app store.
 - Keep defaults conservative for beginners; Ricky tunes them in class via Settings.
+- When you notice something worth exploring that's out of scope for the current task, add it to
+  `docs/IDEAS.md` instead of building it or leaving it in chat.
 - Commit messages: imperative, short; one logical change per commit.
 
 ## Layout of this repo
@@ -137,6 +142,7 @@ tests/roundtrip.js      browser record → Node replay equality test
 docs/RECORDINGS.md      how to record drills; recording file format
 package.json            dev-only: playwright for tests
 docs/DECISIONS.md       decision log with attribution
+docs/IDEAS.md           ideas for later exploration (not committed to)
 docs/CLASS_USE.md       how to run it in a class (student-facing steps)
 OPEN_QUESTIONS.md       blocking/pending questions for Ricky
 README.md               short public description + deploy steps

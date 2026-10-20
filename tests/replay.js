@@ -14,7 +14,7 @@ const files = [];
 const walk = p => {
   if (!fs.existsSync(p)) return;
   if (fs.statSync(p).isDirectory()) fs.readdirSync(p).sort().forEach(f => walk(path.join(p, f)));
-  else if (p.endsWith('.json')) files.push(p);
+  else if (p.endsWith('.json') || p.endsWith('.txt')) files.push(p);   // .txt: Android share-sheet copies
 };
 roots.forEach(walk);
 
