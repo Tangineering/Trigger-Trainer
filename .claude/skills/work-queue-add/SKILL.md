@@ -1,0 +1,128 @@
+---
+name: work-queue-add
+description: Add, refine, split, or re-prioritize items in WORK_QUEUE.md — the project's central planning document. For exploratory sessions that discover work (a bug, a gap, a beta-prep task, a follow-up from a completed item) and for the orchestration session when it raises items itself. Produces a self-contained item an execution agent can act on from the item text alone.
+---
+
+# Adding to the work queue
+
+`WORK_QUEUE.md` holds every piece of outstanding work; `WORK_COMPLETED.md`
+holds what is finished. An orchestration session reads the queue, picks a
+round, and hands each item to an execution agent **as the agent's entire
+brief**. So an item is only as good as what a stranger can do with its text:
+write it for an agent that has the repo's CLAUDE.md (if any), the repo, and nothing else —
+no memory of your session.
+
+## Before adding
+
+1. Read `WORK_QUEUE.md` end to end (index + items + parking lot) and skim the
+   titles in `WORK_COMPLETED.md`. Do not add a duplicate; if an existing
+   item covers it, **edit that item** (widen scope, add context, adjust
+   priority) and note the edit in its `Added/Updated` line.
+2. Verify every anchor you intend to cite — file paths, function names,
+   line numbers, constant values, test counts. An execution agent will
+   trust them. Quote `path:line` only for lines you have just read.
+3. Decide whether it is one item or several. One item = one coherent change
+   an agent can finish and verify in one round (size S ≈ under an hour of
+   agent work, M ≈ a session, L ≈ needs a multi-agent or multi-session procedure). Split
+   anything larger; link the parts with `Depends on`.
+
+## Item format
+
+Copy this template exactly. Every heading stays, even when the answer is a
+single word.
+
+```markdown
+### WQ-NNN — <imperative title, under 80 chars>
+
+- **Status:** queued · **Priority:** P0..P3 · **Size:** S | M | L · **Track:** <track> · **Env:** any | owner-machine | <platform> | browser
+- **Added:** YYYY-MM-DD by <session title or role> · (**Updated:** YYYY-MM-DD by …, when edited)
+- **Depends on:** WQ-… or — · **Blocks:** WQ-… or —
+
+**Context.** Why this exists: the observed problem or gap, with the evidence
+(what was measured, where it was seen, which commit). The agent should not
+have to rediscover the motivation.
+
+**Owner decision needed.** (only when Status is `blocked:user`) The exact
+question, the candidate answers, and what each implies.
+
+**Scope.** Bullet list of what to do, with verified anchors. If the item
+*rewrites* (rather than appends to) a hub file every item touches —
+`.gitignore`, `CHANGELOG.md`, `CLAUDE.md`, `README.md` — say so: it decides
+whether the item can run in parallel with others. End with an explicit
+"Out of scope:" line — what the agent must NOT touch, and which other item
+owns it.
+
+**Acceptance.** Observable conditions that make the item done. Tests that
+must pass, commands whose output must match, states that must exist. When
+some lines need `Env: owner-machine` (a folder, binary or platform only the
+owner has), split them: *agent-verifiable* lines first, then an
+*Owner-verifiable* sub-list — the orchestrator archives the first half and
+returns the item `blocked:owner-machine` for the second.
+
+**Verification.** How the executor proves acceptance (commands, skills to
+run, if the repo has any), and what to record in the completion
+entry.
+```
+
+Optional extra headings when useful: **Risk.** (destructive or
+hard-to-reverse steps), **Notes.** (links, prior attempts, measured dead
+ends — cite the CLAUDE.md "Hard-won lessons" entry rather than repeating it).
+
+## Field rules
+
+- **ID**: take `next_id` from the YAML block at the top, then increment it
+  there. IDs are never reused, even for closed-wontdo items.
+- **Priority**: P0 = must ship before the next milestone can even start;
+  P1 = required for the milestone; P2 = wanted, not gating; P3 = nice to
+  have. Do not inflate — an all-P0 queue schedules nothing.
+- **Size**: S / M / L as defined above. L items should say which project
+  skill or procedure runs them, if the repo has one.
+- **Track**: one word grouping items that ship together (`hygiene`,
+  `packaging`, `docs`, `backend`, `ui`, …). Add a new track name if none
+  fits; mention it in the "Tracks:" line under the index.
+- **Env**: what the executing session must have. `any` (a clean clone
+  suffices), `owner-machine` (gitignored data, credentials or hardware only
+  the owner has), a platform name (`windows`, `macos`, …) when the work must
+  be run there, `browser` when a GUI must be driven. The orchestrator
+  matches it against what its session can actually run; an item that
+  silently assumes the owner's machine gets half-done and mislabelled.
+- **Status**: `queued` for new items. `blocked:user` when only the owner
+  can unblock it — then the item MUST carry an "Owner decision needed"
+  block phrased so the owner can answer in one line. `blocked:owner-machine`
+  when the remaining work is an action (not a decision) that only the
+  owner's machine can perform — then Scope says exactly what to run.
+  `blocked:<WQ-id>` is redundant with `Depends on`; use `Depends on`
+  instead.
+- **Depends on / Blocks**: keep both directions consistent. When you add
+  a dependency, edit the other item's `Blocks` line too.
+
+## Then
+
+1. Add the item's row to the **Index** table in priority order, then
+   dependency order within a priority.
+2. Update `updated:` in the YAML block.
+3. If the item came from a completed item's follow-up, cross-reference:
+   the completion entry's "Follow-ups" names the new ID, and the new item's
+   Context names the completed one.
+4. Run `python scripts/wq.py check`, then commit `WORK_QUEUE.md` on its own
+   (message `queue: add WQ-NNN <title>`), so orchestration rounds can diff
+   the queue cleanly. Do not bundle queue edits into feature commits.
+
+## Parking lot
+
+An idea that is not yet actionable (no anchors, no acceptance, or waiting
+on evidence) goes under "Parking lot" as one bullet with enough words to
+find it again. Promote it to an item only once it can carry the full
+template honestly.
+
+## What not to do
+
+- Do not remove or reorder someone else's item without a reason written in
+  its `Updated` line.
+- Do not mark an item done here — that is `work-queue-run`'s job, and it
+  moves the item to `WORK_COMPLETED.md`.
+- Do not write scope as "investigate X". If investigation is the work,
+  the acceptance is the artifact it produces (a doc, a measured number, a
+  set of new queue items) — say which.
+- Do not paste large code or long transcripts into an item; cite the
+  path and describe the change.

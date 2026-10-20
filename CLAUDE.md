@@ -8,6 +8,27 @@ trigger when the "gun" is still. Free, no accounts, no tracking, no money — ev
 attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`. Ideas for later (not
 committed to) go in `docs/IDEAS.md`; never build one without a Ricky decision. The workflow is in that file.
 
+**Outstanding work lives in `WORK_QUEUE.md`** — the central planning document: one `WQ-NNN` item per unit
+of work, self-contained enough to be an execution agent's whole brief. Finished work lives in
+`WORK_COMPLETED.md` (what was done, why, deviations). Add items with the `work-queue-add` skill; run rounds
+with `work-queue-run`. Never mark an item done inside the queue — it is moved to the archive by the run
+skill. Queue edits get their own `queue:` commits, never bundled into feature commits. `scripts/wq.py`
+(stdlib Python; on Ricky's PC `C:\Users\ricky\.local\bin\python.exe`) does the mechanical edits.
+
+How the queue and the other documents fit together:
+- A queue item is *work*; `OPEN_QUESTIONS.md` holds the *question* behind a `blocked:user` or
+  `blocked:owner-machine` item, and the item names the question (`Q-nn`). When the owner answers, the
+  answer goes in `docs/DECISIONS.md` and the item is re-queued with the decision folded into its Scope.
+- `docs/IDEAS.md` and the queue's parking lot overlap on purpose: an idea stays in `docs/IDEAS.md` until a
+  Ricky decision promotes it, and only then becomes a queue item.
+- Execution agents log anything they decide as `Claude (proposed)` rows in `docs/DECISIONS.md`.
+- Hub files for parallel items (append-only, one block per item id): `CLAUDE.md`, `README.md`,
+  `OPEN_QUESTIONS.md`, `docs/DECISIONS.md`, `docs/IDEAS.md`. Items that touch `engine.js` or `index.html`
+  never run in parallel with each other.
+- "Done" for sensor or touch changes has an owner-verifiable half (a real iPhone and a real Android phone);
+  write it as the item's *Owner-verifiable* acceptance lines, and the orchestrator returns the item
+  `blocked:owner-machine` for that half.
+
 ## Hard constraints (do not change without a logged Ricky decision)
 
 1. **Static files, no build step.** `index.html` (markup, CSS, UI wiring) and `engine.js` (all logic, no DOM)
@@ -146,7 +167,12 @@ package.json            dev-only: playwright for tests
 docs/DECISIONS.md       decision log with attribution
 docs/IDEAS.md           ideas for later exploration (not committed to)
 docs/CLASS_USE.md       how to run it in a class (student-facing steps)
+docs/PROPOSAL_2026-10-20.md  rationale behind the first queue items (axis order, platform check, estimators)
 OPEN_QUESTIONS.md       blocking/pending questions for Ricky
+WORK_QUEUE.md           outstanding work, one WQ-NNN item per unit (the planning document)
+WORK_COMPLETED.md       archive of finished queue items
+scripts/wq.py           queue invariant check, claim/unclaim/archive
+.claude/skills/         work-queue-add, work-queue-run (+ BRIEF_RULES.md for execution agents)
 README.md               short public description + deploy steps
 LICENSE                 MIT (Tangineering)
 ```
