@@ -249,8 +249,7 @@
     <input type="text" id="recNotes" placeholder="Notes (optional), e.g. phone model, grip">
     <div class="row">
       <button class="btn rec" id="recStart">Start recording</button>
-      <button class="btn" id="recSave" hidden>Share last recording</button>
-      <button class="btn" id="recDownload" hidden>Download last recording</button>
+      <button class="btn" id="recSave" hidden>Save last recording</button>
     </div>
     <p class="help" id="recInfo"></p>
 
@@ -484,7 +483,7 @@ function saveRecording(r) {
     navigator.share({ files: [file], title: file.name }).then(
       () => saveNote(`Shared ${file.name}.`),
       e => e && e.name === 'AbortError'
-        ? saveNote('Not saved (share cancelled). Settings › Download last recording saves it to the phone.')
+        ? saveNote('Not saved (share cancelled). Use Save last recording in Settings.')
         : download(name, json));
     return;
   }
@@ -496,7 +495,7 @@ function download(name, json) {
     const a = document.createElement('a');
     a.href = url; a.download = name; document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 60000);   // Android may read the blob late
-    saveNote(`Downloaded ${name}. Find it in the Files app › Downloads, or Chrome ⋮ › Downloads.`);
+    saveNote(`Downloaded ${name}. Look in Files › Downloads.`);
   } catch (e) {
     saveNote(`Couldn't save the recording (${e.name || e}).`);
   }
@@ -509,7 +508,7 @@ function saveNote(msg) {
   updateRecUi();
 }
 function updateRecUi() {
-  $('recSave').hidden = $('recDownload').hidden = !lastRec;
+  $('recSave').hidden = !lastRec;
   $('recInfo').textContent = lastRec
     ? `Last recording: ${lastRec.label}, ${((lastRec.t1 - lastRec.t0) / 1000).toFixed(1)} s, ${lastRec.log.length} samples, ` +
       `${lastRec.observed.filter(o => o[1] === 'shot').length} shots, ${lastRec.observed.filter(o => o[1] === 'alarmStart').length} alarms.` +
@@ -742,7 +741,6 @@ function bindSettings() {
     closeSettings();
   });
   $('recSave').addEventListener('click', () => saveRecording(lastRec));
-  $('recDownload').addEventListener('click', () => lastRec && download(recFileName(lastRec), JSON.stringify(lastRec)));
   $('recPill').addEventListener('click', () => stopRecording(true));
 }
 function renderLive() {

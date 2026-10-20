@@ -97,12 +97,6 @@ const check = (name, cond, extra) => {
   await page.evaluate(() => { navigator.share = () => Promise.reject(new DOMException('x', 'AbortError')); });
   await page.click('#recSave'); await page.waitForTimeout(50);
   check('cancelled share says it was not saved', /Not saved/.test(await page.textContent('#recInfo')));
-  // Download button: always a plain download, even where sharing works.
-  await page.evaluate(() => { window.__shared = null; navigator.canShare = () => true; });
-  const [dl3] = await Promise.all([page.waitForEvent('download'), page.click('#recDownload')]);
-  const rec3 = JSON.parse(fs.readFileSync(await dl3.path(), 'utf8'));
-  check('Download last recording downloads the .json without sharing',
-    /\.json$/.test(dl3.suggestedFilename()) && rec3.format === 'tdt-recording' && !(await page.evaluate(() => window.__shared)));
   check('no page errors', errors.length === 0, errors);
 
   await browser.close();
