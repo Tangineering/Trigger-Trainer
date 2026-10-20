@@ -11,9 +11,9 @@ recording back through `engine.js` and checks it.
 3. **Start recording**. Settings close and a red **● REC** button appears on the slide.
 4. Do the drill (hints below). Tap **● REC** to stop. That's all; you don't need the buttons in Settings.
    The share sheet opens with `tdt-<drill>-<date>.json`. Save it to Files, AirDrop it, or email it to yourself.
-   - **Android Chrome** won't share `.json` files, so the share sheet gets the same file named `.txt`
-     instead. Keep that name; the tests read `.txt` recordings too.
-   - Where sharing isn't available the file downloads instead (Files › Downloads).
+   - **Android Chrome** won't share `.json` files. The page then offers the same file as `.txt` (keep that
+     name; the tests read `.txt` recordings too), and if that's refused as well it downloads the `.json`
+     (Files app › Downloads). On a Pixel 11 it downloads (Ricky, 2026-10-20).
    - The line under the target says what happened: shared, downloaded, cancelled, or failed.
 5. Settings has **Share last recording** and **Download last recording** for the most recent recording. Use
    **Download** to put the file straight on the phone (Files app › Downloads, or Chrome ⋮ › Downloads): the
