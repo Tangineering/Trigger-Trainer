@@ -93,8 +93,10 @@ Opening settings or the summary, backgrounding the page, or rotating to portrait
 
 ## Known platform facts and unknowns
 
-- **Contact size:** Android Chrome usually reports `Touch.radiusX/Y`; iOS Safari usually doesn't. The
-  flat-finger check is opt-in and auto-skips when size isn't reported.
+- **Contact size:** assumed to come from `Touch.radiusX/Y` on Android Chrome; iOS Safari usually doesn't report it.
+  On a Pixel 11 (Chrome 155) every touch in the 2026-10-20 recordings has a radius of 0, so it reports nothing
+  there either. Unknown whether that is the Pixel or Android Chrome in general. The flat-finger check is opt-in
+  and auto-skips when size isn't reported (a size of 2 px or less counts as not reported).
 - **Vibration:** `navigator.vibrate` doesn't exist on iOS Safari. Don't build hacks for it (not required).
 - **Gyro axis order:** the spec maps `rotationRate` alpha/beta/gamma to z/x/y. Some iOS builds have been
   reported to deliver x/y/z order instead. `axisMode: 'auto'` assumes iOS-style on iOS. Correct on a Pixel 11
