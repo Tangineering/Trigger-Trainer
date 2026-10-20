@@ -78,7 +78,11 @@ const check = (name, cond, extra) => {
   const a = JSON.stringify(rec.observed), b = JSON.stringify(res.packed);
   check(`replay reproduces the live events exactly (${rec.observed.length} events)`, a === b, { live: rec.observed, replay: res.packed });
   check('recording stopped after save', !(await page.evaluate(() => window.__tdt().recording)));
-  check('the page says where the file went', /Downloaded .*Downloads/.test(await page.textContent('#warnLine')));
+  check('the page says where the file went', /Downloaded .*Downloads/.test(await page.textContent('#recInfo')));
+  check('stopping returns to Settings at the recorder', await page.evaluate(() => {
+    const ov = document.getElementById('settingsOv'), r = document.getElementById('recSection').getBoundingClientRect();
+    return ov.classList.contains('show') && ov.scrollTop > 0 && r.top >= 0 && r.top < innerHeight / 2;
+  }));
 
   // Android Chrome: canShare refuses .json but accepts text/plain → share sheet gets a .txt copy.
   await page.evaluate(() => {
@@ -86,7 +90,7 @@ const check = (name, cond, extra) => {
     navigator.canShare = d => d.files.every(f => f.type === 'text/plain');
     navigator.share = d => { window.__shared = { name: d.files[0].name, type: d.files[0].type }; return Promise.resolve(); };
   });
-  await page.click('#gear'); await page.click('#recSave'); await page.waitForTimeout(50);
+  await page.click('#recSave'); await page.waitForTimeout(50);
   const shared = await page.evaluate(() => window.__shared);
   check('Save last recording shares a .txt copy when .json is refused', shared && /^tdt-off-frame-move-.*\.txt$/.test(shared.name), shared);
   check('Settings confirms the share', /Shared tdt-/.test(await page.textContent('#recInfo')));

@@ -9,7 +9,8 @@ recording back through `engine.js` and checks it.
 1. Open the trainer on the phone (the HTTPS GitHub Pages URL; motion data needs HTTPS).
 2. Settings → **Record test data**. Pick a drill, optionally add notes (phone model, grip, who).
 3. **Start recording**. Settings close and a red **● REC** button appears on the slide.
-4. Do the drill (hints below). Tap **● REC** to stop. That's all; you don't need **Save last recording**.
+4. Do the drill (hints below). Tap **● REC** to stop. The file is saved and Settings opens at **Record test
+   data**, ready for the next drill. You don't need **Save last recording**.
    The share sheet opens with `tdt-<drill>-<date>.json`. Save it to Files, AirDrop it, or email it to yourself.
    - **Android Chrome** won't share `.json` files. The page then offers the same file as `.txt` (keep that
      name; the tests read `.txt` recordings too), and if that's refused as well it downloads the `.json`
@@ -17,7 +18,7 @@ recording back through `engine.js` and checks it.
    - The line under the target says what happened: shared, downloaded, cancelled, or failed.
 5. **Save last recording** (Settings) saves the most recent recording again: use it if you cancelled the
    share sheet or want a second copy. Opening Settings mid-recording stops it without saving; save it there.
-   Recordings stop on their own at 3 minutes.
+   Recordings stop on their own at 3 minutes (not saved; Settings opens so you can save it).
 
 Nothing is sent anywhere unless you share the file.
 

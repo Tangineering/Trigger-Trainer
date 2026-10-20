@@ -241,7 +241,7 @@
       Canting the phone doesn't count; only where the muzzle points does.</p>
     <div class="live" id="live180">not armed</div>
 
-    <h2>Record test data</h2>
+    <h2 id="recSection">Record test data</h2>
     <p>Records the phone's motion and touch data during one drill so it can be replayed in automated tests.
        Nothing is sent anywhere — when you stop, you choose where the file goes.</p>
     <div class="chk"><label for="recLabel">Drill</label><select id="recLabel"></select></div>
@@ -465,7 +465,8 @@ function stopRecording(share) {
   lastRec = rec; rec = null; saveMsg = '';
   $('recPill').hidden = true;
   updateRecUi();
-  if (share) saveRecording(lastRec);
+  if (share) saveRecording(lastRec);                // first: sharing needs the tap's user activation
+  openSettings('recorder');                         // land on the recorder, not back in the trainer
 }
 function recFileName(r) {
   return `tdt-${r.label}-${r.recordedAt.slice(0, 19).replace(/[:T]/g, '-')}.json`;
@@ -558,7 +559,7 @@ function tick() {
   engine.tick(t);
   if (rec) {
     const el = t - rec.t0;
-    if (el > REC_MAX_MS) { stopRecording(false); $('warnLine').textContent = 'Recording hit the 3-minute limit. Save it from Settings.'; }
+    if (el > REC_MAX_MS) { stopRecording(false); saveNote('Recording hit the 3-minute limit. Tap Save last recording.'); }
     else $('recPill').textContent = `● REC ${Math.floor(el / 60000)}:${String(Math.floor(el / 1000) % 60).padStart(2, '0')} · tap to stop`;
   }
   render(t);
@@ -793,13 +794,14 @@ async function start() {
   $('rotateOv').classList.add('armed');
   layout(); renderStats();
 }
-function openSettings() {
+function openSettings(section) {
   Snd.init(); Snd.resume();
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission !== 'function') bindMotion();
-  if (rec) stopRecording(false);                    // settings can't change mid-recording
+  if (rec) { stopRecording(false); return; }        // settings can't change mid-recording; reopens at the recorder
   buildSettings();
   $('startOv').classList.remove('show');
   $('settingsOv').classList.add('show');
+  if (section === 'recorder') $('recSection').scrollIntoView({ block: 'start' });
 }
 function closeSettings() {
   $('settingsOv').classList.remove('show');

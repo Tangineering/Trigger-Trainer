@@ -74,7 +74,7 @@ inside the engine.
 | `onMotion` / `onTouch` / `onMouse` | Convert events with `TDT.fromDeviceMotion` / `fromTouch`, feed the engine, and log the same row if recording. |
 | `tick` (rAF) | Pauses the engine when not running / settings open / portrait / hidden, logs a frame row, calls `engine.tick`, renders. |
 | `onEvent` | Engine events → sound, vibration, flash, alarm overlay; appended to `rec.observed` while recording. |
-| Recorder | `startRecording()` makes a fresh engine; `stopRecording(share)`; `saveRecording()` uses the share sheet when it accepts files, else a download. |
+| Recorder | `startRecording()` makes a fresh engine; `stopRecording(share)` saves (if `share`) and then opens Settings scrolled to the recorder (`openSettings('recorder')`); `saveRecording()` uses the share sheet when it accepts files, else a download. |
 | Settings overlay | Built from `SLIDERS`; includes live sensor readout, axis-check canvas, and the recorder. **Finish** opens the summary. |
 | Summary overlay | `showSummary()`: `TDT.summarize` table + plot of kept shots (`drawTarget` with no trace). **Keep training** / **New session** (resets stats, back to the start screen). `sessionT0` is the start of the summarized time. |
 | `window.__tdt()` | Read-only snapshot used by the browser tests. Keep it. |
