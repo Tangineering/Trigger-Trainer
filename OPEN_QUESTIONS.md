@@ -9,7 +9,7 @@ that aren't blocking anything belong in `docs/IDEAS.md`.
 | Q2 | Are the default thresholds right for beginners? (rotation 25 °/s, linear 1.5 m/s², grace 300 ms, pull 35 px, tolerance 0.75°) | Too tight = constant false alarms; too loose = no teaching value. | Record labeled drills from several students; tune thresholds until `npm run test:replay` passes on all of them. | No |
 | Q3 | Does the zone layout match how students actually hold the phone? | The strip and trigger positions are a guess at a pistol-like grip on a phone. | Hand it to several students; adjust `ZONES`. Consider a per-user layout calibration if hands vary a lot. | No |
 | Q4 | Does the palm or other fingers touch the screen and cause false "trigger" or "frame" contact? | Large phones and small hands. | Observe in class with the debug readout on. | No |
-| Q5 | Should a shot fired during an alarm count differently (e.g., a safety violation)? | Currently recorded and labeled "during alarm" but counted as a shot. | Ricky's teaching preference. | No |
+| Q5 | ~~Shot fired during an alarm~~ | Resolved: counted and plotted, excluded from the percentages, see D-45 (WQ-007). | — | No |
 | Q6 | ~~Session summary~~ | Resolved: Finish button in Settings opens a summary, see D-38. | — | No |
 | Q8 | ~~Finger resting on the trigger while moving~~ | Resolved: options 2 + 3 combined, see D-24. | — | No |
 | Q7 | ~~Hosting location~~ | Resolved: Tangineering org, see D-15. | — | No |

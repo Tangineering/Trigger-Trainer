@@ -33,7 +33,7 @@ How the queue and the other documents fit together:
 
 1. **Static files, no build step.** `index.html` (markup, CSS, UI wiring) and `engine.js` (all logic, no DOM)
    are served as-is. No framework, no bundler, no runtime dependencies, no CDN scripts. Other companions:
-   `manifest.webmanifest`, `icon.svg`. (Was "one file"; relaxed by D-17, pending Ricky's ratification.)
+   `manifest.webmanifest`, `icon.svg`. (Was "one file"; relaxed by D-17, ratified 2026-10-20.)
 2. **Free static hosting** (GitHub Pages). It must work by opening a URL. HTTPS is required for motion
    sensors on iOS.
 3. **No data leaves the phone.** No analytics, no network calls, no cookies. Settings live in
