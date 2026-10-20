@@ -1,0 +1,358 @@
+# WORK_QUEUE.md — outstanding work
+
+The central planning document for this project. An **orchestration session**
+schedules work rounds from it; **exploratory sessions** add to it; **execution
+agents** receive one item at a time, with the item's text as their brief.
+Finished items leave this file and land in `WORK_COMPLETED.md` — this file
+holds **only outstanding work**.
+
+How to use it:
+
+- Adding or editing an item → `.claude/skills/work-queue-add/SKILL.md`.
+- Pulling a round, handing off, archiving → `.claude/skills/work-queue-run/SKILL.md`.
+- The queue's canonical home is the default branch (`main`); a session that finds it
+  only on a side branch merges that branch first.
+- IDs are `WQ-NNN`, assigned from `next_id` below, never reused. An item keeps
+  its ID for life (queue → completed).
+- Order within the index is priority, then dependency order. It is not a
+  promise of execution order — the orchestration session picks rounds.
+- Project rules that every item inherits: `CLAUDE.md` (hard constraints, architecture, working
+  rules). In particular: `npm test` after every engine or input-wiring change; bump `engine.js`
+  `VERSION` when outputs change for the same inputs; real-phone checks are owner-verifiable
+  acceptance lines; decisions an agent makes are logged as `Claude (proposed)` in
+  `docs/DECISIONS.md`.
+
+```yaml
+next_id: WQ-009
+updated: 2026-10-20
+```
+
+## Index
+
+| ID | Title | Pri | Size | Status | Depends on | Track |
+|----|-------|-----|------|--------|------------|-------|
+| WQ-001 | Default the gyro axis order to x/y/z on every platform | P1 | M | queued | — | axis |
+| WQ-003 | Fail the replay test when `auto` disagrees with a phone's axis verdict | P1 | S | queued | WQ-001 | axis |
+| WQ-002 | Replace the `isIOS` platform check with feature checks | P1 | S | queued | — | platform |
+| WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
+| WQ-004 | Build an offline gyro-axis estimator harness over the recordings | P2 | M | queued | — | axis |
+| WQ-005 | Record a long `free` drill with downrange set to measure gyro drift (Q10) | P2 | S | blocked:owner-machine | — | recordings |
+| WQ-007 | Decide how shots fired during an alarm are counted (Q5) | P2 | S | blocked:user | — | grading |
+| WQ-008 | Ratify or reject the `proposed` rows in `docs/DECISIONS.md` | P2 | S | blocked:user | — | decisions |
+
+Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
+`blocked:user` (needs a decision only the owner can make — the item says which)
+· `blocked:owner-machine` (needs data, hardware or a platform only the owner
+has — the item says exactly what to run).
+
+Mechanical edits (claim, un-claim, archive, invariant check) go through
+`python scripts/wq.py …`; see `work-queue-run`. On Ricky's PC the interpreter is
+`C:\Users\ricky\.local\bin\python.exe` (the `python` alias on PATH is the Microsoft Store stub).
+
+Tracks: axis · platform · recordings · grading · layout · decisions · docs
+
+---
+
+## Items
+
+### WQ-001 — Default the gyro axis order to x/y/z on every platform
+
+- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** axis · **Env:** any
+- **Added:** 2026-10-20 by recordings-review session
+- **Depends on:** — · **Blocks:** WQ-003
+
+**Context.** The only real-phone axis recordings (`tests/recordings/pixel-11/tdt-axis-up-*.json`,
+`tdt-axis-right-*.json`, Pixel 11, Android Chrome 155) fit only the x/y/z `rotationRate` order,
+which the code calls the `ios` mapping (`npm run test:replay` prints "Axis verdict … : ios").
+Today `axisMode: 'auto'` picks `ios` only when the page detects iOS, and the Pixel gets the right
+mapping only because Chrome 155 is misdetected as iOS (Q11, D-44). A correct platform check (WQ-002)
+would therefore break the Pixel trace unless the default changes first. Rationale and risk:
+`docs/PROPOSAL_2026-10-20.md` section P-1.
+
+**Scope.**
+- `engine.js`: `const axisMode = () => (S.axisMode === 'auto' ? (ios ? 'ios' : 'spec') : S.axisMode)`
+  (line 134 at commit 87d66f1) resolves `auto` to `'ios'` on every platform. Remove `opts.ios` from
+  `createEngine` (line 118) and from the JSDoc above it; keep the `replay()` call site compiling
+  (line 390 passes `ios:` — drop it). Keep `spec`, `ios`, `flipH`, `flipV` as manual overrides.
+- Bump `VERSION` (`engine.js` line 15, currently `'0.7.0'`) and `package.json` `version` to match:
+  a phone correctly detected as Android today would produce a different trace for the same inputs.
+- `index.html` line 233: relabel the `axisMode` select options so `ios` reads "x/y/z order (Chrome, iOS)"
+  and `spec` reads "Spec order (x = beta, y = gamma, z = alpha)". Do not change the stored values.
+- `tests/make-synthetic.js`: the synthetic recordings are generated in spec order (line 15 comment,
+  `device.ios: false` at line 83). Write `axisMode: 'spec'` into their `settings` so they keep passing,
+  and regenerate `tests/recordings/synthetic/` with `npm run synthetic`.
+- Docs pass: reword the "Gyro axis order" bullet under "Known platform facts" in `CLAUDE.md`, Q1 and Q11
+  in `OPEN_QUESTIONS.md`, and `docs/RECORDINGS.md` where it says the replay sets the `auto` default.
+  Add a `Claude (proposed)` row to `docs/DECISIONS.md` for the new default.
+- Out of scope: the `isIOS` check and its three uses in `index.html` (WQ-002); the replay-test guard
+  (WQ-003); any run-time estimation of the axis order (WQ-004 and later).
+
+**Acceptance.**
+- `npm test` passes (all three suites); `npm run test:replay` reports "all passed" with every real
+  recording in `tests/recordings/pixel-11/` still showing "PASS replay reproduces the live run" where
+  its `app` field equals the new `VERSION`, or "INFO … still matches" where it does not.
+- The synthetic `axis-up` and `axis-right` recordings still pass with their explicit `axisMode: 'spec'`.
+- `grep -n "opts.ios\|ios ?" engine.js` finds nothing.
+- Owner-verifiable (Pixel 11): with Settings → axis order left on Auto, tilting the muzzle up moves
+  the trace up and swinging it right moves the trace right.
+
+**Verification.** `npm test`; `npm run test:replay` output quoted in the completion entry; the
+`VERSION` bump and the DECISIONS row named in the entry.
+
+---
+
+### WQ-002 — Replace the `isIOS` platform check with feature checks
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** platform · **Env:** any
+- **Added:** 2026-10-20 by recordings-review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** `isIOS` (`index.html` line 297 at commit 87d66f1) is true when
+`DeviceMotionEvent.requestPermission` exists or the user agent names an iPhone/iPad/iPod. Android
+Chrome 155 exposes `requestPermission`, so a Pixel 11 is detected as iOS: every recording in
+`tests/recordings/pixel-11/` carries `device.ios: true`. On the Pixel this skips fullscreen and the
+landscape lock and shows the iPhone note on the start screen (Q11, D-44). Rationale:
+`docs/PROPOSAL_2026-10-20.md` section P-2. Note: D-44 records Ricky's hold on this code on
+2026-10-20; the hold was lifted when this item was queued (this item is the agreed replacement).
+
+**Scope.**
+- `index.html` `start()` (line 787): attempt `requestFullscreen` and `screen.orientation.lock('landscape')`
+  whenever `document.documentElement.requestFullscreen` exists, instead of `!isIOS`. Both calls are
+  already in try/catch.
+- `index.html` line 909: choose the platform note from `'vibrate' in navigator` (Android text when
+  present, iPhone text when absent) instead of `isIOS`.
+- `isIOS` itself becomes a user-agent test only: `/iP(hone|ad|od)/.test(navigator.userAgent)` or
+  (`navigator.platform === 'MacIntel'` and `navigator.maxTouchPoints > 1`, iPadOS). It remains used
+  for the recorder's `device.ios` field (line 456) and the debug readout (line 627) only.
+- If WQ-001 has not landed yet, do **not** touch the `createEngine(S, { ios: isIOS, onEvent })` call
+  (line 423); if it has, that argument is already gone.
+- Docs pass: Q11 in `OPEN_QUESTIONS.md` gets its resolution; a `Claude (proposed)` row in
+  `docs/DECISIONS.md` supersedes D-44.
+- Out of scope: the axis mapping default (WQ-001); `engine.js`.
+
+**Acceptance.**
+- `npm test` passes; `tests/smoke.js` and `tests/roundtrip.js` still run under Playwright's Chromium
+  (which has `requestFullscreen` and no `vibrate` in headless mode — check the note text logic does not
+  throw there).
+- `grep -c "isIOS" index.html` shows only the definition, the recorder field and the debug readout.
+- Owner-verifiable (Pixel 11): Start goes fullscreen and locks landscape; the start screen shows the
+  Android note; a new recording carries `device.ios: false`.
+- Owner-verifiable (iPhone, when available): motion permission prompt still appears; the iPhone note shows.
+
+**Verification.** `npm test`; grep output quoted; the owner-verifiable lines listed as remaining
+in the completion entry.
+
+---
+
+### WQ-003 — Fail the replay test when `auto` disagrees with a phone's axis verdict
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** axis · **Env:** any
+- **Added:** 2026-10-20 by recordings-review session
+- **Depends on:** WQ-001 · **Blocks:** —
+
+**Context.** `tests/replay.js` (lines 101–106 at commit 87d66f1) prints an "Axis verdict" per user
+agent from the `axis-up` and `axis-right` recordings, but only as INFO. The iPhone axis order is
+unmeasured (Q1); when the first iPhone axis recordings arrive, the test should fail loudly if the
+`auto` default (set by WQ-001) does not fit them. Rationale: `docs/PROPOSAL_2026-10-20.md` section P-3.
+
+**Scope.**
+- In `tests/replay.js`, after the per-device verdict is computed: replay that device's axis recordings
+  with `axisMode: 'auto'` (no overrides) and FAIL (increment `failures`) when the mapping `auto`
+  resolves to is not in the verdict set. Print which mapping `auto` chose and which fit.
+- WARN (not fail) when a recording's `device.ios` disagrees with its `device.ua` (`/iP(hone|ad|od)/`).
+- Keep the synthetic recordings passing (they carry `axisMode: 'spec'` after WQ-001).
+- Document the new check in `docs/RECORDINGS.md` ("Drills and what the tests expect", `axis-*` rows).
+- Out of scope: changing the mapping or the engine; adding recordings.
+
+**Acceptance.**
+- `npm run test:replay` still reports "all passed" on the current recordings.
+- Temporarily forcing the verdict set to `['spec']` for the Pixel user agent makes the run fail with a
+  message naming `auto → ios`; revert before committing (state in the entry that this was done).
+- `tests/recordings/pixel-11/` recordings with `device.ios: true` and an Android user agent produce a WARN line.
+
+**Verification.** `npm run test:replay` output quoted before and after the forced failure.
+
+---
+
+### WQ-004 — Build an offline gyro-axis estimator harness over the recordings
+
+- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** axis · **Env:** any
+- **Added:** 2026-10-20 by recordings-review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** The axis order could be estimated on the phone from gravity: in the device frame,
+d**g**/dt = −**w** × **g**, and `accelerationIncludingGravity` has unambiguous axes. A quick
+derivative-fit prototype on 2026-10-20 ranked x/y/z first on all 13 Pixel recordings, but the margin
+over the runner-up was thin (best/runner-up residual 0.64–0.96 against 0.78–1.06). Before any run-time
+use, an estimator must be built and measured offline. The specification (candidate set, estimators
+E-1 to E-4, harness output, acceptance thresholds) is `docs/PROPOSAL_2026-10-20.md` section 3; treat it
+as the spec and this item as the work order.
+
+**Scope.**
+- Add `tests/axis-estimate.js` (Node, no dependencies, not part of `npm test`; add an
+  `npm run axis-estimate` script in `package.json`). It reads every `tdt-recording` under
+  `tests/recordings/` (including `.txt` files, as `tests/replay.js` does) and runs each estimator.
+- Implement E-2 (window integration, reuse the quaternion step from `engine.js` `motion()` by copying
+  it — do not change `engine.js`) and E-3 (correlation matrix); keep E-1 as the baseline. Search all
+  48 permutation-and-sign candidates, not just the two orders the engine supports.
+- Per recording and estimator print: winning candidate, margin (runner-up score / best score, or the
+  spec's definition), seconds of motion until the running decision last changed, and agreement with
+  that device's axis-drill verdict where one exists.
+- Write the results as a dated section in `docs/PROPOSAL_2026-10-20.md` (section 3.4 style) and a short
+  "how to run" paragraph in `docs/RECORDINGS.md`.
+- Out of scope: any change to `engine.js` or `index.html`; the E-4 live decision rule; run-time use
+  (a later item after a Ricky decision, see proposal section 3.6).
+
+**Acceptance.**
+- `npm run axis-estimate` runs on a clean clone in under a minute and prints one line per recording
+  per estimator.
+- On every real Pixel recording longer than 5 s, at least one of E-2/E-3 ranks `xyz` (no flips) first.
+- On every synthetic recording, the same estimator ranks `spec` (no flips) first.
+- The report states, per estimator, the minimum margin over real recordings and whether the
+  proposal's thresholds (margin ≥ 1.5, decision within 3 s of motion on `180-*` and `press-wobble`)
+  are met; "not met" is an acceptable, recorded outcome.
+
+**Verification.** The script's output quoted (or attached as a file under `docs/`) in the completion
+entry; `npm test` still passes (unchanged).
+
+---
+
+### WQ-005 — Record a long `free` drill with downrange set to measure gyro drift (Q10)
+
+- **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** S · **Track:** recordings · **Env:** owner-machine
+- **Added:** 2026-10-20 by recordings-review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Q10 asks whether gyro drift moves "downrange" noticeably over a long drill. The replay
+prints the maximum 180 deviation per recording, so one long recording answers it. The existing
+`tests/recordings/pixel-11/tdt-free-2026-10-20-22-40-27.json` (91 s) does not set downrange
+(`180s 0 (max 0°)`), so it cannot answer Q10.
+
+**Scope.** On the Pixel 11, with the current deployed page:
+- Settings → Record test data → drill `free`, note "drift test".
+- Start, point at a fixed mark, tap **Set downrange**, finger on the frame, then move normally for
+  2–3 minutes (the recorder stops itself at 3 minutes) and end pointing at the same mark, held still
+  for the last 5 s.
+- Save the file into `tests/recordings/pixel-11/` and commit it.
+- Then (agent-verifiable half, any session): run `npm run test:replay`, read the `max` deviation for
+  that file, and record the answer to Q10 in `OPEN_QUESTIONS.md` (resolved, or promote `docs/IDEAS.md`
+  I-02 to an item if drift exceeds about 10°).
+- Out of scope: implementing gravity correction (I-02).
+
+**Acceptance.**
+- Owner-verifiable: a `tdt-free-*.json` with a `d` row in its log and a duration over 120 s exists in
+  `tests/recordings/pixel-11/`.
+- Agent-verifiable: Q10 in `OPEN_QUESTIONS.md` carries the measured number and a resolution.
+
+**Verification.** `npm run test:replay` line for the new file quoted in the completion entry.
+
+---
+
+### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
+
+- **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
+- **Added:** 2026-10-20 by recordings-review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Everything measured so far comes from one Pixel 11. Three open points need a second
+phone each: the iPhone gyro axis order (Q1), whether the iOS misdetection also affects other
+Android phones (Q11), and whether the missing touch contact size (`CLAUDE.md`, "Contact size") is
+Pixel-specific. Three short drills per phone answer all three.
+
+**Scope.** On each additional phone (an iPhone; any non-Pixel Android), from the deployed HTTPS page:
+- Record `axis-up`, `axis-right` and `clean-press` as described in `docs/RECORDINGS.md`, with the phone
+  model in the notes field.
+- Save them into a new folder named after the phone (for example `tests/recordings/iphone-15/`,
+  `tests/recordings/galaxy-s24/`) and commit.
+- Then (agent-verifiable half, any session): run `npm run test:replay`; record the per-phone axis
+  verdict in `OPEN_QUESTIONS.md` Q1; record `device.ios` versus user agent (Q11) and whether any
+  touch row has a non-zero radius (contact size) in `CLAUDE.md` "Known platform facts". If an iPhone
+  verdict is `spec`, raise a new item to key the `auto` default on the browser engine.
+- Out of scope: changing the engine or the page.
+
+**Acceptance.**
+- Owner-verifiable: the three recordings per phone exist under a per-phone folder.
+- Agent-verifiable: `npm run test:replay` passes (or WQ-003's guard fails and a follow-up item is
+  raised); Q1, Q11 and the contact-size note are updated with the measured facts.
+
+**Verification.** The "Axis verdict" lines for each phone quoted in the completion entry.
+
+---
+
+### WQ-007 — Decide how shots fired during an alarm are counted (Q5)
+
+- **Status:** blocked:user · **Priority:** P2 · **Size:** S · **Track:** grading · **Env:** any
+- **Added:** 2026-10-20 by recordings-review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Q5 asks whether a shot fired during an alarm should count differently. The two
+`press-wobble` recordings in `tests/recordings/pixel-11/` now show the real case: 5 of 5 shots fired
+within 0.3 s of a movement alarm, all graded Jerked (8°–50°). The summary (`TDT.summarize`,
+`engine.js`; D-39) already shows "shots during an alarm" as a separate count but includes them in
+the shot total and the Clean/Moved/Jerked percentages.
+
+**Owner decision needed.** How should a shot fired while a movement or 180 alarm is active be
+treated in the session summary? Candidate answers:
+1. As today: counted as a shot and graded; shown separately as well. (No change; close this item.)
+2. Counted and graded, but excluded from the Clean/Moved/Jerked percentages and the "steadiest" stat.
+3. Not counted as a shot at all: tallied only as a safety violation, no grade, no plot point.
+Each is a small change in `summarize` or the engine's shot tally; option 3 changes engine outputs
+and needs a `VERSION` bump.
+
+**Scope.** (after the decision) Implement the chosen option in `engine.js`, update `tests/smoke.js`
+if the summary expectations change, record the decision in `docs/DECISIONS.md` (attribution `Ricky`)
+and mark Q5 resolved in `OPEN_QUESTIONS.md`. Out of scope: alarm thresholds (Q2).
+
+**Acceptance.** `npm test` passes; the summary screen shows the chosen treatment; DECISIONS and
+OPEN_QUESTIONS updated.
+
+**Verification.** `npm test`; the summary table from a `press-wobble` replay described in the entry.
+
+---
+
+### WQ-008 — Ratify or reject the `proposed` rows in `docs/DECISIONS.md`
+
+- **Status:** blocked:user · **Priority:** P2 · **Size:** S · **Track:** decisions · **Env:** any
+- **Added:** 2026-10-20 by recordings-review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** `docs/DECISIONS.md` has 20 rows with status `proposed` (Claude's choices, implemented
+but not ratified): D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-17, D-18, D-19, D-20, D-29,
+D-32, D-35, D-37, D-39, D-41, D-43, and WQ-002's successor to D-44 once it lands. D-17 (logic in
+`engine.js`, so the deliverable is no longer one file) is also flagged in `CLAUDE.md` hard
+constraint 1 as "pending Ricky's ratification". The behaviour they describe is already in the
+deployed page, so each is a yes/no.
+
+**Owner decision needed.** For each listed D-number: `accepted`, `modified` (say how), or
+`rejected`. A single line such as "accept all except D-11 (make reset 75% of travel)" is enough.
+
+**Scope.** (after the decision) Update the Attribution column to `Claude → Ricky accepted` /
+`Claude → Ricky modified` and Status to `active` or `rejected`; for a `modified` or `rejected` row,
+raise a new queue item for the code change and name it in the row. Remove the "pending Ricky's
+ratification" note from `CLAUDE.md` constraint 1 if D-17 is accepted. Out of scope: any code change.
+
+**Acceptance.** No row in `docs/DECISIONS.md` carries status `proposed` without a newer
+`Updated`-style note explaining why; `CLAUDE.md` constraint 1 reflects D-17's outcome.
+
+**Verification.** `grep -c "| proposed |" docs/DECISIONS.md` quoted before and after.
+
+---
+
+## Parking lot
+
+Ideas noted but not yet turned into items (an exploratory session may
+promote one with `work-queue-add`):
+
+- **Run-time axis estimation (advisory, then auto with a confidence gate).** Waits on WQ-004's
+  numbers and a Ricky decision; path in `docs/PROPOSAL_2026-10-20.md` section 3.6.
+- **Q2, default thresholds for beginners.** Needs labelled drills from several students; first data
+  point: one `clean-press` shot at 0.70° against the 0.75° Clean limit (Pixel 11, 2026-10-20).
+- **Q3 / Q4, zone layout and stray palm contact.** Needs class observation with the debug readout on;
+  fallback is `docs/IDEAS.md` I-01 (per-student layout calibration).
+- **Re-record the three `safe-move` drills with the current engine.** The 0.6.0 recordings still pass
+  with current defaults; only worth doing so every real recording has a live-equals-replay check.
+- **Gravity correction for the up/down part of the 180 orientation** (`docs/IDEAS.md` I-02). Only if
+  WQ-005 shows large drift.
+- **Operating modes on the start screen** (`docs/IDEAS.md` I-03, Ricky). Waiting for Ricky to list the modes.
+- **`CLAUDE.md` says recordings go "one folder per phone"** — the 2026-10-20 set has been moved to
+  `pixel-11/`; nothing left to do unless a second Pixel appears.
