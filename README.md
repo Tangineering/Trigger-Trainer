@@ -13,6 +13,9 @@ pistol: keep the index finger flat on the frame while moving; go to the trigger 
 
 No install, no accounts, no data collection. Settings stay on the phone.
 
+The trainer is free. If it helps you, you can [buy Ricky a coffee on Ko-fi](https://ko-fi.com/rickytan4); the
+tool never asks for it and nothing is unlocked by it.
+
 ## Use it
 
 Open **https://tangineering.github.io/Trigger-Trainer/** on a phone, tap **Start**, and turn the phone sideways. On iPhone, allow motion
