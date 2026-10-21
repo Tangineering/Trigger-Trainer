@@ -220,7 +220,7 @@ entry; `npm test` still passes (unchanged).
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-20 by recordings-review session (added the jig drift drill per D-49)
 - **Depends on:** — · **Blocks:** —
 
 **Context.** Everything measured so far comes from one Pixel 11. Three open points need a second
@@ -231,6 +231,10 @@ Pixel-specific. Three short drills per phone answer all three.
 **Scope.** On each additional phone (an iPhone; any non-Pixel Android), from the deployed HTTPS page:
 - Record `axis-up`, `axis-right` and `clean-press` as described in `docs/RECORDINGS.md`, with the phone
   model in the notes field.
+- Also record the jig drift drill (D-49): a `free` drill, phone placed on a fixed jig at the start, tap
+  **Set downrange**, swing hard for about 90 s, return to the jig and hold still 10 s, swing again, and
+  end on the jig held still for 10 s. The analysis reads the 180 deviation at the rests (under 10° in
+  3 minutes closes the question for that phone; more re-opens `docs/IDEAS.md` I-02).
 - Save them into a new folder named after the phone (for example `tests/recordings/iphone-15/`,
   `tests/recordings/galaxy-s24/`) and commit.
 - Then (agent-verifiable half, any session): run `npm run test:replay`; record the per-phone axis
@@ -240,7 +244,7 @@ Pixel-specific. Three short drills per phone answer all three.
 - Out of scope: changing the engine or the page.
 
 **Acceptance.**
-- Owner-verifiable: the three recordings per phone exist under a per-phone folder.
+- Owner-verifiable: the three drill recordings and the drift recording per phone exist under a per-phone folder.
 - Agent-verifiable: `npm run test:replay` passes (or WQ-003's guard fails and a follow-up item is
   raised); Q1, Q11 and the contact-size note are updated with the measured facts.
 
