@@ -31,14 +31,14 @@ updated: 2026-10-21
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-011 | Alarm when the muzzle drifts more than 5° while the finger is off the frame (D-56) | P1 | M | queued | — | alarm |
-| WQ-003 | Fail the replay test when `auto` disagrees with a phone's axis verdict | P1 | S | queued | — | axis |
+| WQ-011 | Alarm when the muzzle drifts more than 5° while the finger is off the frame (D-56) | P1 | M | claimed:round-20261021-2 | — | alarm |
+| WQ-003 | Fail the replay test when `auto` disagrees with a phone's axis verdict | P1 | S | claimed:round-20261021-2 | — | axis |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-013 | Pause on portrait only after it has persisted for 3 s (D-60) | P1 | M | queued | — | ui |
-| WQ-015 | Store only user-changed settings so code defaults reach every phone (D-64) | P1 | S | queued | — | ui |
+| WQ-013 | Pause on portrait only after it has persisted for 3 s (D-60) | P1 | M | claimed:round-20261021-2 | — | ui |
+| WQ-015 | Store only user-changed settings so code defaults reach every phone (D-64) | P1 | S | claimed:round-20261021-2 | — | ui |
 | WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
 | WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | queued | — | axis |
-| WQ-014 | Bridge `devicemotion` gaps in the 180 orientation integration (D-62) | P2 | S | queued | — | alarm |
+| WQ-014 | Bridge `devicemotion` gaps in the 180 orientation integration (D-62) | P2 | S | claimed:round-20261021-2 | — | alarm |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -57,7 +57,7 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 
 ### WQ-011 — Alarm when the muzzle drifts more than 5° while the finger is off the frame (D-56)
 
-- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
+- **Status:** claimed:round-20261021-2 · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
 - **Added:** 2026-10-20 by orchestration session · **Updated:** 2026-10-21 by orchestration session (Ricky confirmed the limit applies during presses; no longer a Claude reading)
 - **Depends on:** — · **Blocks:** —
 
@@ -122,7 +122,7 @@ changed); the `VERSION` bump named in the entry.
 
 ### WQ-003 — Fail the replay test when `auto` disagrees with a phone's axis verdict
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** axis · **Env:** any
+- **Status:** claimed:round-20261021-2 · **Priority:** P1 · **Size:** S · **Track:** axis · **Env:** any
 - **Added:** 2026-10-20 by recordings-review session
 - **Depends on:** — · **Blocks:** —
 
@@ -153,7 +153,7 @@ unmeasured (Q1); when the first iPhone axis recordings arrive, the test should f
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; only the iPhone 3-minute drift run is expected next, after WQ-014 ships)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so)
 - **Depends on:** — · **Blocks:** —
 
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
@@ -196,7 +196,7 @@ Pixel-specific. Three short drills per phone answer all three.
 
 ### WQ-013 — Pause on portrait only after it has persisted for 3 s (D-60)
 
-- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** ui · **Env:** any
+- **Status:** claimed:round-20261021-2 · **Priority:** P1 · **Size:** M · **Track:** ui · **Env:** any
 - **Added:** 2026-10-21 by iPhone-15 analysis session (Q15 answered → D-60; promotes `docs/IDEAS.md` I-04)
 - **Depends on:** — · **Blocks:** —
 
@@ -264,7 +264,7 @@ entry; D-60 cited, the touch-hold reading logged as `Claude (proposed)`; the own
 
 ### WQ-015 — Store only user-changed settings so code defaults reach every phone (D-64)
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** ui · **Env:** any
+- **Status:** claimed:round-20261021-2 · **Priority:** P1 · **Size:** S · **Track:** ui · **Env:** any
 - **Added:** 2026-10-21 by orchestration session (Q12 answered → D-64; from WQ-010's follow-up)
 - **Depends on:** — · **Blocks:** —
 
@@ -405,7 +405,7 @@ later auto-switch (proposal 3.6 steps 2–3) without changing behaviour. The ref
 
 ### WQ-014 — Bridge `devicemotion` gaps in the 180 orientation integration (D-62)
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** alarm · **Env:** any
+- **Status:** claimed:round-20261021-2 · **Priority:** P2 · **Size:** S · **Track:** alarm · **Env:** any
 - **Added:** 2026-10-21 by iPhone-15 analysis session (from I-05, D-61) · **Updated:** 2026-10-21 by the same session (Q16 answered yes → D-62; 300 ms cap folded into Scope)
 - **Depends on:** — · **Blocks:** —
 
