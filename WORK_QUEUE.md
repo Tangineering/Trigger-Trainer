@@ -32,7 +32,7 @@ updated: 2026-10-21
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | queued | — | layout |
+| WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | claimed:round-20261021-4 | — | layout |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -116,7 +116,7 @@ Pixel-specific. Three short drills per phone answer all three.
 
 ### WQ-016 — Rework the frame strip, trigger guard and trigger layout; travel 60 px
 
-- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** layout · **Env:** browser
+- **Status:** claimed:round-20261021-4 · **Priority:** P2 · **Size:** M · **Track:** layout · **Env:** browser
 - **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments) · **Updated:** 2026-10-21 by the same session (guard shape specified: rear curve and a 30° rear leg joining the grip; guard front edge +20 px approved)
 - **Depends on:** — · **Blocks:** —
 
