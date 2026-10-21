@@ -24,8 +24,6 @@
     limit180Deg: 90,
     pullPx: 35,          // rearward finger travel (CSS px) that breaks the shot
     steadyDeg: 0.75,     // aim-drift tolerance for a "clean" shot, deg
-    requireFlat: false,  // require contact size >= minContactPx (only where reported)
-    minContactPx: 40,
     volume: 0.8,
     debug: false,
     axisMode: 'auto',    // 'auto' (= 'ios', x/y/z order) | 'spec' | 'ios'
@@ -119,7 +117,7 @@
     const st = {
       rotEMA: 0, linEMA: 0, rotNow: 0, linNow: 0, aimH: 0, aimV: 0,
       lastMotionT: 0, motionEvents: 0,
-      sizeSupported: false, lastRestSize: 0, restContact: false,
+      restContact: false,
       paused: true, armed: false, onRest: false, wasOnRest: false, restLostAt: null, offSince: 0,
       trigOffAt: -Infinity, inPress: false, pressEndAt: -Infinity, movingSince: null, lastTickT: null,
       alarmActive: false, alarmReason: null, violations: 0, breaks180: 0,
@@ -200,7 +198,7 @@
       for (const p of list) {
         let x = p.cx / vw;
         if (S.hand === 'left') x = 1 - x;
-        st.touches.set(p.id, { x, y: p.cy / vh, cx: p.cx, size: 2 * Math.max(p.rx || 0, p.ry || 0) });
+        st.touches.set(p.id, { x, y: p.cy / vh, cx: p.cx });
       }
       if (!st.paused) updateTrigger(t);
     }
@@ -209,8 +207,6 @@
       let best = null;
       for (const tc of st.touches.values()) {
         if (!inZone(tc, ZONES.rest)) continue;
-        if (tc.size > 2) { st.sizeSupported = true; st.lastRestSize = tc.size; }
-        if (S.requireFlat && st.sizeSupported && tc.size < S.minContactPx) continue;
         best = tc;
       }
       return best;

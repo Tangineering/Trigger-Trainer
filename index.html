@@ -218,11 +218,6 @@
     <h2>Trigger and shot grading</h2>
     <div id="sliders2"></div>
 
-    <h2>Flat-finger check</h2>
-    <div class="chk"><input type="checkbox" id="requireFlat"><label for="requireFlat">Require a large contact (flat finger) on the frame</label></div>
-    <div id="sliders3"></div>
-    <div class="live" id="liveContact">touch the frame strip to see contact size</div>
-
     <h2>Aim trace axis check</h2>
     <p>Hold the phone as the pistol and press <b>Re-center</b>. Tilt the muzzle <b>up</b>: the dot should go up. Swing the muzzle <b>right</b>: the dot should go right. If not, use the flips below.</p>
     <canvas id="axisCanvas"></canvas>
@@ -691,9 +686,6 @@ const SLIDERS = {
   sliders180: [
     { k: 'limit180Deg', label: 'Limit from downrange', min: 45, max: 90, step: 5, unit: '°', help: '90° is the 180 rule. Lower it for a tighter safe zone.' },
   ],
-  sliders3: [
-    { k: 'minContactPx', label: 'Minimum contact size', min: 10, max: 150, step: 1, unit: 'px', help: 'Only used where the phone reports touch size (most Android). iPhone browsers usually do not.' },
-  ],
   sliders4: [VOLUME],
   slidersStart: [VOLUME],   // same control on the start screen
 };
@@ -722,7 +714,7 @@ function buildSettings() {
   }
   $('hand').value = S.hand;
   $('axisMode').value = S.axisMode;
-  ['requireFlat', 'flipH', 'flipV', 'rule180'].forEach(k => { $(k).checked = !!S[k]; });
+  ['flipH', 'flipV', 'rule180'].forEach(k => { $(k).checked = !!S[k]; });
   $('debugChk').checked = !!S.debug;
   updateRecUi();
 }
@@ -730,7 +722,7 @@ let axisZero = { h: 0, v: 0 };
 function bindSettings() {
   $('hand').addEventListener('change', e => { S.hand = e.target.value; save(); layout(); });
   $('axisMode').addEventListener('change', e => { S.axisMode = e.target.value; save(); });
-  ['requireFlat', 'flipH', 'flipV', 'rule180'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; save(); renderStats(); }));
+  ['flipH', 'flipV', 'rule180'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; save(); renderStats(); }));
   $('debugChk').addEventListener('change', e => { S.debug = e.target.checked; save(); layout(); });
   $('axisZero').addEventListener('click', () => { axisZero = { h: engine.state.aimH, v: engine.state.aimV }; });
   $('resetStats').addEventListener('click', () => { engine.resetStats(); sessionT0 = running ? now() : 0; renderStats(); drawTarget(engine.state); });
@@ -754,9 +746,6 @@ function renderLive() {
     : 'no motion data yet (start the trainer first; needs HTTPS and, on iPhone, permission)';
   $('live180').textContent = !s.refSet ? 'downrange not set — 180 check off'
     : `muzzle ${s.dev180.toFixed(0)}° from downrange`;
-  $('liveContact').textContent = s.sizeSupported
-    ? `last frame contact: ${s.lastRestSize.toFixed(0)} px (this phone reports touch size)`
-    : 'this phone has not reported touch size yet — flat-finger check will be skipped';
 }
 function drawAxis() {
   const cv = $('axisCanvas'), W = Math.min(260, cv.parentElement.clientWidth);
