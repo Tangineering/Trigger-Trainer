@@ -294,8 +294,10 @@ let S = Object.assign({}, DEFAULTS);
 try { const raw = localStorage.getItem(KEY); if (raw) Object.assign(S, JSON.parse(raw)); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
-const isIOS = (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function')
-  || /iP(hone|ad|od)/.test(navigator.userAgent);
+// User-agent test only (D-53): Android Chrome also exposes DeviceMotionEvent.requestPermission.
+// Used for the recorder's device.ios field and the debug readout; behavior uses feature checks.
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const $ = id => document.getElementById(id);
 const stage = $('stage'), statusEl = $('status');
 const now = () => TDT.rt(performance.now());
@@ -784,7 +786,7 @@ async function start() {
     try { await DeviceMotionEvent.requestPermission(); } catch (e) {}
   }
   bindMotion();
-  if (!isIOS && document.documentElement.requestFullscreen) {
+  if (document.documentElement.requestFullscreen) {
     try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
     try { await screen.orientation.lock('landscape'); } catch (e) {}
   }
@@ -906,7 +908,7 @@ $('sumNew').addEventListener('click', () => {
   buildSettings(); $('startOv').classList.add('show');
 });
 
-$('platformNote').textContent = isIOS
+$('platformNote').textContent = !('vibrate' in navigator)
   ? 'iPhone: allow motion access when asked. If you hear nothing, turn off Silent mode. The shot is a click and a flash (no vibration).'
   : 'Android: the shot also vibrates. Rotate to landscape after starting if the screen does not lock automatically.';
 $('versionLine').textContent = `Engine ${TDT.VERSION}`;

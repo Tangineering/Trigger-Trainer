@@ -130,7 +130,11 @@ Opening settings or the summary, backgrounding the page, or rotating to portrait
   so it's unaffected; only the trace direction and the "low-left" style labels depend on this. Resolve it from `axis-up` and
   `axis-right` recordings: `npm run test:replay` prints the mapping that fits both for each phone.
 - **Orientation:** sign of yaw uses `screen.orientation.angle` (or `window.orientation` on iOS): 90 vs 270.
-  iOS can't lock orientation from a web page; Android tries fullscreen + `orientation.lock('landscape')`.
+  iOS can't lock orientation from a web page; Start tries fullscreen + `orientation.lock('landscape')` wherever
+  `requestFullscreen` exists (D-53).
+- **Platform detection:** behavior uses feature checks, never the platform (D-53): Android Chrome also exposes
+  `DeviceMotionEvent.requestPermission`, which once made a Pixel 11 look like an iPhone (recordings before D-53 say
+  `ios: true`). `isIOS` is a user-agent test that only feeds the recorder's `device.ios` field and the debug readout.
 - **180 orientation:** integrated from the gyro rates (quaternion, `motion()`), so it depends on the axis mapping
   (Q1) and drifts slowly (Q10). The muzzle lies along device ±y in both landscape directions and both hands, so
   the deviation is simply the angle between R·ŷ and ŷ (sign-independent; roll-invariant).
