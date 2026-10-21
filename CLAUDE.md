@@ -86,7 +86,7 @@ inside the engine.
 | Piece | What it does |
 |---|---|
 | `VERSION` | Bump when outputs change for the same inputs (D-20). |
-| `DEFAULTS`, `ZONES`, `K` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. |
+| `DEFAULTS`, `ZONES`, `K`, `zoneFor` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. `zoneFor(name, vw)` adds the fixed `K.TRIGGER_FWD_PX` offset to the trigger (and the guard's front edge); the engine hit test and `rectFor()` both use it (D-72). |
 | `summarize(state)` | Session totals for the summary screen, from `state.tally` (not capped like `state.shots`) and the alarm counters. Grades and movement figures cover only shots fired with no alarm (`graded`, D-45). |
 | `createEngine(S, {onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`. Starts paused. |
 | `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace (each sample's `dt` clamped to `MAX_DT_S`). The 180 orientation quaternion integrates the mean of the previous and current rates over the raw gap, capped at `ORIENT_BRIDGE_MS` (300 ms), so `devicemotion` gaps are bridged (D-62). Axis mapping per `axisMode`. Also feeds an advisory gyro-axis estimator (E-2, fused gravity; D-57, D-70) that sets `state.axisEst` = `{cand, margin, motionS, windows}` (`null` until the first 0.5 s window counts); it reads raw rates only and changes no output. |
@@ -153,7 +153,7 @@ Opening settings or the summary, backgrounding the page, or a portrait orientati
   `acceleration` alongside `accelerationIncludingGravity`, so the fused gravity source (D-55) works there too.
 - **Touch contact size:** iPhone 15 Safari reports a non-zero `radiusX`/`radiusY` on every touch; Chrome 155 on the
   Pixel 11 reports 0. Nothing reads it since D-46; the recorder keeps `rx`/`ry` in the row format (D-18).
-- **Units:** pull distance is CSS px (~160 px per inch on most phones, so 35 px ≈ 5–6 mm). Drift is degrees
+- **Units:** pull distance is CSS px (~160 px per inch on most phones, so the default 60 px pull ≈ 9–10 mm; D-71). Drift is degrees
   of muzzle angle (1° ≈ 6.3" at 10 yd).
 
 ## Working rules
