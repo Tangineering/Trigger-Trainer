@@ -459,7 +459,7 @@ the owner line returned `blocked:owner-machine`.
 ### WQ-016 — Rework the frame strip, trigger guard and trigger layout; travel 60 px
 
 - **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** layout · **Env:** browser
-- **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments) · **Updated:** 2026-10-21 by the same session (guard shape specified: rear curve and angled join to the grip; guard front edge +20 px approved)
+- **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments) · **Updated:** 2026-10-21 by the same session (guard shape specified: rear curve and a 30° rear leg joining the grip; guard front edge +20 px approved)
 - **Depends on:** — · **Blocks:** —
 
 **Context.** Ricky asked for four layout adjustments to the pistol side view (2026-10-21, verbatim):
@@ -491,10 +491,13 @@ bottom corners). Blade: `#blade` at `right: 14%` of the trigger zone, shifted by
   1. front edge: straight down from the underside of the frame, at the guard zone's front edge;
   2. front-bottom corner: a rounded corner (radius about 40 px at 852 px wide);
   3. bottom: a straight run rearwards, under the trigger, to about 30% of the guard width from its rear end;
-  4. rear-bottom corner: a **rear curve** (radius about 25 px) turning the bar upwards;
-  5. rear leg: a straight **diagonal** rising up and rearwards, which meets the grip's front edge **at an
-     angle** about 30% of the guard height below the guard's top, finishing with a small fillet into the
-     grip so there is no gap, end cap or visible seam.
+  4. rear-bottom corner: a **rear curve** (radius about 22 px) turning the bar upwards;
+  5. rear leg: a straight line rising rearwards at **30° from horizontal** (Ricky, 2026-10-21; a steeper leg
+     was rejected), which meets the grip's front edge at that angle. With the run from step 3 (about 30% of
+     the guard width, ~88 px at 852 px wide) the rise is about 51 px, so the join sits about 63% of the
+     guard height below the guard's top. Keep the 30° angle and let the join height follow from the run if
+     the zone size differs. Finish with a small fillet into the grip so there is no gap, end cap or visible
+     seam.
   Ricky's reference was a side photo of a typical polymer-frame pistol, where the rear of the guard sweeps up
   into the front strap at an angle; match the feel, not any particular model (constraint 5: generic imagery,
   no brand or model likeness). The guard zone therefore starts at the grip's front edge: `guard.x` .26 → .24,
@@ -537,7 +540,7 @@ bottom corners). Blade: `#blade` at `right: 14%` of the trigger zone, shifted by
 - `ZONES` match the Scope figures (or documented deviations) and `DEFAULTS.pullPx` is 60; `VERSION` bumped.
 - In a 852×393 and a 667×375 landscape browser viewport, right- and left-handed: the rest strip is visibly
   taller and starts closer to the grip; the slide is unchanged; the guard has a rounded front-bottom corner, a
-  rear curve and a diagonal rear leg that meets the grip at an angle with no gap or seam; the guard's front edge
+  rear curve and a rear leg rising at 30° from horizontal into the grip, with no gap or seam; the guard's front edge
   and the trigger sit 20 px further forward than before, the blade inside the guard; the blade's full 72 px drawn travel stays on
   the gun. Screenshots attached to the completion entry.
 - A touch at the drawn trigger zone's centre engages the trigger, and a touch at the drawn rest zone's centre
