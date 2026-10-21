@@ -101,6 +101,12 @@ for (const f of files) {
     console.log(`  WARN  device.ios is ${rec.device.ios} but the user agent ${rec.device.ios ? 'names no' : 'names an'} iPhone/iPad/iPod`);
   }
 
+  // Advisory run-time axis estimate (D-57): reported only, no pass/fail.
+  if (rec.t1 && rec.t0 && rec.t1 - rec.t0 > 5000) {
+    const e = res.state.axisEst;
+    console.log(`  INFO  axisEst ${e ? `${e.cand} margin ${e.margin > 999 ? '>999' : e.margin.toFixed(2)} after ${e.motionS.toFixed(1)} s motion, ${e.windows} windows` : 'null'}`);
+  }
+
   if (rec.label === 'axis-up' || rec.label === 'axis-right') {
     const ok = axisDiagnosis(rec);
     console.log(`  INFO  mappings that read this correctly: ${ok.join(', ') || 'none'}`);

@@ -89,7 +89,7 @@ inside the engine.
 | `DEFAULTS`, `ZONES`, `K` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. |
 | `summarize(state)` | Session totals for the summary screen, from `state.tally` (not capped like `state.shots`) and the alarm counters. Grades and movement figures cover only shots fired with no alarm (`graded`, D-45). |
 | `createEngine(S, {onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`. Starts paused. |
-| `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace (each sample's `dt` clamped to `MAX_DT_S`). The 180 orientation quaternion integrates the mean of the previous and current rates over the raw gap, capped at `ORIENT_BRIDGE_MS` (300 ms), so `devicemotion` gaps are bridged (D-62). Axis mapping per `axisMode`. |
+| `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace (each sample's `dt` clamped to `MAX_DT_S`). The 180 orientation quaternion integrates the mean of the previous and current rates over the raw gap, capped at `ORIENT_BRIDGE_MS` (300 ms), so `devicemotion` gaps are bridged (D-62). Axis mapping per `axisMode`. Also feeds an advisory gyro-axis estimator (E-2, fused gravity; D-57, D-70) that sets `state.axisEst` = `{cand, margin, motionS, windows}` (`null` until the first 0.5 s window counts); it reads raw rates only and changes no output. |
 | `touches(t, list, vw, vh)` | Full current touch list in CSS px; drives the trigger (engage on entering the zone, fire at `pullPx` rearward, re-arm at `RESET_FRACTION`). |
 | `tick(t)` | State machine: debounced frame contact → armed / safe / off-frame / alarm; trace capture. |
 | `fromDeviceMotion`, `fromTouch`, `pack*`, `replay(rec, overrides)` | Capture-time rounding, the recording row format, and deterministic replay (`docs/RECORDINGS.md`). |
@@ -132,7 +132,9 @@ Opening settings or the summary, backgrounding the page, or a portrait orientati
   `spec` remains a manual override. Verified on both phones measured: Pixel 11 (D-40, D-52) and iPhone 15, iOS 18.7
   (D-58; `tests/recordings/iphone-15/`). Q1 is closed. The alarm uses magnitude,
   so it's unaffected; only the trace direction and the "low-left" style labels depend on this. Resolve it from `axis-up` and
-  `axis-right` recordings: `npm run test:replay` prints the mapping that fits both for each phone.
+  `axis-right` recordings: `npm run test:replay` prints the mapping that fits both for each phone. The engine also
+  estimates the order at run time from gravity (`state.axisEst`, debug readout line `axis est`, D-57); the estimate is
+  advisory only and `axisMode` still decides the mapping. Every Pixel 11 and iPhone 15 recording longer than 5 s ends with `xyz`.
 - **Orientation:** sign of yaw uses `screen.orientation.angle` (or `window.orientation` on iOS): 90 vs 270.
   iOS can't lock orientation from a web page; Start tries fullscreen + `orientation.lock('landscape')` wherever
   `requestFullscreen` exists (D-53). iPhone Safari reports portrait for 1.5–4 s during a hard swing, and the page

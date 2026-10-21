@@ -106,4 +106,6 @@ its margin over the runner-up, the motion time until the decision last changed, 
 winner agrees with the phone's `axis-up`/`axis-right` verdict. `--gravity=lp` or `--gravity=fused`
 limits the run to one gravity source; the default runs both. The script is not part of `npm test`
 and changes nothing. The method and the 2026-10-20 result are in `docs/PROPOSAL_2026-10-20.md`,
-sections 3.3 to 3.7.
+sections 3.3 to 3.7. The engine runs the same estimate (E-2, `fused` gravity) live: the debug readout
+shows it as `axis est <candidate> ×<margin> (<motion seconds>s)`, and `npm run test:replay` prints the
+end-of-replay `axisEst` for every recording longer than 5 s.

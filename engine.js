@@ -117,6 +117,106 @@
     };
   }
 
+  /* ---------- run-time gyro-axis estimate (advisory, D-57) ---------- */
+  // Port of estimator E-2 with fused gravity from tests/axis-estimate.js (docs/PROPOSAL_2026-10-20.md
+  // section 3): for each 0.5 s window (a new one every 0.25 s) integrate the raw rotationRate under all
+  // 48 axis candidates (6 permutations x 8 sign combinations), rotate the window's first gravity vector
+  // (accelerationIncludingGravity - acceleration) and compare it with the measured one at the window end.
+  // The candidate with the smallest residual sum is the estimate. It reads raw alpha/beta/gamma only,
+  // never axisMode, and emits no events: it changes no engine output.
+  const AXIS_EST = Object.freeze({ WIN_S: 0.5, STEP_S: 0.25, GAP_S: 0.1, MIN_ROT_DEG: 5, MOVING_DPS: 10 });
+  const AXIS_CANDS = (() => {
+    const RAW = ['a', 'b', 'g'], out = [];
+    for (const perm of [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]) for (let s = 0; s < 8; s++) {
+      const sign = [s & 1 ? -1 : 1, s & 2 ? -1 : 1, s & 4 ? -1 : 1];
+      const p = perm.join(''), plus = sign.every(v => v > 0);
+      const name = plus && p === '012' ? 'xyz' : plus && p === '120' ? 'spec'
+        : perm.map((r, j) => (sign[j] > 0 ? '+' : '-') + RAW[r]).join('');
+      out.push({ perm, sign, name });
+    }
+    return out;
+  })();
+
+  /** Streaming E-2 estimator. add(m) takes an engine motion input; result is null until a window counts. */
+  function createAxisEstimator() {
+    const D2R = Math.PI / 180, W = AXIS_EST;
+    let buf, startT, res, motionS, windows, lastT, result;
+    function reset() {
+      buf = []; startT = -Infinity; res = new Float64Array(AXIS_CANDS.length);
+      motionS = 0; windows = 0; lastT = null; result = null;
+    }
+    reset();
+
+    // One window [0, j] of buf: integrate each candidate's rates, rotate g0, compare with g1.
+    function score(j) {
+      const g0 = buf[0].g, g1 = buf[j].g;
+      for (let c = 0; c < AXIS_CANDS.length; c++) {
+        const { perm, sign } = AXIS_CANDS[c];
+        let w = 1, x = 0, y = 0, z = 0;
+        for (let k = 0; k < j; k++) {
+          const r = buf[k].raw, dt = Math.min(buf[k + 1].t - buf[k].t, K.MAX_DT_S);
+          const ox = sign[0] * r[perm[0]] * D2R * dt, oy = sign[1] * r[perm[1]] * D2R * dt, oz = sign[2] * r[perm[2]] * D2R * dt;
+          const th = Math.hypot(ox, oy, oz);
+          if (!(th > 0)) continue;
+          const sn = Math.sin(th / 2) / th, cs = Math.cos(th / 2), dx = ox * sn, dy = oy * sn, dz = oz * sn;
+          const nw = w * cs - x * dx - y * dy - z * dz, nx = w * dx + x * cs + y * dz - z * dy,
+                ny = w * dy - x * dz + y * cs + z * dx, nz = w * dz + x * dy - y * dx + z * cs;
+          const n = Math.hypot(nw, nx, ny, nz);
+          w = nw / n; x = nx / n; y = ny / n; z = nz / n;
+        }
+        // g0 (reference frame) expressed in the device frame at the window end: R(q)^T g0.
+        const R = [[1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+                   [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+                   [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)]];
+        let e2 = 0;
+        for (let i = 0; i < 3; i++) {
+          const e = R[0][i] * g0[0] + R[1][i] * g0[1] + R[2][i] * g0[2] - g1[i];
+          e2 += e * e;
+        }
+        res[c] += e2;
+      }
+      windows++;
+      let best = 0, run = -1;
+      for (let c = 1; c < res.length; c++) if (res[c] < res[best]) best = c;
+      for (let c = 0; c < res.length; c++) if (c !== best && (run < 0 || res[c] < res[run])) run = c;
+      result = { cand: AXIS_CANDS[best].name, margin: res[best] > 0 ? res[run] / res[best] : (res[run] > 0 ? Infinity : 1),
+                 motionS, windows };
+    }
+
+    function add(m) {
+      const t = m.t / 1000, raw = [m.a || 0, m.b || 0, m.g || 0];
+      if (lastT != null && Math.hypot(raw[0], raw[1], raw[2]) > W.MOVING_DPS) motionS += Math.min(t - lastT, K.MAX_DT_S);
+      lastT = t;
+      if (result) result.motionS = motionS;
+      let g = null;
+      if (m.ax != null && m.gx != null) {
+        const v = [m.gx - m.ax, (m.gy || 0) - (m.ay || 0), (m.gz || 0) - (m.az || 0)], n = Math.hypot(v[0], v[1], v[2]) || 1;
+        g = [v[0] / n, v[1] / n, v[2] / n];
+      }
+      if (t >= startT) buf.push({ t, raw, g });
+      // Resolve every window that the buffered samples decide; buf[0] is the next window's first sample.
+      for (;;) {
+        if (!buf.length) break;
+        const t0 = buf[0].t;
+        let j = 0, ok = true, rot = 0;
+        for (; j + 1 < buf.length && buf[j].t - t0 < W.WIN_S; j++) {
+          const dt = buf[j + 1].t - buf[j].t;
+          if (dt > W.GAP_S) { ok = false; break; }
+          rot += Math.hypot(buf[j].raw[0], buf[j].raw[1], buf[j].raw[2]) * dt;
+        }
+        if (ok && buf[j].t - t0 < W.WIN_S) break;              // window still open: wait for more samples
+        if (ok && rot >= W.MIN_ROT_DEG && buf.slice(0, j + 1).every(s => s.g)) score(j);
+        startT = t0 + W.STEP_S;                                // next window starts 0.25 s later
+        let k = 1;
+        while (k < buf.length && buf[k].t < startT) k++;
+        buf = buf.slice(k);
+      }
+      return result;
+    }
+
+    return { add, reset, get result() { return result; } };
+  }
+
   /**
    * @param S     settings object (read live; the page may mutate it between sessions)
    * @param opts  { onEvent: fn({type, t, ...}) }
@@ -139,8 +239,10 @@
       qOff: null, devOff: 0,                       // orientation when the finger left the frame; drift from it (deg, D-56)
       trig: null, lastTrace: null, shots: [], tally: newTally(),
       touches: new Map(),
+      axisEst: null,                               // advisory gyro-axis estimate {cand, margin, motionS, windows} (D-57)
     };
     let grav = null, vw = 1, vh = 1;
+    const axisEstimator = createAxisEstimator();
 
     // 'auto' = x/y/z rotationRate order on every platform (the only order real recordings fit; D-52).
     const axisMode = () => (S.axisMode === 'auto' ? 'ios' : S.axisMode);
@@ -151,6 +253,9 @@
         st.refSet = false; st.dev180 = 0; st.prevW = null;   // orientation since downrange is unknown; must set it again
         emit({ type: 'downrangeLost', t: m.t });
       }
+      // A long gap restarts the advisory axis estimate too (D-57); it never feeds back into the engine.
+      if (st.lastMotionT && m.t - st.lastMotionT > K.ORIENT_GAP_MS) axisEstimator.reset();
+      st.axisEst = axisEstimator.add(m);
       // Rotation during a long gap is unknown: restart the off-frame drift reference after this step (D-56).
       const reOff = !!st.qOff && st.lastMotionT > 0 && m.t - st.lastMotionT > K.ORIENT_GAP_MS;
       const gapS = st.lastMotionT ? Math.max(0, (m.t - st.lastMotionT) / 1000) : 0;
@@ -386,7 +491,9 @@
       emit({ type: 'downrange', t });
     }
 
-    function resetStats() { st.shots = []; st.violations = 0; st.breaks180 = 0; st.lastTrace = null; st.tally = newTally(); }
+    function resetStats() { st.shots = []; st.violations = 0; st.breaks180 = 0; st.lastTrace = null; st.tally = newTally();
+      axisEstimator.reset(); st.axisEst = null;
+    }
 
     return { motion, touches, tick, setPaused, setDownrange, resetStats, state: st, version: VERSION };
   }
