@@ -35,6 +35,24 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-012 — Show the run-time gyro-axis estimate in the debug readout (D-57)
+
+- **Closed:** 2026-10-21 · **Outcome:** done-with-deviations (agent-verifiable half; the Pixel 11 readout check is deferred by Ricky and tracked under WQ-006)
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff and re-ran the suites · **Round:** round-20261021-3
+- **Commits / PR:** af25af3 "WQ-012: Show the run-time gyro-axis estimate in the debug readout (D-57)" (merged to main as 5875c8b)
+
+**What was done.** `engine.js` gains a module-level `createAxisEstimator()` (`AXIS_EST`, `AXIS_CANDS`): a streaming port of E-2 with fused gravity from `tests/axis-estimate.js` (0.5 s / 0.25 s windows, 48 candidates, 5° rotation minimum, 0.1 s gap rule, same candidate names and runner-up/best margin), scored once per completed window with its own quaternion integration (`st.q`, `st.prevW` and the D-62 bridge untouched). `motion()` feeds it raw a/b/g and never reads `axisMode()`; it emits no events. `st.axisEst = {cand, margin, motionS, windows}` (null until the first window), reset in `resetStats()` and after any motion gap over `ORIENT_GAP_MS`. `index.html` debug readout shows `axis est <cand> ×<margin> (<motionS>s)` or `axis est —`; `window.__tdt()` exposes `axisEst`. `tests/replay.js` prints an INFO `axisEst` line for recordings over 5 s. Docs: `CLAUDE.md` `motion(m)` row and "Gyro axis order" bullet, `docs/RECORDINGS.md`, `docs/PROPOSAL_2026-10-20.md` 3.6 step 1 marked done, D-70 (`Claude (proposed)`). No `VERSION` bump.
+
+**Why.** D-57 (Ricky): advisory estimate in the debug readout only, collecting evidence for a later auto-switch without changing behaviour.
+
+**Deviations.** (1) The estimator restarts after any motion gap over `ORIENT_GAP_MS`, downrange set or not (the engine's own gap reset fires only when `refSet` is true); so `pixel-11/tdt-free-2026-10-20-22-40-27.json` (a 5.4 s gap) ends with 113 windows and margin 135.99 instead of the offline 209 and 305.50. (2) A live stream has no end, so a final window shorter than 0.5 s is never counted (the harness counts it); no result changed. (3) A window is skipped if any sample lacks `acceleration` or `accelerationIncludingGravity`; the harness skips the whole recording. (4) No smoke check added. All in D-70.
+
+**Verification.** Orchestrator on merged main: `npm test` passes all three suites (replay "all passed (38 recordings)", smoke "all passed", roundtrip "all passed"); `npm run test:replay` carries 27 new `INFO  axisEst` lines and nothing else differs. End-of-replay estimates: every Pixel 11 recording ends `xyz`; margins 11.47 (`axis-up`), 12.36 (`axis-right`), 36.00 (the 4.5 s `safe-move`, checked by hand), and 47.20 to 251.06 for the rest. Every iPhone 15 recording ends `xyz`; lowest margins 3.04 (`clean-press`) and 3.53 (`jerked-press`), the rest 24.33 to over 999. All 11 synthetic recordings end `null` (no gravity). Agent compared against `npm run axis-estimate -- --gravity=fused`: identical estimate, margin and window count on every phone recording except the gap case above. NOT verified (owner, Pixel 11): with the sensor readout on, after a few seconds of handling the line reads `axis est xyz ×n` with n above 1.5.
+
+**Follow-ups.** None new; the auto-switch with a confidence gate (proposal 3.6 steps 2–3) stays in the parking lot pending a Ricky decision.
+
+---
+
 ### WQ-007 — Exclude shots fired during an alarm from the summary percentages (D-45)
 
 - **Closed:** 2026-10-21 · **Outcome:** done-with-deviations

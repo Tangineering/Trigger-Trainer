@@ -32,7 +32,6 @@ updated: 2026-10-21
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | claimed:round-20261021-3 | — | axis |
 | WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | queued | — | layout |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -53,7 +52,7 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-013, WQ-014 and WQ-015 are collected below, so phone work lives in one item)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014 and WQ-015 are collected below, so phone work lives in one item)
 - **Depends on:** — · **Blocks:** —
 
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
@@ -83,6 +82,8 @@ notes the result here and in the item's entry):
   overlay appears and the trainer disarms (WQ-013). Re-record `180-break` and `free` on the iPhone and check the
   files carry no `p` rows at the flips.
 - iPhone 15: the 3-minute jig drift drill with engine 0.11.0 or later; every rest under 5° (WQ-014, D-62).
+- Pixel 11, sensor readout on: after a few seconds of handling the debug line reads `axis est xyz ×n` with n
+  above 1.5 (WQ-012, D-57).
 
 **Context.** Everything measured so far comes from one Pixel 11. Three open points need a second
 phone each: the iPhone gyro axis order (Q1), whether the iOS misdetection also affects other
@@ -110,54 +111,6 @@ Pixel-specific. Three short drills per phone answer all three.
   raised); Q1, Q11 and the contact-size note are updated with the measured facts.
 
 **Verification.** The "Axis verdict" lines for each phone quoted in the completion entry.
-
----
-
-### WQ-012 — Show the run-time gyro-axis estimate in the debug readout (D-57)
-
-- **Status:** claimed:round-20261021-3 · **Priority:** P2 · **Size:** M · **Track:** axis · **Env:** any
-- **Added:** 2026-10-20 by orchestration session (from WQ-004's follow-up (c); Q13 answered yes → D-57)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** WQ-004 measured offline (D-55, `docs/PROPOSAL_2026-10-20.md` section 3.7) that estimator E-2 with
-fused gravity (`accelerationIncludingGravity − acceleration`) ranks the x/y/z order first on all 15 Pixel 11
-recordings, minimum margin 11.47, decision within 0.7 s of motion. Ricky decided (D-57): show that estimate in
-the debug readout, advisory only — the engine keeps using `axisMode` (D-52). This collects the evidence for a
-later auto-switch (proposal 3.6 steps 2–3) without changing behaviour. The reference implementation is
-`tests/axis-estimate.js` (E-2, `fused` gravity source, candidate table and quaternion step).
-
-**Scope.**
-- `engine.js`: add a running E-2 estimator fed from `motion(m)` (line 135 at commit 139dc5f; `m` carries
-  `ax, ay, az` = `acceleration` and `gx, gy, gz` = `accelerationIncludingGravity`). Port the E-2 window
-  integration from `tests/axis-estimate.js` (0.5 s windows, step 0.25 s, all 48 candidates, fused gravity;
-  skip windows where `acceleration` is null, as on a phone that does not report it). Keep a running residual
-  sum per candidate and expose `st.axisEst = { cand, margin, motionS, windows }` (best candidate name as the
-  harness prints it — `xyz`, `spec`, or the signed permutation — runner-up/best margin, seconds of motion
-  seen, windows counted); `null` until the first window completes. Reset it in `resetStats()` and on the
-  motion-gap reset (line 137). The estimator must not read or change `axisMode()` and must emit no events: engine
-  outputs for the same inputs are unchanged, so no `VERSION` bump (state the `npm run test:replay` diff is empty).
-- Keep it cheap: one quaternion step per sample is already done for `st.q`; the 48-candidate window
-  comparison runs once per 0.25 s, not per sample.
-- `index.html`: in the debug readout (line 626 area), add a line `axis est <cand> ×<margin> (<motionS>s)` or
-  `axis est —` when `null`; nothing outside the debug readout changes.
-- `tests/replay.js`: after replaying each recording, print one INFO line with `state.axisEst` for recordings
-  longer than 5 s (no pass/fail).
-- Docs pass: `CLAUDE.md` engine table (`motion` row) and the "Gyro axis order" bullet; `docs/RECORDINGS.md`
-  "how to run" paragraph gets a sentence that the same estimate is live in the debug readout; `docs/PROPOSAL_2026-10-20.md`
-  section 3.6 marks step 1 as done.
-- Out of scope: changing which mapping the engine uses; any confidence gate or auto-switch; the Settings panel;
-  `tests/axis-estimate.js` itself.
-
-**Acceptance.**
-- `npm test` passes; `npm run test:replay` output is identical to before apart from the new INFO lines (diff
-  quoted in the entry) — no `VERSION` bump.
-- Replaying every `tests/recordings/pixel-11/` recording longer than 5 s ends with `state.axisEst.cand === 'xyz'`
-  and `margin ≥ 1.5` (list them with their margins; the 4.5 s `safe-move` recordings may be `null`).
-- Synthetic recordings (no gravity) end with `axisEst === null` and otherwise unchanged events.
-- Owner-verifiable (Pixel 11): with the sensor readout on, after a few seconds of handling the line reads
-  `axis est xyz ×<n>` with n above 1.5.
-
-**Verification.** `npm test`; the per-recording `axisEst` lines quoted in the entry; the empty replay diff.
 
 ---
 
