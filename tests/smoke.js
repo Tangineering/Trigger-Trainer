@@ -33,11 +33,30 @@ const check = (name, cond, state) => {
   // Volume on the start screen: same control as Settings, same stored value.
   await page.$eval('#s_slidersStart_volume', el => { el.value = '0.35'; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); });
   check('start-screen volume slider sets the app volume',
-    await page.evaluate(() => JSON.parse(localStorage.getItem('tdt.settings.v1')).volume) === 0.35);
+    await page.evaluate(() => localStorage.getItem('tdt.settings.v2')) === JSON.stringify({ volume: 0.35 }));
   check('settings volume slider shows the same value',
     await page.$eval('#s_sliders4_volume', el => +el.value) === 0.35);
   await page.mouse.up(); await page.waitForTimeout(50);
   s0 = await st(); check('releasing Test sound stops it', s0.alarmSound === null && !s0.running, s0);
+
+  // Settings persistence (D-64): only changed settings are stored, under tdt.settings.v2.
+  const stored = () => page.evaluate(() => localStorage.getItem('tdt.settings.v2'));
+  const setVol = v => page.$eval('#s_slidersStart_volume', (el, v) => { el.value = v; el.dispatchEvent(new Event('input')); }, v);
+  await page.reload();
+  check('reload keeps the changed volume', await page.$eval('#s_slidersStart_volume', el => +el.value) === 0.35);
+  const defVol = String(require('../engine.js').DEFAULTS.volume);
+  await setVol(defVol);
+  check('volume back to its default removes the stored key', await stored() === null);
+  await page.evaluate(() => { localStorage.removeItem('tdt.settings.v2');
+    localStorage.setItem('tdt.settings.v1', JSON.stringify({ jerkMs: 500, volume: 0.35, requireFlat: true })); });
+  await page.reload();
+  check('v1 save migrates to the changed settings only',
+    await stored() === JSON.stringify({ volume: 0.35 }) && await page.evaluate(() => localStorage.getItem('tdt.settings.v1')) === null);
+  await page.$eval('#resetDefaults', el => el.click());
+  check('Restore defaults removes the stored key', await stored() === null);
+  await page.reload();
+  check('after Restore defaults a reload keeps the default volume', await page.$eval('#s_slidersStart_volume', el => el.value) === defVol);
+  await setVol('0.35');                       // leave the page as before these checks
 
   await page.click('#startBtn');
   await page.waitForTimeout(150);

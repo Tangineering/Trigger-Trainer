@@ -94,7 +94,7 @@ inside the engine.
 
 | Piece | What it does |
 |---|---|
-| `S` | Settings, persisted under `localStorage['tdt.settings.v1']`. Bump the key if the schema changes incompatibly. |
+| `S` | Settings: always the full object (`DEFAULTS` merged with the stored changes). `localStorage['tdt.settings.v2']` holds only the keys whose value differs from `DEFAULTS` (D-64), so a default changed in the code reaches every phone where that setting was never moved; moving a setting back to its default drops its key. **Restore defaults** removes the stored key. A `tdt.settings.v1` whole-object save is migrated once at load (D-66). Bump the key if the schema changes incompatibly. |
 | `Snd` | Web Audio: `ok()`, `shot()`, `startAlarm(kind)/stopAlarm()` (`move` beeps, `180` wail). `bindTestSound()` wires the hold-to-test buttons (start screen warning box, Settings). Created/resumed inside the Start tap (iOS unlock). Sets `navigator.audioSession.type='playback'` where available (iOS 17+ silent switch). |
 | `onMotion` / `onTouch` / `onMouse` | Convert events with `TDT.fromDeviceMotion` / `fromTouch`, feed the engine, and log the same row if recording. |
 | `tick` (rAF) | Pauses the engine when not running / settings open / portrait / hidden, logs a frame row, calls `engine.tick`, renders. |

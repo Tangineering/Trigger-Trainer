@@ -287,10 +287,31 @@
 const { DEFAULTS, ZONES } = TDT;
 
 /* ======================= settings ======================= */
-const KEY = 'tdt.settings.v1';
+// Only settings that differ from DEFAULTS are stored (D-64), so a default changed in the code reaches
+// every phone whose user never moved that setting. S itself is always the full merged object.
+const KEY = 'tdt.settings.v2', KEY_V1 = 'tdt.settings.v1';
+const changedFrom = (o, skip) => {            // keys of DEFAULTS whose value in o differs from the default
+  const d = {};
+  for (const k of Object.keys(DEFAULTS)) if (o && k in o && o[k] !== DEFAULTS[k] && !(skip && skip(k, o[k]))) d[k] = o[k];
+  return d;
+};
+try {                                         // one-time migration of a whole-object v1 save (D-66)
+  const v1 = localStorage.getItem(KEY_V1);
+  if (v1 && localStorage.getItem(KEY) === null) {
+    const d = changedFrom(JSON.parse(v1), (k, v) => k === 'jerkMs' && v === 500);   // 500 was the pre-D-47 default
+    if (Object.keys(d).length) localStorage.setItem(KEY, JSON.stringify(d));
+  }
+  if (v1) localStorage.removeItem(KEY_V1);
+} catch (e) {}
 let S = Object.assign({}, DEFAULTS);
-try { const raw = localStorage.getItem(KEY); if (raw) Object.assign(S, JSON.parse(raw)); } catch (e) {}
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+try { const raw = localStorage.getItem(KEY); if (raw) Object.assign(S, changedFrom(JSON.parse(raw))); } catch (e) {}
+const save = () => {
+  try {
+    const d = changedFrom(S);
+    if (Object.keys(d).length) localStorage.setItem(KEY, JSON.stringify(d)); else localStorage.removeItem(KEY);
+  } catch (e) {}
+};
+const clearSaved = () => { try { localStorage.removeItem(KEY); localStorage.removeItem(KEY_V1); } catch (e) {} };
 
 // User-agent test only (D-53): Android Chrome also exposes DeviceMotionEvent.requestPermission.
 // Used for the recorder's device.ios field and the debug readout; behavior uses feature checks.
@@ -729,7 +750,7 @@ function bindSettings() {
   $('debugChk').addEventListener('change', e => { S.debug = e.target.checked; save(); layout(); });
   $('axisZero').addEventListener('click', () => { axisZero = { h: engine.state.aimH, v: engine.state.aimV }; });
   $('resetStats').addEventListener('click', () => { engine.resetStats(); sessionT0 = running ? now() : 0; renderStats(); drawTarget(engine.state); });
-  $('resetDefaults').addEventListener('click', () => { S = Object.assign({}, DEFAULTS); save(); newEngine(); buildSettings(); Snd.setVolume(S.volume); layout(); });
+  $('resetDefaults').addEventListener('click', () => { S = Object.assign({}, DEFAULTS); clearSaved(); newEngine(); buildSettings(); Snd.setVolume(S.volume); layout(); });
 
   $('recLabel').innerHTML = DRILLS.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
   const showHint = () => { $('recHint').textContent = (DRILLS.find(d => d.id === $('recLabel').value) || {}).hint || ''; };
