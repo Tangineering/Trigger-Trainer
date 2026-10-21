@@ -32,7 +32,7 @@ updated: 2026-10-21
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | claimed:round-20261021-4 | — | layout |
+| WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | blocked:user | — | layout |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -116,9 +116,22 @@ Pixel-specific. Three short drills per phone answer all three.
 
 ### WQ-016 — Rework the frame strip, trigger guard and trigger layout; travel 60 px
 
-- **Status:** claimed:round-20261021-4 · **Priority:** P2 · **Size:** M · **Track:** layout · **Env:** browser
-- **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments) · **Updated:** 2026-10-21 by the same session (guard shape specified: rear curve and a 30° rear leg joining the grip; guard front edge +20 px approved)
+- **Status:** blocked:user · **Priority:** P2 · **Size:** M · **Track:** layout · **Env:** browser
+- **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments) · **Updated:** 2026-10-21 by the same session (guard shape specified: rear curve and a 30° rear leg joining the grip; guard front edge +20 px approved); 2026-10-21 by orchestration session (round-20261021-4: implemented in full on branch `wq-016`, commits 191ef2d, 0b8d59e, 57eea08, pushed to origin, not merged — five real recordings change their replayed events, so the item waits on Q17)
 - **Depends on:** — · **Blocks:** —
+
+**Owner decision needed (Q17).** The branch `wq-016` holds the complete change (`npm test` passes, 63 smoke
+checks, screenshots in `docs/screenshots/wq-016/`). Merging it changes the replayed events of five real
+recordings; every drill expectation still passes. Three of the five show fingers that already rested just below
+the old strip edge (y .50–.54) and now count as on the frame, which is the point of the taller strip. One shows
+the forward trigger engaging 8 ms sooner. One (`iphone-15/jerked-press`) shows the trigger finger drifting up to
+y .540 during a reset and counting as on the frame while still on the trigger: the new strip bottom (.544) sits
+only .03 above the new trigger top (.574). Answer with one line:
+- **(a)** accept all five as the intended effect of D-71: the orchestrator merges `wq-016` and archives;
+- **(b)** accept, but close the strip/trigger overlap first: a gap between the strip bottom and the trigger top,
+  or "an engaged trigger touch never counts as frame contact" — say which, and it is added to this item before
+  the merge;
+- **(c)** re-record the affected drills on the new layout instead (the five files are named in Q17).
 
 **Context.** Ricky asked for four layout adjustments to the pistol side view (2026-10-21, verbatim):
 "Increase the height of the frame safe button by 20%, keeping the slide at the same size but shifting the
