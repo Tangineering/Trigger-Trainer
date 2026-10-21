@@ -32,8 +32,8 @@ updated: 2026-10-21
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
-| WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | queued | — | axis |
+| WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | claimed:round-20261021-3 | — | grading |
+| WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | claimed:round-20261021-3 | — | axis |
 | WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | queued | — | layout |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -116,7 +116,7 @@ Pixel-specific. Three short drills per phone answer all three.
 
 ### WQ-007 — Exclude shots fired during an alarm from the summary percentages (D-45)
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** grading · **Env:** any
+- **Status:** claimed:round-20261021-3 · **Priority:** P2 · **Size:** S · **Track:** grading · **Env:** any
 - **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-20 by recordings-review session (Ricky chose option 2 → D-45; re-queued)
 - **Depends on:** — · **Blocks:** —
 
@@ -155,7 +155,7 @@ plotted, but exclude them from the percentages and the "steadiest press" stat.
 
 ### WQ-012 — Show the run-time gyro-axis estimate in the debug readout (D-57)
 
-- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** axis · **Env:** any
+- **Status:** claimed:round-20261021-3 · **Priority:** P2 · **Size:** M · **Track:** axis · **Env:** any
 - **Added:** 2026-10-20 by orchestration session (from WQ-004's follow-up (c); Q13 answered yes → D-57)
 - **Depends on:** — · **Blocks:** —
 
