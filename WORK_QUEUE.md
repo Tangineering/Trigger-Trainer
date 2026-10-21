@@ -37,7 +37,7 @@ updated: 2026-10-21
 | WQ-013 | Pause on portrait only after it has persisted for 3 s (D-60) | P1 | M | queued | — | ui |
 | WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
 | WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | queued | — | axis |
-| WQ-014 | Bridge `devicemotion` gaps in the 180 orientation integration (Q16) | P2 | S | blocked:user | — | alarm |
+| WQ-014 | Bridge `devicemotion` gaps in the 180 orientation integration (D-62) | P2 | S | queued | — | alarm |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -349,10 +349,10 @@ later auto-switch (proposal 3.6 steps 2–3) without changing behaviour. The ref
 
 ---
 
-### WQ-014 — Bridge `devicemotion` gaps in the 180 orientation integration (Q16)
+### WQ-014 — Bridge `devicemotion` gaps in the 180 orientation integration (D-62)
 
-- **Status:** blocked:user · **Priority:** P2 · **Size:** S · **Track:** alarm · **Env:** any
-- **Added:** 2026-10-21 by iPhone-15 analysis session (from I-05, D-61)
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** alarm · **Env:** any
+- **Added:** 2026-10-21 by iPhone-15 analysis session (from I-05, D-61) · **Updated:** 2026-10-21 by the same session (Q16 answered yes → D-62; 300 ms cap folded into Scope)
 - **Depends on:** — · **Blocks:** —
 
 **Context.** iOS Safari stops delivering `devicemotion` for 98–123 ms at every portrait flip (four flips in
@@ -366,15 +366,17 @@ set has no gaps. Offline, bridging gaps with the mean of the rates before and af
 the iPhone rests to 2.7°, 3.3°, 1.6° and left the Pixel 11 at 1.6°, 1.2°, 0.6°. Crediting less of the gap
 (40 ms, 17 ms, none) made it worse (13°–23°).
 
-**Owner decision needed.** Q16: bridge the gaps as proposed (yes → re-queue; no → drop the item and accept
-up to ~9° of 180 error per fast swing through a flip)?
+**Decision.** D-62 (Ricky, 2026-10-21): bridge the gaps as below, with the credited gap capped at 300 ms. The
+cap bounds the damage from a long stall with non-zero rates: today's rule credits at most 100 ms of rotation, and
+an uncapped bridge over a 1 s gap at a 100 °/s mean could add 90° of fictitious rotation.
 
 **Scope.** `engine.js` only.
 - In `motion()`, keep the existing `dt` (clamped to `K.MAX_DT_S`) for the rate EMA and the trace (`aimH`,
   `aimV`), so the movement alarm and the shot grading are untouched.
+- Add `ORIENT_BRIDGE_MS: 300` to `K` next to `ORIENT_GAP_MS` (line 60), with a comment: longest motion gap
+  bridged in the 180 orientation; longer gaps are credited 300 ms and gaps over `ORIENT_GAP_MS` clear downrange.
 - For the quaternion step (line 177, `ox/oy/oz`), use a separate `dtQ` = the raw gap clamped to
-  `K.ORIENT_GAP_MS / 1000` (a longer gap already clears downrange a few lines above), and the mean of the
-  current and previous body-frame rates (`wx, wy, wz`; store the previous triple on `st`, reset it in
+  `K.ORIENT_BRIDGE_MS / 1000`, and the mean of the current and previous body-frame rates (`wx, wy, wz`; store the previous triple on `st`, reset it in
   `setDownrange` and when `refSet` is cleared). First sample after downrange: `dtQ` = 0 as today.
 - Bump `VERSION` (0.9.0 → 0.10.0): five recordings change the `dev` figure in their `alarmStart` rows
   (`iphone-15/180-break`, `iphone-15/free`, `pixel-11/180-break`, `pixel-11/free-…23-27-38`,
@@ -389,7 +391,8 @@ up to ~9° of 180 error per fast swing through a flip)?
 **Acceptance.**
 - `npm test` passes; every recording keeps its expectation result and its event count.
 - Replaying `tests/recordings/iphone-15/tdt-free-2026-10-21-03-38-03.json` ends with `state.dev180` under
-  3° (today 8.6°); `tests/recordings/pixel-11/tdt-free-2026-10-20-23-27-38.json` under 1° (today 0.7°).
+  3.5° (today 8.6°; the offline trial without the cap read 1.6°, every real gap in the set is under 300 ms so
+  the cap should not change that figure — report it); `tests/recordings/pixel-11/tdt-free-2026-10-20-23-27-38.json` under 1° (today 0.7°).
 - Owner-verifiable (iPhone 15): repeat the jig drift drill for 3 minutes (WQ-006's remaining run) with the
   new engine; every rest reads under 5°.
 
