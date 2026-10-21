@@ -51,7 +51,7 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015 and WQ-016 are collected below, so phone work lives in one item)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (D-76: Ricky will re-record the full drill set on the 0.12.0 layout on both phones; the old sets become legacy — see "Re-record on the new layout" below); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015 and WQ-016 are collected below, so phone work lives in one item)
 - **Depends on:** — · **Blocks:** —
 
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
@@ -91,6 +91,21 @@ phone each: the iPhone gyro axis order (Q1), whether the iOS misdetection also a
 Android phones (Q11), and whether the missing touch contact size (`CLAUDE.md`, "Contact size") is
 Pixel-specific. Three short drills per phone answer all three.
 
+**Re-record on the new layout (D-76, Ricky 2026-10-21).** WQ-016 changed the zones (taller, longer frame strip;
+trigger 20 px forward; 60 px travel) and WQ-011 added the 5° off-frame limit, so the 2026-10-20/21 recordings were
+made on a layout and rules that no longer exist, and three Pixel recordings already replay differently
+(`WORK_COMPLETED.md`, WQ-016). Owner half: on the Pixel 11 and the iPhone 15, from the deployed page at engine
+0.12.0 or later, record the full drill set of `docs/RECORDINGS.md` again (`axis-up`, `axis-right`, `safe-move`,
+`off-frame-still`, `off-frame-move`, `clean-press`, `jerked-press`, `press-wobble`, `trigger-sweep`, `180-safe`,
+`180-break`, and a `free` run), with the phone model and "layout 0.12.0" in the notes; save into
+`tests/recordings/<phone>/` beside the old files and commit. Agent half, once a phone's new set is in: run
+`npm run test:replay`; confirm every new recording's live-equals-replay check passes and every drill expectation
+passes with `auto`; then mark that phone's pre-0.12.0 files legacy — move them to `tests/recordings/<phone>/legacy/`
+(the replay test keeps replaying them for live-equals-replay, but `tests/replay.js` skips drill expectations for
+files under a `legacy/` folder; add that rule and document it in `docs/RECORDINGS.md`), and tighten the D-67
+expectations back (`jerked-press` zero alarms, `safe-move` zero alarms) if the new sets allow it, saying so in the
+entry. If a new recording fails an expectation, stop and report it (do not edit the recording).
+
 **Scope.** On each additional phone (an iPhone; any non-Pixel Android), from the deployed HTTPS page:
 - Record `axis-up`, `axis-right` and `clean-press` as described in `docs/RECORDINGS.md`, with the phone
   model in the notes field.
@@ -108,6 +123,8 @@ Pixel-specific. Three short drills per phone answer all three.
 
 **Acceptance.**
 - Owner-verifiable: the three drill recordings and the drift recording per phone exist under a per-phone folder.
+- Owner-verifiable (D-76): a full 0.12.0 drill set per phone exists under `tests/recordings/<phone>/`.
+- Agent-verifiable (D-76): the new sets pass; the old sets sit under `legacy/` and still replay; `docs/RECORDINGS.md` describes the legacy rule.
 - Agent-verifiable: `npm run test:replay` passes (or WQ-003's guard fails and a follow-up item is
   raised); Q1, Q11 and the contact-size note are updated with the measured facts.
 
