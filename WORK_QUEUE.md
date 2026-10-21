@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-015
+next_id: WQ-016
 updated: 2026-10-21
 ```
 
@@ -35,6 +35,7 @@ updated: 2026-10-21
 | WQ-003 | Fail the replay test when `auto` disagrees with a phone's axis verdict | P1 | S | queued | — | axis |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-013 | Pause on portrait only after it has persisted for 3 s (D-60) | P1 | M | queued | — | ui |
+| WQ-015 | Store only user-changed settings so code defaults reach every phone (D-64) | P1 | S | queued | — | ui |
 | WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
 | WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | queued | — | axis |
 | WQ-014 | Bridge `devicemotion` gaps in the 180 orientation integration (D-62) | P2 | S | queued | — | alarm |
@@ -262,6 +263,60 @@ entry; D-60 cited, the touch-hold reading logged as `Claude (proposed)`; the own
 
 ---
 
+### WQ-015 — Store only user-changed settings so code defaults reach every phone (D-64)
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** ui · **Env:** any
+- **Added:** 2026-10-21 by orchestration session (Q12 answered → D-64; from WQ-010's follow-up)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** `index.html` saves the whole settings object to `localStorage['tdt.settings.v1']` on every change
+(`save`, line 293 at commit 7e2b132) and loads it over `TDT.DEFAULTS` at start (line 291–292). So the first time a
+user touches any slider, every default of that moment is frozen on that phone: the class Pixel 11 still runs
+`jerkMs: 500` after D-47 lowered the default to 300 (WQ-010), and every later default change (the 5° limit of
+WQ-011, Q2 tuning) would be lost the same way. Ricky decided (D-64, Q12 option 3): persist only the settings
+the user changed, so untouched settings always follow the code's defaults, and "Restore defaults" clears every
+stored change.
+
+**Scope.** `index.html` only; `engine.js` unchanged (no `VERSION` bump).
+- New storage key `KEY = 'tdt.settings.v2'` (line 290). The stored value is an object holding only the keys
+  whose value differs from `DEFAULTS` (compare with `!==`; all settings are numbers, booleans or short strings).
+- `save()` (line 293): build that diff from `S` and `DEFAULTS` and store it; store nothing (remove the key)
+  when the diff is empty. The `S` object itself stays a full merged object (`Object.assign({}, DEFAULTS, diff)`),
+  so every reader of `S` is unchanged. The slider `input` handler (line 714) and the checkbox `change` handler
+  (line 728) keep calling `save()`; moving a slider back to its default value therefore drops the key.
+- Load (line 291–292): `S = Object.assign({}, DEFAULTS, stored v2 diff)`. Ignore keys that are not in
+  `DEFAULTS`.
+- One-time migration of a `tdt.settings.v1` save (`Claude (proposed)`, log it in `docs/DECISIONS.md`): when no
+  `v2` key exists and a `v1` object does, keep from it only the keys that are in `DEFAULTS` and differ from the
+  current default, except `jerkMs` when it equals 500 (the only default that changed since `v1` saves began,
+  D-47, so a stored 500 is the old default, not a user choice); write the result as `v2` and remove `v1`. Wrap
+  all of it in the same try/catch style as today (the page must work without `localStorage`, constraint 3).
+- **Restore defaults** (line 732): also remove the `v2` key (and any leftover `v1`) rather than storing a copy
+  of `DEFAULTS`; the rest of the handler stays.
+- `tests/smoke.js` line 36 reads `tdt.settings.v1`: change it to the `v2` key and the diff shape (after moving
+  the volume slider to 0.35, the stored object is exactly `{ volume: 0.35 }`). Add checks: reload the page and
+  the volume is still 0.35; set the slider back to the default and the key is gone; a seeded `v1` object
+  `{ jerkMs: 500, volume: 0.35, requireFlat: true }` migrates to `{ volume: 0.35 }`; "Restore defaults" after a
+  change removes the key.
+- Docs pass: `CLAUDE.md` `index.html` table, `S` row (new key, diff semantics, "Restore defaults" clears the
+  store); `docs/CLASS_USE.md` where it mentions Settings persisting or "Restore defaults".
+- Out of scope: `engine.js`; any new setting (WQ-011 adds `offFrameDeg` and needs no change here); the
+  Settings layout. This item touches `index.html`, so it never runs in the same round as another
+  `index.html` item (WQ-011, WQ-013, WQ-007, WQ-012).
+
+**Acceptance.**
+- `npm test` passes with the new smoke checks; `npm run test:replay` output is identical to before (diff
+  quoted in the completion entry).
+- `grep -n "tdt.settings.v1" index.html` finds only the migration code.
+- Owner-verifiable (Pixel 11 with its old saved settings): after loading the updated page once, Settings shows
+  `jerkMs` at 300 while any slider you had deliberately moved keeps its value; "Restore defaults" returns every
+  slider to the code defaults and a reload keeps them there.
+
+**Verification.** `npm test`; the smoke output for the new checks and the empty replay diff quoted in the
+completion entry; the migration rule logged as `Claude (proposed)`.
+
+---
+
 ### WQ-007 — Exclude shots fired during an alarm from the summary percentages (D-45)
 
 - **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** grading · **Env:** any
@@ -408,8 +463,6 @@ promote one with `work-queue-add`):
 
 - **Auto-switch of the axis mapping with a confidence gate** (proposal 3.6 steps 2–3). The advisory
   readout is WQ-012 (D-57); the switch waits for a second phone's recordings (WQ-006) and a Ricky decision.
-- **Settings migration so changed defaults reach phones with saved settings** (Q12, from WQ-010). The
-  class Pixel keeps `jerkMs: 500` after D-47. Becomes an item once Ricky picks an option in Q12.
 - **Synthetic recordings that can identify an axis mapping** (from WQ-004). `tests/make-synthetic.js` emits
   no `accelerationIncludingGravity` and only `180-safe` rotates about all three axes, so the harness has to
   simulate gravity and 10 of 11 synthetic drills tie. Emit gravity and add one three-axis drill; then drop the
