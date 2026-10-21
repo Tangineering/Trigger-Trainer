@@ -151,8 +151,16 @@ unmeasured (Q1); when the first iPhone axis recordings arrive, the test should f
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-20 by recordings-review session (added the jig drift drill per D-49)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-20 by iPhone-15 analysis session (iPhone half done; second Android phone remains)
 - **Depends on:** — · **Blocks:** —
+
+**Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
+drift `free` run, and the rest), and the analysis half ran for that phone: Q1 closed (axis verdict `ios`, D-58), Q11
+and the contact-size fact are in `CLAUDE.md` "Known platform facts", and the drift drill reads 8.5–9.3° at its rests
+(Q10; under D-49's 10° limit, but a 93 s run with no jig confirmation). Two findings went to `OPEN_QUESTIONS.md`
+rather than this item: its `clean-press` failed on its first shot (Moved at 0.96°; Q14, settled by trimming that press
+out of the file, D-59) and iOS flips to portrait and disarms during hard swings (Q15, I-04). Remaining: the second (non-Pixel) Android phone, plus a
+jig-confirmed 3-minute drift run on the iPhone if Ricky's Q10 answer calls for one.
 
 **Context.** Everything measured so far comes from one Pixel 11. Three open points need a second
 phone each: the iPhone gyro axis order (Q1), whether the iOS misdetection also affects other
@@ -284,7 +292,8 @@ promote one with `work-queue-add`):
   simulate gravity and 10 of 11 synthetic drills tie. Emit gravity and add one three-axis drill; then drop the
   simulation from `tests/axis-estimate.js`.
 - **Q2, default thresholds for beginners.** Needs labelled drills from several students; first data
-  point: one `clean-press` shot at 0.70° against the 0.75° Clean limit (Pixel 11, 2026-10-20).
+  points: one `clean-press` shot at 0.70° against the 0.75° Clean limit (Pixel 11, 2026-10-20) and the first iPhone 15
+  `clean-press` shot at 0.96° (trimmed out of the recording, D-59; the figure is from the untrimmed file).
 - **Q3 / Q4, zone layout and stray palm contact.** Needs class observation with the debug readout on;
   fallback is `docs/IDEAS.md` I-01 (per-student layout calibration).
 - **Re-record the three `safe-move` drills with the current engine.** The 0.6.0 recordings still pass
