@@ -101,7 +101,7 @@ inside the engine.
 | `S` | Settings: always the full object (`DEFAULTS` merged with the stored changes). `localStorage['tdt.settings.v2']` holds only the keys whose value differs from `DEFAULTS` (D-64), so a default changed in the code reaches every phone where that setting was never moved; moving a setting back to its default drops its key. **Restore defaults** removes the stored key. A `tdt.settings.v1` whole-object save is migrated once at load (D-66). Bump the key if the schema changes incompatibly. |
 | `Snd` | Web Audio: `ok()`, `shot()`, `startAlarm(kind)/stopAlarm()` (`move` beeps, `180` wail). `bindTestSound()` wires the hold-to-test buttons (start screen warning box, Settings). Created/resumed inside the Start tap (iOS unlock). Sets `navigator.audioSession.type='playback'` where available (iOS 17+ silent switch). |
 | `onMotion` / `onTouch` / `onMouse` | Convert events with `TDT.fromDeviceMotion` / `fromTouch`, feed the engine, and log the same row if recording. |
-| `tick` (rAF) | Pauses the engine when not running / settings open / portrait / hidden, logs a frame row, calls `engine.tick`, renders. |
+| `tick` (rAF) | Pauses the engine when not running / settings open / hidden, or once portrait has persisted `PORTRAIT_HOLD_MS` (3 s, D-60; the **Rotate to landscape** overlay appears then), logs a frame row, calls `engine.tick`, renders. While portrait is shorter than that, `onMotion` and `feedTouches` keep feeding the last landscape screen angle and touch list (D-68). |
 | `onEvent` | Engine events → sound, vibration, flash, alarm overlay; appended to `rec.observed` while recording. |
 | Recorder | `startRecording()` makes a fresh engine; `stopRecording(share)` saves (if `share`) and then opens Settings scrolled to the recorder (`openSettings('recorder')`); `saveRecording()` uses the share sheet when it accepts files, else a download. |
 | Settings overlay | Built from `SLIDERS`; includes live sensor readout, axis-check canvas, and the recorder. **Finish** opens the summary. |
@@ -121,7 +121,7 @@ kept as `qOff`; once `graceMs` has passed, a muzzle deviation `devOff` > `offFra
 180 rule (any state while armed): muzzle > `limit180Deg` from downrange → `ALARM (180)`, which also escalates a movement
 alarm; clears when back inside the limit by `HYST_180_DEG` with the finger on the frame. Only active after `setDownrange`;
 a motion gap > `ORIENT_GAP_MS` clears downrange (`downrangeLost`).
-Opening settings or the summary, backgrounding the page, or rotating to portrait disarms and silences.
+Opening settings or the summary, backgrounding the page, or a portrait orientation that persists for 3 s (D-60) disarms and silences.
 
 ## Known platform facts and unknowns
 

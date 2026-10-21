@@ -209,6 +209,33 @@ const check = (name, cond, state) => {
   await touch('touchEnd', []); await backOnFrame();
   s = await st(); check('back on the frame after the press clears it', s.onRest && !s.alarmActive && !s.trig, s);
 
+  // D-60 (WQ-013): a brief portrait report during a swing must not pause or disarm; portrait that
+  // persists for PORTRAIT_HOLD_MS (3 s) does, as before. Only innerWidth/innerHeight change here.
+  const stillFor = async ms => { const t0 = Date.now(); while (Date.now() - t0 < ms) await motion(0, 0, 5); };
+  const rotateShown = () => page.$eval('#rotateOv', el => getComputedStyle(el).display !== 'none');
+  // Start requested fullscreen (D-53); the window must be restored before it can be resized.
+  await page.evaluate(() => document.fullscreenElement && document.exitFullscreen().catch(() => {}));
+  await page.waitForTimeout(100);
+  await page.setViewportSize({ width: H, height: W });
+  await touch('touchMove', [[H / 2, W / 2, 1]]);             // finger still down; portrait coordinates
+  await stillFor(1500);
+  s = await st(); check('portrait for 1.5 s: still running, armed and safe, engine not paused',
+    s.running && s.armed && s.onRest && !s.paused && !s.portraitHeld, s);
+  check('portrait for 1.5 s: rotate overlay hidden', !(await rotateShown()));
+  await page.setViewportSize({ width: W, height: H });
+  await touch('touchMove', [REST]); await motion(0, 0, 8);
+  s = await st(); check('back to landscape after 1.5 s: still armed and safe', s.armed && s.onRest && !s.paused, s);
+  await page.setViewportSize({ width: H, height: W });
+  await stillFor(3500);
+  s = await st(); check('portrait for 3.5 s: engine paused and disarmed', s.paused && !s.armed && s.portraitHeld, s);
+  check('portrait for 3.5 s: rotate overlay shown', await rotateShown());
+  await touch('touchEnd', []);
+  await page.setViewportSize({ width: W, height: H }); await motion(0, 0, 8);
+  s = await st(); check('back to landscape: unpaused but not armed until the finger is on the frame',
+    !s.paused && !s.armed && !(await rotateShown()), s);
+  await backOnFrame();
+  s = await st(); check('finger back on the frame re-arms', s.armed && s.onRest, s);
+
   // Finish (Settings) → session summary; New session clears it and returns to the start screen.
   const shotsSoFar = (await st()).shots;
   await page.click('#gear'); await page.click('#finishBtn'); await page.waitForTimeout(50);
