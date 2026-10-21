@@ -32,7 +32,7 @@ updated: 2026-10-21
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | blocked:user | — | layout |
+| WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | claimed:round-20261021-5 | — | layout |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -116,22 +116,9 @@ Pixel-specific. Three short drills per phone answer all three.
 
 ### WQ-016 — Rework the frame strip, trigger guard and trigger layout; travel 60 px
 
-- **Status:** blocked:user · **Priority:** P2 · **Size:** M · **Track:** layout · **Env:** browser
-- **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments) · **Updated:** 2026-10-21 by the same session (guard shape specified: rear curve and a 30° rear leg joining the grip; guard front edge +20 px approved); 2026-10-21 by orchestration session (round-20261021-4: implemented in full on branch `wq-016`, commits 191ef2d, 0b8d59e, 57eea08, pushed to origin, not merged — five real recordings change their replayed events, so the item waits on Q17)
+- **Status:** claimed:round-20261021-5 · **Priority:** P2 · **Size:** M · **Track:** layout · **Env:** browser
+- **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments) · **Updated:** 2026-10-21 by the same session (guard shape specified: rear curve and a 30° rear leg joining the grip; guard front edge +20 px approved); 2026-10-21 by orchestration session (round-20261021-4: implemented in full on branch `wq-016`, commits 191ef2d, 0b8d59e, 57eea08, pushed to origin, not merged — five real recordings change their replayed events, so the item waited on Q17); 2026-10-21 by orchestration session (Q17 answered → D-75: trigger-wins rule folded into Scope; re-queued to finish on branch `wq-016`)
 - **Depends on:** — · **Blocks:** —
-
-**Owner decision needed (Q17).** The branch `wq-016` holds the complete change (`npm test` passes, 63 smoke
-checks, screenshots in `docs/screenshots/wq-016/`). Merging it changes the replayed events of five real
-recordings; every drill expectation still passes. Three of the five show fingers that already rested just below
-the old strip edge (y .50–.54) and now count as on the frame, which is the point of the taller strip. One shows
-the forward trigger engaging 8 ms sooner. One (`iphone-15/jerked-press`) shows the trigger finger drifting up to
-y .540 during a reset and counting as on the frame while still on the trigger: the new strip bottom (.544) sits
-only .03 above the new trigger top (.574). Answer with one line:
-- **(a)** accept all five as the intended effect of D-71: the orchestrator merges `wq-016` and archives;
-- **(b)** accept, but close the strip/trigger overlap first: a gap between the strip bottom and the trigger top,
-  or "an engaged trigger touch never counts as frame contact" — say which, and it is added to this item before
-  the merge;
-- **(c)** re-record the affected drills on the new layout instead (the five files are named in Q17).
 
 **Context.** Ricky asked for four layout adjustments to the pistol side view (2026-10-21, verbatim):
 "Increase the height of the frame safe button by 20%, keeping the slide at the same size but shifting the
@@ -200,6 +187,14 @@ bottom corners). Blade: `#blade` at `right: 14%` of the trigger zone, shifted by
   the orchestrator then decides with Ricky whether to re-record or adjust geometry. `tests/smoke.js`,
   `tests/roundtrip.js` and `tests/make-synthetic.js` touch the zone centres via `ZONES`, so they follow
   automatically; check they still hit the intended zone with the pixel offset.
+- **Trigger-wins rule (D-75, Ricky 2026-10-21; added after the first pass):** a touch that engaged the trigger
+  counts as on the trigger until it is lifted, wherever it moves, and never counts as frame contact. The engine
+  already ends the trigger only when the touch id disappears (`updateTrigger`, `engine.js`); the change is that
+  `restTouch()` skips the touch whose id is `st.trig.id`. Add a smoke check: a finger on the trigger that slides
+  up into the frame strip keeps the trigger engaged and does not arm or clear an alarm; lifting it and placing a
+  finger on the strip does. After the rule, replay every real recording again: `iphone-15/jerked-press` must no
+  longer gain the `alarmStop`/`ok` while engaged; the other four changes (D-75 note) are accepted; list any further
+  difference. `CLAUDE.md` Behavior spec: append a bullet for D-75.
 - Bump `engine.js` `VERSION` (outputs change for the same inputs).
 - Update the `ZONES` row in `CLAUDE.md`'s architecture table only if its wording no longer holds (append-only
   hub rule otherwise).
@@ -216,8 +211,10 @@ bottom corners). Blade: `#blade` at `right: 14%` of the trigger zone, shifted by
   the gun. Screenshots attached to the completion entry.
 - A touch at the drawn trigger zone's centre engages the trigger, and a touch at the drawn rest zone's centre
   arms the engine, in both hands (smoke test covers this).
-- `npm test` passes; the `test:replay` before/after comparison is recorded, and no real recording changes
-  outcome (otherwise the item stops per Scope).
+- `npm test` passes; the `test:replay` before/after comparison against `main` is recorded: exactly the four
+  accepted changes (`pixel-11/free-23-27-38` one alarm fewer; `pixel-11/clean-press` one `ok` fewer; `pixel-11/free-22-40-27`
+  `trigOn` 8 ms earlier; `iphone-15/press-wobble` `alarmStop` 811 ms earlier) and nothing in `iphone-15/jerked-press`
+  (D-75). Any other difference stops the item per Scope.
 - `docs/DECISIONS.md` has the Ricky row and the `Claude (proposed)` rows; `CLAUDE.md` Units line updated.
 - *Owner-verifiable:*
   - On a real iPhone and a real Android phone, the frame strip, trigger and guard feel natural to hold in
