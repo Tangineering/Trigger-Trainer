@@ -459,7 +459,7 @@ the owner line returned `blocked:owner-machine`.
 ### WQ-016 — Rework the frame strip, trigger guard and trigger layout; travel 60 px
 
 - **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** layout · **Env:** browser
-- **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments)
+- **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments) · **Updated:** 2026-10-21 by the same session (guard shape specified: rear curve and angled join to the grip; guard front edge +20 px approved)
 - **Depends on:** — · **Blocks:** —
 
 **Context.** Ricky asked for four layout adjustments to the pistol side view (2026-10-21, verbatim):
@@ -486,16 +486,29 @@ bottom corners). Blade: `#blade` at `right: 14%` of the trigger zone, shifted by
   (`y .55, h .43`) and the guard do not overlap visibly; adjust only `target` if they do, and say so.
 - **Rest extended rearwards:** the empty frame between the grip's front edge (x .24) and the rest's rear edge
   (x .38) is .14; halve it to .07 → `rest.x` .31, `rest.w` .65 (front edge stays at .96).
-- **Guard rear blends into the grip:** the guard's rear end should join the grip like a pistol's guard meets
-  the front strap: start the guard at the grip's front edge (x .24 or slightly overlapping), drop the rear
-  rounding/border so no gap or end cap shows, and keep the front curve. CSS-only if possible (`.guard`,
-  plus the left-handed mirror via `.lh`). Keep imagery generic (constraint 5).
+- **Guard rear blends into the grip (shape specified by Ricky, 2026-10-21):** the guard becomes a single
+  continuous bar of the same colour and thickness as today (`--frame`, ~7–8 px), traced front to rear:
+  1. front edge: straight down from the underside of the frame, at the guard zone's front edge;
+  2. front-bottom corner: a rounded corner (radius about 40 px at 852 px wide);
+  3. bottom: a straight run rearwards, under the trigger, to about 30% of the guard width from its rear end;
+  4. rear-bottom corner: a **rear curve** (radius about 25 px) turning the bar upwards;
+  5. rear leg: a straight **diagonal** rising up and rearwards, which meets the grip's front edge **at an
+     angle** about 30% of the guard height below the guard's top, finishing with a small fillet into the
+     grip so there is no gap, end cap or visible seam.
+  Ricky's reference was a side photo of a typical polymer-frame pistol, where the rear of the guard sweeps up
+  into the front strap at an angle; match the feel, not any particular model (constraint 5: generic imagery,
+  no brand or model likeness). The guard zone therefore starts at the grip's front edge: `guard.x` .26 → .24,
+  and its width grows by the .02 plus the 20 px front shift below. The shape cannot be drawn with CSS
+  borders; draw it as an inline SVG path inside the `.guard` element (stretched to the zone with
+  `preserveAspectRatio="none"` and `vector-effect: non-scaling-stroke`, or with the path rebuilt in `layout()`
+  from the zone's pixel size — implementer's choice, logged as `Claude (proposed)`), mirrored for left-handed
+  use via `.lh`. The guard stays drawing-only (not touch-sensitive).
 - **Trigger 20 px forward:** move the trigger zone 20 CSS px toward the muzzle (it is fractional today;
   20 px is about .023 of an 852-px landscape iPhone 15 viewport). Preferred: a fixed pixel offset (e.g.
   `K.TRIGGER_FWD_PX = 20`) applied identically in the engine's trigger hit test (it has `vw`) and in
-  `rectFor()` for the drawn zone, so touch and pixels match on every phone and in both hands. Extend the
-  guard's front edge by the same amount so the blade stays inside the guard. Log the choice
-  (pixel offset vs. fraction) as `Claude (proposed)`.
+  `rectFor()` for the drawn zone, so touch and pixels match on every phone and in both hands. The guard's
+  front edge moves forward by the same 20 px (Ricky approved, 2026-10-21) so the blade stays inside the guard;
+  the rear end stays joined to the grip. Log the choice (pixel offset vs. fraction) as `Claude (proposed)`.
 - **Default travel 60 px:** `DEFAULTS.pullPx` 35 → 60. Keep the Settings slider range (15–100). Check that a
   60 px pull from the blade's rest position stays plausible on a small landscape phone (667 px wide: the
   trigger zone is ~147 px) and that the blade's drawn shift (`pullPx * 1.2` = 72 px) does not run off the
@@ -523,8 +536,9 @@ bottom corners). Blade: `#blade` at `right: 14%` of the trigger zone, shifted by
 **Acceptance.**
 - `ZONES` match the Scope figures (or documented deviations) and `DEFAULTS.pullPx` is 60; `VERSION` bumped.
 - In a 852×393 and a 667×375 landscape browser viewport, right- and left-handed: the rest strip is visibly
-  taller and starts closer to the grip; the slide is unchanged; the guard's rear joins the grip with no gap; the
-  trigger sits 20 px further forward than before, inside the guard; the blade's full 72 px drawn travel stays on
+  taller and starts closer to the grip; the slide is unchanged; the guard has a rounded front-bottom corner, a
+  rear curve and a diagonal rear leg that meets the grip at an angle with no gap or seam; the guard's front edge
+  and the trigger sit 20 px further forward than before, the blade inside the guard; the blade's full 72 px drawn travel stays on
   the gun. Screenshots attached to the completion entry.
 - A touch at the drawn trigger zone's centre engages the trigger, and a touch at the drawn rest zone's centre
   arms the engine, in both hands (smoke test covers this).
