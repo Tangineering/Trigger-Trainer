@@ -4,10 +4,10 @@ const { chromium } = require('playwright');
 const path = require('path');
 
 const W = 844, H = 390;                       // landscape phone viewport
-const { ZONES } = require('../engine.js');
+const { ZONES, zoneFor } = require('../engine.js');
 const mid = z => [(z.x + z.w / 2) * W, (z.y + z.h / 2) * H];
 const REST = [...mid(ZONES.rest), 1];         // centre of the frame strip (right-handed)
-const TRG = [...mid(ZONES.trigger), 2];       // centre of the trigger zone
+const TRG = [...mid(zoneFor('trigger', W)), 2];   // centre of the drawn trigger zone (px offset, D-72)
 
 let failures = 0;
 const check = (name, cond, state) => {
@@ -109,12 +109,12 @@ const check = (name, cond, state) => {
   await touch('touchMove', [[TRG[0] - 20, TRG[1], 2]]); await motion(0, 0, 3);
   s = await st(); check('partial pull does not fire', s.shots === 0, s);
 
-  await touch('touchMove', [[TRG[0] - 45, TRG[1], 2]]); await motion(0, 0, 3);
+  await touch('touchMove', [[TRG[0] - 70, TRG[1], 2]]); await motion(0, 0, 3);
   s = await st(); check('full pull while still fires a clean shot', s.shots === 1 && s.lastGrade === 'Clean', s);
 
   await touch('touchMove', [[TRG[0] - 10, TRG[1], 2]]); await motion(0, 0, 3);
   await motion(-15, 0, 6);                                   // muzzle dips ~1.4 deg during the press
-  await touch('touchMove', [[TRG[0] - 50, TRG[1], 2]]); await page.waitForTimeout(50);
+  await touch('touchMove', [[TRG[0] - 75, TRG[1], 2]]); await page.waitForTimeout(50);
   s = await st(); check('trigger reset allows follow-up; drift graded as moved', s.shots === 2 && s.lastGrade === 'Moved', s);
 
   let v = s.violations;
@@ -139,7 +139,7 @@ const check = (name, cond, state) => {
   await wobble(60, 60);
   s = await st(); check('movement sustained during a press: alarm', s.alarmActive && s.violations === v + 1, s);
   // D-45 (WQ-007): finish the pull while the alarm sounds. The shot counts but is not graded in the summary.
-  await touch('touchMove', [[TRG[0] - 45, TRG[1], 2]]); await motion(0, 0, 3);
+  await touch('touchMove', [[TRG[0] - 70, TRG[1], 2]]); await motion(0, 0, 3);
   s = await st(); check('full pull during an alarm fires a third shot, marked as fired during an alarm',
     s.shots === 3 && s.summary.unsafeShots === 1 && s.summary.graded === 2, s);
 
@@ -239,6 +239,39 @@ const check = (name, cond, state) => {
     !s.paused && !s.armed && !(await rotateShown()), s);
   await backOnFrame();
   s = await st(); check('finger back on the frame re-arms', s.armed && s.onRest, s);
+
+  // WQ-016 (D-71, D-72): the drawn trigger and rest zones are where the engine hit-tests them, in both hands;
+  // the trigger zone carries a fixed TRIGGER_FWD_PX offset toward the muzzle.
+  for (const hand of ['right', 'left']) {
+    await page.$eval('#hand', (el, h) => { el.value = h; el.dispatchEvent(new Event('change')); }, hand);
+    const centre = id => page.$eval(id, el => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+    const tc = await centre('#trigZone'), rc = await centre('#restZone');
+    const z = zoneFor('trigger', W), ex = (hand === 'left' ? 1 - z.x - z.w / 2 : z.x + z.w / 2) * W;
+    check(`${hand}-handed: trigger drawn ${require('../engine.js').K.TRIGGER_FWD_PX} px toward the muzzle`,
+      Math.abs(tc[0] - ex) < 0.5, { tc, ex });
+    await offFrame();
+    await touch('touchStart', [[tc[0], tc[1], 3]]); await motion(0, 0, 3);
+    s = await st(); check(`${hand}-handed: touch at the drawn trigger centre engages the trigger`, !!s.trig && !s.alarmActive, s);
+    await touch('touchEnd', []); await motion(0, 0, 3);
+    await touch('touchStart', [[rc[0], rc[1], 1]]); await motion(0, 0, 8);
+    s = await st(); check(`${hand}-handed: touch at the drawn rest centre is on the frame`, s.armed && s.onRest && !s.trig, s);
+  }
+  await page.$eval('#hand', el => { el.value = 'right'; el.dispatchEvent(new Event('change')); });
+
+  // D-75: a touch that engaged the trigger stays on the trigger until it lifts, wherever it slides;
+  // it never counts as frame contact, so sliding it into the frame strip neither arms nor clears an alarm.
+  await offFrame();
+  await touch('touchStart', [TRG]); await motion(0, 0, 3);
+  await wobble(80);                                          // resting on the trigger, phone swings: alarm
+  await motion(0, 0, 10);
+  s = await st(); check('D-75: moving while resting on the trigger alarms', s.alarmActive && !!s.trig, s);
+  await touch('touchMove', [[REST[0], REST[1], 2]]); await motion(0, 0, 10);
+  s = await st(); check('D-75: trigger finger slid into the frame strip stays on the trigger, not on the frame',
+    !!s.trig && !s.onRest && s.alarmActive, s);
+  await touch('touchEnd', []); await motion(0, 0, 3);
+  await touch('touchStart', [REST]); await motion(0, 0, 8);
+  s = await st(); check('D-75: lifting it and placing a finger on the strip arms and clears the alarm',
+    !s.trig && s.onRest && !s.alarmActive, s);
 
   // Finish (Settings) → session summary; New session clears it and returns to the start screen.
   const shotsSoFar = (await st()).shots;

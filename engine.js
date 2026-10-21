@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.11.0';
+  const VERSION = '0.12.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -24,7 +24,7 @@
     jerkMs: 300,         // during a press, total movement longer than this alarms (one short jerk doesn't); D-47
     rule180: true,       // alarm when the muzzle points more than limit180Deg from downrange
     limit180Deg: 90,
-    pullPx: 35,          // rearward finger travel (CSS px) that breaks the shot
+    pullPx: 60,          // rearward finger travel (CSS px) that breaks the shot (D-71)
     steadyDeg: 0.75,     // aim-drift tolerance for a "clean" shot, deg
     volume: 0.8,
     debug: false,
@@ -35,18 +35,20 @@
 
   // Fractions of the viewport for a RIGHT-handed layout (muzzle at x=1). Left-handed mirrors x.
   // Only 'rest' and 'trigger' are touch-sensitive; the rest are drawing only.
+  // 'trigger' and 'guard' also take a fixed pixel offset toward the muzzle: use zoneFor(name, vw) (D-71, D-72).
   const ZONES = Object.freeze({
     slide:   { x: .02, y: .03, w: .96, h: .21 },
-    frame:   { x: .23, y: .26, w: .75, h: .26 },
+    frame:   { x: .23, y: .26, w: .75, h: .304 },
     grip:    { x: .00, y: .26, w: .24, h: .74 },
-    guard:   { x: .26, y: .51, w: .30, h: .38 },
-    rest:    { x: .38, y: .28, w: .58, h: .22 },
-    trigger: { x: .28, y: .53, w: .22, h: .30 },
-    target:  { x: .58, y: .55, w: .40, h: .43 },   // shot movement indicator, under the muzzle
+    guard:   { x: .24, y: .554, w: .32, h: .38 },   // rear end joins the grip's front edge; front edge + TRIGGER_FWD_PX
+    rest:    { x: .31, y: .28, w: .65, h: .264 },
+    trigger: { x: .28, y: .574, w: .22, h: .30 },  // + TRIGGER_FWD_PX toward the muzzle
+    target:  { x: .60, y: .55, w: .38, h: .43 },   // shot movement indicator, under the muzzle; clear of the guard (D-74)
     debug:   { x: .01, y: .30, w: .22, h: .66 },   // drawn over the grip (grip ignores touches)
   });
 
   const K = Object.freeze({
+    TRIGGER_FWD_PX: 20,          // trigger zone (and the guard's front edge) sit this many CSS px toward the muzzle (D-72)
     REST_LOSS_DEBOUNCE_MS: 60,   // contact flicker tolerance on the frame strip
     RESET_FRACTION: 0.5,         // trigger re-arms after returning forward to this fraction of travel
     FOLLOW_THROUGH_MS: 350,      // keep tracing aim this long after the break
@@ -64,6 +66,16 @@
                                  // after); longer gaps are credited 300 ms, and gaps over ORIENT_GAP_MS clear downrange
   });
 
+  /** Zone `name` in right-handed viewport fractions for a viewport `vw` CSS px wide, with the fixed
+   *  pixel offsets applied: the trigger moves TRIGGER_FWD_PX toward the muzzle, and the guard's
+   *  front edge moves with it (its rear end stays at the grip). Used by the engine's hit test and
+   *  by index.html's drawing, so touch and pixels match. */
+  function zoneFor(name, vw) {
+    const z = ZONES[name], d = vw > 1 ? K.TRIGGER_FWD_PX / vw : 0;
+    if (name === 'trigger') return { x: z.x + d, y: z.y, w: z.w, h: z.h };
+    if (name === 'guard') return { x: z.x, y: z.y, w: z.w + d, h: z.h };
+    return z;
+  }
   const inZone = (p, z) => p.x >= z.x && p.x <= z.x + z.w && p.y >= z.y && p.y <= z.y + z.h;
   const norm360 = a => ((a % 360) + 360) % 360;
   const rnd = (x, q) => (x == null || !isFinite(x)) ? null : Math.round(x * q) / q;
@@ -342,9 +354,11 @@
       if (!st.paused) updateTrigger(t);
     }
 
+    // D-75: the touch that engaged the trigger never counts as frame contact, wherever it moves.
     function restTouch() {
       let best = null;
-      for (const tc of st.touches.values()) {
+      for (const [id, tc] of st.touches) {
+        if (st.trig && id === st.trig.id) continue;
         if (!inZone(tc, ZONES.rest)) continue;
         best = tc;
       }
@@ -357,7 +371,7 @@
       if (st.trig && !st.touches.has(st.trig.id)) endTrigger(t);
       if (!st.trig) {
         for (const [id, tc] of st.touches) {
-          if (inZone(tc, ZONES.trigger)) {
+          if (inZone(tc, zoneFor('trigger', vw))) {
             st.trig = { id, base: rearPx(tc), pull: 0, fired: false, breakT: 0, breakIdx: -1,
                         oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0 };
             emit({ type: 'trigOn', t });
@@ -544,7 +558,7 @@
   }
 
   return {
-    VERSION, DEFAULTS, ZONES, K, inZone, gradeShot, createEngine, summarize,
+    VERSION, DEFAULTS, ZONES, K, zoneFor, inZone, gradeShot, createEngine, summarize,
     rt, r2, r4, fromDeviceMotion, fromTouch, packMotion, unpackMotion, packTouches, unpackTouchList, packEvent, replay,
   };
 });

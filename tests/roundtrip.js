@@ -7,10 +7,10 @@ const path = require('path');
 const TDT = require('../engine.js');
 
 const W = 844, H = 390;
-const { ZONES } = require('../engine.js');
+const { ZONES, zoneFor } = require('../engine.js');
 const mid = z => [(z.x + z.w / 2) * W, (z.y + z.h / 2) * H];
 const REST = [...mid(ZONES.rest), 1];         // centre of the frame strip (right-handed)
-const TRG = [...mid(ZONES.trigger), 2];       // centre of the trigger zone
+const TRG = [...mid(zoneFor('trigger', W)), 2];   // centre of the drawn trigger zone (px offset, D-72)
 
 let failures = 0;
 const check = (name, cond, extra) => {
@@ -59,7 +59,7 @@ const check = (name, cond, extra) => {
   await touch('touchStart', [REST]); await motion(0, 0, 10); // back -> ok
   await touch('touchEnd', []); await motion(0, 0, 25);
   await touch('touchStart', [TRG]); await motion(0, 0, 5);
-  for (let dx = 5; dx <= 45; dx += 5) { await touch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await motion(0.5, 0, 1); }
+  for (let dx = 5; dx <= 70; dx += 5) { await touch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await motion(0.5, 0, 1); }
   await touch('touchEnd', []); await motion(0, 0, 5);
   await touch('touchStart', [REST]); await motion(0, 0, 10);
 

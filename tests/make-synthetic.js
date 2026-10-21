@@ -8,7 +8,7 @@ const TDT = require('../engine.js');
 const W = 844, H = 390, FRAME = 1000 / 60, T0 = 1000;
 const mid = (z, id) => ({ id, cx: (z.x + z.w / 2) * W, cy: (z.y + z.h / 2) * H, rx: 0, ry: 0 });
 const REST = mid(TDT.ZONES.rest, 1);
-const TRG = mid(TDT.ZONES.trigger, 2);
+const TRG = mid(TDT.zoneFor('trigger', W), 2);   // drawn trigger zone, px offset included (D-72)
 const between = (t, a, b) => t >= a && t < b;
 const r = TDT.r4;
 
@@ -22,13 +22,13 @@ const S = {
   'clean-press': {
     dur: 3.2,
     touches: t => t < 1 || t >= 2.6 ? [REST]
-      : between(t, 1.3, 2.3) ? [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (t - 1.5) / 0.5)) * 45 })] : [],
+      : between(t, 1.3, 2.3) ? [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (t - 1.5) / 0.5)) * 70 })] : [],
     rot: t => ({ a: tiny(t), b: tiny(t + 2), g: 0 }),
   },
   'jerked-press': {
     dur: 3.2,
     touches: t => t < 1 || t >= 2.6 ? [REST]
-      : between(t, 1.3, 2.3) ? [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (t - 1.85) / 0.15)) * 45 })] : [],
+      : between(t, 1.3, 2.3) ? [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (t - 1.85) / 0.15)) * 70 })] : [],
     // Hard jerk at the break: muzzle dips low-left at 120 deg/s, far over the alarm limit.
     rot: t => between(t, 1.85, 2.0) ? { a: -120, b: 40, g: 0 } : { a: tiny(t), b: 0, g: 0 },
   },
@@ -37,7 +37,7 @@ const S = {
   'press-wobble': {
     dur: 3.2,
     touches: t => t < 1 || t >= 2.6 ? [REST]
-      : between(t, 1.2, 2.4) ? [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (t - 1.3) / 1.0)) * 45 })] : [],
+      : between(t, 1.2, 2.4) ? [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (t - 1.3) / 1.0)) * 70 })] : [],
     rot: t => between(t, 1.5, 2.2) && (t - 1.5) % 0.3 < 0.2 ? { a: 0, b: (Math.floor((t - 1.5) / 0.3) % 2 ? -50 : 50), g: 0 }
       : { a: tiny(t), b: 0, g: 0 },
   },
