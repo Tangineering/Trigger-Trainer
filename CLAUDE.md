@@ -134,7 +134,7 @@ Opening settings or the summary, backgrounding the page, or rotating to portrait
   `DeviceMotionEvent.requestPermission`, which once made a Pixel 11 look like an iPhone (recordings before D-53 say
   `ios: true`). `isIOS` is a user-agent test that only feeds the recorder's `device.ios` field and the debug readout.
 - **180 orientation:** integrated from the gyro rates (quaternion, `motion()`), so it depends on the axis mapping
-  (Q1) and drifts slowly (Q10: Pixel 11 under 2.5° over 3 minutes; iPhone 15 about 9° after a 93 s swing set, jig unconfirmed). The muzzle lies along device ±y in both landscape directions and both hands, so
+  (Q1) and drifts slowly (Q10: Pixel 11 under 2.5° over 3 minutes; iPhone 15 about 9° after a 93 s jig run, D-61; 3-minute run pending). The muzzle lies along device ±y in both landscape directions and both hands, so
   the deviation is simply the angle between R·ŷ and ŷ (sign-independent; roll-invariant).
 - **Motion rate and fields:** both phones deliver `devicemotion` at about 60 Hz (median 17 ms). The iPhone 15 reports
   `acceleration` alongside `accelerationIncludingGravity`, so the fused gravity source (D-55) works there too.
