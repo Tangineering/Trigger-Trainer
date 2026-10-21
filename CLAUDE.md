@@ -3,7 +3,7 @@
 A phone-based teaching aid for Ricky Tan's (Tangineering) pistol classes. The phone stands in for the
 side of a pistol: the student keeps the index finger flat on the frame while moving, and only goes to the
 trigger when the "gun" is still. Free, no accounts, no tracking, nothing sold — ever. An optional Ko-fi tip
-link is the only money-related element (D-62): a plain anchor, never an embedded button or widget.
+link is the only money-related element (D-63): a plain anchor, never an embedded button or widget.
 
 **Ricky owns scope and decisions.** Record anything you decide or propose in `docs/DECISIONS.md` using the
 attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`. Ideas for later (not
