@@ -62,7 +62,8 @@ wasn't done as labeled (re-record it) or the thresholds/logic need changing; tha
   "format": "tdt-recording", "version": 1,
   "app": "0.2.0",                       // engine VERSION at record time
   "label": "clean-press", "notes": "", "recordedAt": "2026-10-14T11:02:03.000Z",
-  "device": { "ua": "...", "ios": true, "dpr": 3, "w": 844, "h": 390 },
+  "device": { "ua": "...", "ios": true, "dpr": 3, "w": 844, "h": 390 },   // ios: platform check at record
+                                        // time; diagnostic only, replay ignores it
   "settings": { ... },                  // settings in force during the recording
   "t0": 1234.5, "t1": 15234.5,          // performance.now() ms at start / stop
   "log": [                              // inputs in the order they happened

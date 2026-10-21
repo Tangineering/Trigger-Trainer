@@ -230,7 +230,7 @@
     <div class="chk"><input type="checkbox" id="flipV"><label for="flipV">Flip vertical</label></div>
     <div class="chk"><input type="checkbox" id="flipH"><label for="flipH">Flip horizontal</label></div>
     <div class="chk"><label for="axisMode">Gyro axis mapping</label>
-      <select id="axisMode"><option value="auto">Auto</option><option value="spec">Spec / Android</option><option value="ios">iOS-style</option></select>
+      <select id="axisMode"><option value="auto">Auto</option><option value="spec">Spec order (x = beta, y = gamma, z = alpha)</option><option value="ios">x/y/z order (Chrome, iOS)</option></select>
     </div>
 
     <h2>180 rule</h2>
@@ -420,7 +420,7 @@ const DRILLS = [
 ];
 
 function newEngine() {
-  engine = TDT.createEngine(S, { ios: isIOS, onEvent });
+  engine = TDT.createEngine(S, { onEvent });
   enginePaused = true;
   stage.classList.remove('alarm'); Snd.stopAlarm();
   renderStats();

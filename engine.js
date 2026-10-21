@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.7.0';
+  const VERSION = '0.8.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -28,7 +28,7 @@
     minContactPx: 40,
     volume: 0.8,
     debug: false,
-    axisMode: 'auto',    // 'auto' | 'spec' | 'ios'
+    axisMode: 'auto',    // 'auto' (= 'ios', x/y/z order) | 'spec' | 'ios'
     flipH: false,
     flipV: false,
   });
@@ -109,13 +109,12 @@
 
   /**
    * @param S     settings object (read live; the page may mutate it between sessions)
-   * @param opts  { ios: bool, onEvent: fn({type, t, ...}) }
+   * @param opts  { onEvent: fn({type, t, ...}) }
    * Events: armed, ok, alarmStart {reason: 'move'|'180'}, alarmStop, trigOn, trigOff, shot, reset,
    *         downrange (set by the user), downrangeLost (orientation tracking interrupted)
    */
   function createEngine(S, opts) {
     opts = opts || {};
-    const ios = !!opts.ios;
     const emit = typeof opts.onEvent === 'function' ? opts.onEvent : () => {};
     const st = {
       rotEMA: 0, linEMA: 0, rotNow: 0, linNow: 0, aimH: 0, aimV: 0,
@@ -131,7 +130,8 @@
     };
     let grav = null, vw = 1, vh = 1;
 
-    const axisMode = () => (S.axisMode === 'auto' ? (ios ? 'ios' : 'spec') : S.axisMode);
+    // 'auto' = x/y/z rotationRate order on every platform (the only order real recordings fit; D-52).
+    const axisMode = () => (S.axisMode === 'auto' ? 'ios' : S.axisMode);
 
     /** m = {t, a, b, g, ax, ay, az, gx, gy, gz, angle}; a/b/g = rotationRate alpha/beta/gamma (deg/s) */
     function motion(m) {
@@ -387,7 +387,7 @@
   function replay(rec, overrides) {
     const S = Object.assign({}, DEFAULTS, rec.settings || {}, overrides || {});
     const events = [], path = [];
-    const eng = createEngine(S, { ios: !!(rec.device && rec.device.ios), onEvent: e => events.push(e) });
+    const eng = createEngine(S, { onEvent: e => events.push(e) });
     for (const row of rec.log) {
       switch (row[0]) {
         case 'm': eng.motion(unpackMotion(row)); break;

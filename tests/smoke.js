@@ -123,10 +123,12 @@ const check = (name, cond, state) => {
   s = await st(); check('return to frame after shots is safe', s.onRest && !s.alarmActive && !s.trig, s);
 
   // 180 rule: finger stays on the frame; swing the muzzle (yaw) until past the limit, then back.
-  const swingUntil = async (beta, cond, max = 200) => {
+  // Yaw is rotation about device x. axisMode 'auto' reads rotationRate in x/y/z order on every
+  // platform, so x is 'alpha' whatever the page detects the platform to be.
+  const swingUntil = async (rate, cond, max = 200) => {
     for (let i = 0; i < max; i++) {
-      await page.evaluate(b => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
-        rotationRate: { alpha: 0, beta: b, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), beta);
+      await page.evaluate(r => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+        rotationRate: { alpha: r, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), rate);
       await page.waitForTimeout(16);
       if (cond(await st())) return true;
     }

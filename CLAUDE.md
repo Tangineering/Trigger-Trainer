@@ -83,7 +83,7 @@ inside the engine.
 | `VERSION` | Bump when outputs change for the same inputs (D-20). |
 | `DEFAULTS`, `ZONES`, `K` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. |
 | `summarize(state)` | Session totals for the summary screen, from `state.tally` (not capped like `state.shots`) and the alarm counters. |
-| `createEngine(S, {ios, onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`. Starts paused. |
+| `createEngine(S, {onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`. Starts paused. |
 | `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace. Axis mapping per `axisMode`. |
 | `touches(t, list, vw, vh)` | Full current touch list in CSS px; drives the trigger (engage on entering the zone, fire at `pullPx` rearward, re-arm at `RESET_FRACTION`). |
 | `tick(t)` | State machine: debounced frame contact → armed / safe / off-frame / alarm; trace capture. |
@@ -123,8 +123,10 @@ Opening settings or the summary, backgrounding the page, or rotating to portrait
   and auto-skips when size isn't reported (a size of 2 px or less counts as not reported).
 - **Vibration:** `navigator.vibrate` doesn't exist on iOS Safari. Don't build hacks for it (not required).
 - **Gyro axis order:** the spec maps `rotationRate` alpha/beta/gamma to z/x/y. Some iOS builds have been
-  reported to deliver x/y/z order instead. `axisMode: 'auto'` assumes iOS-style on iOS. Correct on a Pixel 11
-  by eye (D-40); **unverified on iPhone** — first thing to check (OPEN_QUESTIONS Q1). The alarm uses magnitude,
+  reported to deliver x/y/z order instead, and so does Chrome 155 on a Pixel 11 (its axis recordings fit only x/y/z).
+  `axisMode: 'auto'` therefore means x/y/z order (the `ios` value) on every platform, independent of `isIOS` (D-52);
+  `spec` remains a manual override. Correct on a Pixel 11 by eye (D-40); **unverified on iPhone** — first thing to
+  check (OPEN_QUESTIONS Q1). The alarm uses magnitude,
   so it's unaffected; only the trace direction and the "low-left" style labels depend on this. Resolve it from `axis-up` and
   `axis-right` recordings: `npm run test:replay` prints the mapping that fits both for each phone.
 - **Orientation:** sign of yaw uses `screen.orientation.angle` (or `window.orientation` on iOS): 90 vs 270.
