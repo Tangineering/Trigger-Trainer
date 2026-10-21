@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-011
+next_id: WQ-013
 updated: 2026-10-20
 ```
 
@@ -31,9 +31,11 @@ updated: 2026-10-20
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
+| WQ-011 | Alarm when the muzzle drifts more than 5° while the finger is off the frame (D-56) | P1 | M | queued | — | alarm |
 | WQ-003 | Fail the replay test when `auto` disagrees with a phone's axis verdict | P1 | S | queued | — | axis |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
+| WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | queued | — | axis |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -44,11 +46,77 @@ Mechanical edits (claim, un-claim, archive, invariant check) go through
 `python scripts/wq.py …`; see `work-queue-run`. On Ricky's PC the interpreter is
 `C:\Users\ricky\.local\bin\python.exe` (the `python` alias on PATH is the Microsoft Store stub).
 
-Tracks: axis · platform · recordings · grading · layout · decisions · docs
+Tracks: axis · platform · recordings · grading · alarm · layout · decisions · docs
 
 ---
 
 ## Items
+
+### WQ-011 — Alarm when the muzzle drifts more than 5° while the finger is off the frame (D-56)
+
+- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
+- **Added:** 2026-10-20 by orchestration session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Ricky observed in use (2026-10-20) that with the finger off the frame, slow continuous movement
+never alarms: the off-frame alarm in `engine.js` `tick()` (line 313 at commit 139dc5f) fires only when the
+rate EMAs exceed `moveDps` (25 °/s) or `moveAcc`, so a slow sweep stays under both. Decision D-56: while the
+finger is off the frame the muzzle may deviate at most 5° (default) from where it pointed when the finger
+left the frame, ignoring twist about the barrel axis; a larger deviation alarms, and the alarm holds until
+the finger is back on the frame. The rate-based alarm stays. The engine already integrates orientation as a
+quaternion `st.q` (`motion()`, line 181–185) and has a roll-invariant deviation helper, `deviation180()`
+(line 189), which measures the angle between the muzzle (device y) now and at the reference pose.
+
+**Scope.**
+- `engine.js` `DEFAULTS`: add `offFrameDeg: 5` next to `graceMs` (line 21); comment it.
+- State (`st`, line 121–125): add `qOff: null` (orientation quaternion when the finger left the frame) and
+  `devOff: 0` (current deviation from it, deg, 0 while on the frame).
+- Reference capture in `tick()`: when `onRest` turns false (line 271, where `offSince` is set), set
+  `st.qOff = st.q.slice()`. Clear it when `onRest` turns true again. Also re-capture (`st.qOff = st.q.slice()`)
+  whenever the orientation integration is reset while off the frame: `setDownrange()` (line 344–345 sets
+  `st.q = [1,0,0,0]`) and the motion-gap reset in `motion()` (line 137). Note `st.q` is relative to the last
+  `setDownrange()`, so the relative rotation must be computed, not the absolute pose.
+- Deviation: add `deviationFrom(qRef)` beside `deviation180()`: relative quaternion `qRel = conj(qRef) · st.q`,
+  then the same roll-invariant angle formula as `deviation180()` applied to `qRel` (angle between `qRel·ŷ` and
+  `ŷ`). Compute `st.devOff` on every tick while `qOff` is set (0 otherwise), before the alarm block (line 289 is
+  where `dev180` is computed).
+- Alarm: in the off-frame block (lines 310–318), alarm when `st.devOff > S.offFrameDeg` after `graceMs` has
+  elapsed since `offSince` (the grace covers the lift jolt; the reference is still the pose at the moment of
+  leaving, per D-56). Apply it in every off-frame state — on the trigger and during a press as well (D-34's jerk
+  allowance covers the rate/time rule; a 5° muzzle deviation during a press is a gross error) — and record this
+  reading as `Claude (proposed)` in `docs/DECISIONS.md`. Use `reason: 'move'` (same sound and overlay) and add
+  `devOff` to the `alarmStart` event payload. The alarm clears exactly as today (finger back on the frame).
+- Bump `VERSION` (0.9.0 → 0.10.0) and `package.json`: outputs change for the same inputs.
+- `index.html`: add an `offFrameDeg` slider to the Movement group in `SLIDERS` (line 675; `graceMs` is at 679):
+  label "Max muzzle drift off the frame", 1–20°, step 1, help "Slow movement past this angle alarms even when the
+  rate thresholds are not reached (D-56)." Show `devOff` in the debug readout line that prints `180 …` (line 626).
+- `tests/smoke.js`: add a case: finger leaves the frame, then a slow yaw (`rotationRate.alpha` ≈ 8 °/s, below
+  `moveDps`) for about 1 s → no alarm at 4° and an alarm once past 5°; finger back on the frame clears it. Also a
+  case that a slow 4° drift followed by stillness does not alarm.
+- `tests/expectations.js`: check that `off-frame-still` still expects no alarm and `off-frame-move` an alarm;
+  adjust only if the synthetic rotation rates make a label's expectation change, and say so.
+- Docs pass: `CLAUDE.md` Behavior spec (append a bullet for D-56) and the "State machine" paragraph; `docs/CLASS_USE.md`
+  where it explains the off-frame alarm; `docs/RECORDINGS.md` "Drills and what the tests expect" if the
+  off-frame rows mention rates only. Add the `Claude (proposed)` row described above to `docs/DECISIONS.md`.
+- Out of scope: the rate thresholds `moveDps` / `moveAcc` / `graceMs` (Q2); the 180 rule; the press jerk rule
+  (D-34, D-47); the summary (WQ-007); the axis estimate readout (WQ-012).
+
+**Acceptance.**
+- `npm test` passes with the new smoke cases.
+- `npm run test:replay` reports "all passed"; the completion entry lists which real recordings in
+  `tests/recordings/pixel-11/` change their event sequence when replayed with `{ offFrameDeg: 5 }` overridden
+  (their own `settings` lack the key, so the plain replay uses the new default: name every recording whose
+  live-equals-replay check moved from "matches" to a difference, and confirm each difference is a new or
+  earlier move alarm during a slow off-frame drift, not a lost shot or a lost alarm).
+- Replaying `tests/recordings/synthetic/off-frame-still.json` gives no alarm; `off-frame-move.json` still alarms.
+- Owner-verifiable (Pixel 11): finger off the frame, a slow sweep of about 10° alarms within a second of
+  passing 5°; holding still off the frame does not alarm; twisting the phone about the barrel axis alone does
+  not alarm.
+
+**Verification.** `npm test`; `npm run test:replay` before and after (quote the per-recording lines that
+changed); the `VERSION` bump and the DECISIONS row named in the entry.
+
+---
 
 ### WQ-003 — Fail the replay test when `auto` disagrees with a phone's axis verdict
 
@@ -154,15 +222,61 @@ plotted, but exclude them from the percentages and the "steadiest press" stat.
 
 ---
 
+### WQ-012 — Show the run-time gyro-axis estimate in the debug readout (D-57)
+
+- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** axis · **Env:** any
+- **Added:** 2026-10-20 by orchestration session (from WQ-004's follow-up (c); Q13 answered yes → D-57)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** WQ-004 measured offline (D-55, `docs/PROPOSAL_2026-10-20.md` section 3.7) that estimator E-2 with
+fused gravity (`accelerationIncludingGravity − acceleration`) ranks the x/y/z order first on all 15 Pixel 11
+recordings, minimum margin 11.47, decision within 0.7 s of motion. Ricky decided (D-57): show that estimate in
+the debug readout, advisory only — the engine keeps using `axisMode` (D-52). This collects the evidence for a
+later auto-switch (proposal 3.6 steps 2–3) without changing behaviour. The reference implementation is
+`tests/axis-estimate.js` (E-2, `fused` gravity source, candidate table and quaternion step).
+
+**Scope.**
+- `engine.js`: add a running E-2 estimator fed from `motion(m)` (line 135 at commit 139dc5f; `m` carries
+  `ax, ay, az` = `acceleration` and `gx, gy, gz` = `accelerationIncludingGravity`). Port the E-2 window
+  integration from `tests/axis-estimate.js` (0.5 s windows, step 0.25 s, all 48 candidates, fused gravity;
+  skip windows where `acceleration` is null, as on a phone that does not report it). Keep a running residual
+  sum per candidate and expose `st.axisEst = { cand, margin, motionS, windows }` (best candidate name as the
+  harness prints it — `xyz`, `spec`, or the signed permutation — runner-up/best margin, seconds of motion
+  seen, windows counted); `null` until the first window completes. Reset it in `resetStats()` and on the
+  motion-gap reset (line 137). The estimator must not read or change `axisMode()` and must emit no events: engine
+  outputs for the same inputs are unchanged, so no `VERSION` bump (state the `npm run test:replay` diff is empty).
+- Keep it cheap: one quaternion step per sample is already done for `st.q`; the 48-candidate window
+  comparison runs once per 0.25 s, not per sample.
+- `index.html`: in the debug readout (line 626 area), add a line `axis est <cand> ×<margin> (<motionS>s)` or
+  `axis est —` when `null`; nothing outside the debug readout changes.
+- `tests/replay.js`: after replaying each recording, print one INFO line with `state.axisEst` for recordings
+  longer than 5 s (no pass/fail).
+- Docs pass: `CLAUDE.md` engine table (`motion` row) and the "Gyro axis order" bullet; `docs/RECORDINGS.md`
+  "how to run" paragraph gets a sentence that the same estimate is live in the debug readout; `docs/PROPOSAL_2026-10-20.md`
+  section 3.6 marks step 1 as done.
+- Out of scope: changing which mapping the engine uses; any confidence gate or auto-switch; the Settings panel;
+  `tests/axis-estimate.js` itself.
+
+**Acceptance.**
+- `npm test` passes; `npm run test:replay` output is identical to before apart from the new INFO lines (diff
+  quoted in the entry) — no `VERSION` bump.
+- Replaying every `tests/recordings/pixel-11/` recording longer than 5 s ends with `state.axisEst.cand === 'xyz'`
+  and `margin ≥ 1.5` (list them with their margins; the 4.5 s `safe-move` recordings may be `null`).
+- Synthetic recordings (no gravity) end with `axisEst === null` and otherwise unchanged events.
+- Owner-verifiable (Pixel 11): with the sensor readout on, after a few seconds of handling the line reads
+  `axis est xyz ×<n>` with n above 1.5.
+
+**Verification.** `npm test`; the per-recording `axisEst` lines quoted in the entry; the empty replay diff.
+
+---
+
 ## Parking lot
 
 Ideas noted but not yet turned into items (an exploratory session may
 promote one with `work-queue-add`):
 
-- **Run-time axis estimation (advisory, then auto with a confidence gate).** WQ-004 measured the offline
-  criteria as met on the Pixel 11 (E-2, fused gravity; D-55). Waits on Q13 (Ricky) for the advisory debug
-  readout, and on a second phone's recordings (WQ-006) for the auto-switch; path in
-  `docs/PROPOSAL_2026-10-20.md` section 3.6.
+- **Auto-switch of the axis mapping with a confidence gate** (proposal 3.6 steps 2–3). The advisory
+  readout is WQ-012 (D-57); the switch waits for a second phone's recordings (WQ-006) and a Ricky decision.
 - **Settings migration so changed defaults reach phones with saved settings** (Q12, from WQ-010). The
   class Pixel keeps `jerkMs: 500` after D-47. Becomes an item once Ricky picks an option in Q12.
 - **Synthetic recordings that can identify an axis mapping** (from WQ-004). `tests/make-synthetic.js` emits
