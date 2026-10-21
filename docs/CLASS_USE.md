@@ -38,7 +38,9 @@
 - Only valid once the axis check has been done on that phone (Settings → Aim trace axis check).
 
 ## End of the session
-- **⚙︎ → Finish** shows the session summary: time, shots and how many were clean / moved / jerked, average and
-  steadiest movement during the press, most common miss direction, shots fired during an alarm, movement alarms
-  and 180 violations. Students can show it to you or screenshot it; nothing is saved.
+- **⚙︎ → Finish** shows the session summary: time, shots, shots fired during an alarm, how many were clean /
+  moved / jerked, average and steadiest movement during the press, most common miss direction, movement alarms
+  and 180 violations. Shots fired during an alarm count in the total and on the plot, but the clean / moved /
+  jerked figures and the movement figures cover only the shots fired with no alarm. Students can show it to you
+  or screenshot it; nothing is saved.
 - **Keep training** goes back with the stats kept. **New session** clears them and returns to the start screen.

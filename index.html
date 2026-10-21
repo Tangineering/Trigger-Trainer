@@ -897,18 +897,20 @@ $('doneBtn').addEventListener('click', () => { closeSettings(); if (!running) { 
 function showSummary() {
   const m = TDT.summarize(engine.state);
   const secs = sessionT0 ? Math.max(0, Math.round((now() - sessionT0) / 1000)) : 0;
-  const pct = n => m.shots ? ` (${Math.round(100 * n / m.shots)}%)` : '';
+  // D-45: grades and movement use only the shots fired with no alarm (m.graded).
+  const pct = n => m.graded ? ` (${Math.round(100 * n / m.graded)}%)` : ' (—)';
   const deg = x => x === null ? '—' : x.toFixed(2) + '°';
+  const of = `of ${m.graded} shot${m.graded === 1 ? '' : 's'} with no alarm`;
   const rows = [
     ['Time', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`],
     ['Shots', m.shots],
-    ['Clean', m.clean + pct(m.clean)],
-    ['Moved', m.moved + pct(m.moved)],
-    ['Jerked', m.jerked + pct(m.jerked)],
-    ['Average movement during the press', deg(m.avgDev)],
-    ['Steadiest shot', deg(m.bestDev)],
-    ['Most common miss', m.commonMiss ? `${m.commonMiss.dir} (${m.commonMiss.n})` : '—'],
-    ['Shots fired during an alarm', m.unsafeShots],
+    ['Shots fired during an alarm (not graded below)', m.unsafeShots],
+    [`Clean, ${of}`, m.clean + pct(m.clean)],
+    [`Moved, ${of}`, m.moved + pct(m.moved)],
+    [`Jerked, ${of}`, m.jerked + pct(m.jerked)],
+    ['Average movement during the press (no alarm)', deg(m.avgDev)],
+    ['Steadiest shot (no alarm)', deg(m.bestDev)],
+    ['Most common miss (all shots)', m.commonMiss ? `${m.commonMiss.dir} (${m.commonMiss.n})` : '—'],
     ['Movement alarms (finger off the frame)', m.moveAlarms],
   ];
   if (S.rule180) rows.push(['180 violations', m.breaks180]);

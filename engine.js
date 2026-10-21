@@ -84,24 +84,32 @@
   }
 
   /* ---------- session totals (never trimmed, unlike st.shots) ---------- */
+  // D-45: shots fired during an alarm count in `shots`, `unsafe` and `dirs` only; the grade counts
+  // and the movement stats (devSum, devN, best) cover shots fired with no alarm.
   const newTally = () => ({ shots: 0, Clean: 0, Moved: 0, Jerked: 0, unsafe: 0, devSum: 0, devN: 0, best: null, dirs: {} });
   function addToTally(ty, shot) {
-    ty.shots++; ty[shot.grade]++;
-    if (shot.unsafe) ty.unsafe++;
+    ty.shots++;
+    if (shot.dir) ty.dirs[shot.dir] = (ty.dirs[shot.dir] || 0) + 1;
+    if (shot.unsafe) { ty.unsafe++; return; }
+    ty[shot.grade]++;
     if (shot.motion) {
       ty.devSum += shot.dev; ty.devN++;
       if (ty.best === null || shot.dev < ty.best) ty.best = shot.dev;
     }
-    if (shot.dir) ty.dirs[shot.dir] = (ty.dirs[shot.dir] || 0) + 1;
   }
 
-  /** Session summary from engine state. Pure; reads only st.tally / counters. */
+  /**
+   * Session summary from engine state. Pure; reads only st.tally / counters.
+   * `shots` and `unsafeShots` count every shot; `graded` (shots with no alarm, D-45) is the base for
+   * clean/moved/jerked, cleanPct, avgDev and bestDev. cleanPct is null when `graded` is 0.
+   */
   function summarize(st) {
     const ty = st.tally;
+    const graded = ty.shots - ty.unsafe;
     const dirs = Object.entries(ty.dirs).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
     return {
-      shots: ty.shots, clean: ty.Clean, moved: ty.Moved, jerked: ty.Jerked,
-      cleanPct: ty.shots ? Math.round(100 * ty.Clean / ty.shots) : null,
+      shots: ty.shots, graded, clean: ty.Clean, moved: ty.Moved, jerked: ty.Jerked,
+      cleanPct: graded ? Math.round(100 * ty.Clean / graded) : null,
       unsafeShots: ty.unsafe,
       avgDev: ty.devN ? ty.devSum / ty.devN : null, bestDev: ty.best,
       commonMiss: dirs.length ? { dir: dirs[0][0], n: dirs[0][1] } : null,

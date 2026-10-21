@@ -138,6 +138,10 @@ const check = (name, cond, state) => {
   s = await st(); check('brief movement during a press: no alarm', !s.alarmActive, s);
   await wobble(60, 60);
   s = await st(); check('movement sustained during a press: alarm', s.alarmActive && s.violations === v + 1, s);
+  // D-45 (WQ-007): finish the pull while the alarm sounds. The shot counts but is not graded in the summary.
+  await touch('touchMove', [[TRG[0] - 45, TRG[1], 2]]); await motion(0, 0, 3);
+  s = await st(); check('full pull during an alarm fires a third shot, marked as fired during an alarm',
+    s.shots === 3 && s.summary.unsafeShots === 1 && s.summary.graded === 2, s);
 
   await touch('touchEnd', []); await motion(0, 0, 3);
   await touch('touchStart', [REST]); await motion(0, 0, 5);
@@ -242,6 +246,14 @@ const check = (name, cond, state) => {
   s = await st(); check('Finish opens the session summary with the session totals',
     s.summaryOpen && s.summary.shots === shotsSoFar && s.summary.breaks180 === 1 && s.summary.moveAlarms === s.violations, s);
   check('summary lists the shot count', (await page.textContent('#sumRows')).includes('Shots' + shotsSoFar));
+  // D-45: one clean and one moved shot with no alarm, one shot during an alarm.
+  check('summary grades only the shots with no alarm',
+    s.summary.shots === 3 && s.summary.unsafeShots === 1 && s.summary.graded === 2 && s.summary.clean === 1 &&
+    s.summary.moved === 1 && s.summary.jerked === 0 && s.summary.cleanPct === 50 && s.summary.bestDev !== null, s.summary);
+  { const t = await page.textContent('#sumRows');
+    check('summary percentages say they cover the 2 shots with no alarm',
+      t.includes('Clean, of 2 shots with no alarm1 (50%)') && t.includes('Moved, of 2 shots with no alarm1 (50%)') &&
+      t.includes('Shots fired during an alarm (not graded below)1'), t); }
   await motion(200, 200, 10);
   s = await st(); check('trainer is paused while the summary is open', !s.alarmActive && s.summaryOpen, s);
   await page.click('#sumNew'); await page.waitForTimeout(50);
