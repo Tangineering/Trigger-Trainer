@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-014
+next_id: WQ-015
 updated: 2026-10-21
 ```
 
@@ -37,6 +37,7 @@ updated: 2026-10-21
 | WQ-013 | Pause on portrait only after it has persisted for 3 s (D-60) | P1 | M | queued | — | ui |
 | WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
 | WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | queued | — | axis |
+| WQ-014 | Bridge `devicemotion` gaps in the 180 orientation integration (Q16) | P2 | S | blocked:user | — | alarm |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -208,8 +209,8 @@ the Pixel 11 (`tests/recordings/pixel-11/tdt-free-2026-10-20-22-40-27.json`, 34.
 alarm cannot start and the student must put the finger back on the frame to re-arm, so a 180 drill on an
 iPhone can disarm in the middle of the swing it should catch. iPhone Safari cannot lock orientation (no
 `requestFullscreen`). Ricky chose option 2 of Q15: keep landscape until portrait has persisted for 3 s (D-60,
-refining D-13). Motion samples keep arriving through the flip (gaps of 98–123 ms), so the orientation
-integration needs no change. The engine is not involved: `engine.js` never reads the orientation, only the
+refining D-13). Motion samples resume after a 98–123 ms gap at each flip; what that gap does to the 180
+orientation is WQ-014's problem, not this item's. The engine is not involved: `engine.js` never reads the orientation, only the
 `angle` field of each motion sample and the touch coordinates the page feeds it.
 
 **Scope.** `index.html` only; `engine.js` unchanged (no `VERSION` bump: same inputs give the same outputs).
@@ -345,6 +346,55 @@ later auto-switch (proposal 3.6 steps 2–3) without changing behaviour. The ref
   `axis est xyz ×<n>` with n above 1.5.
 
 **Verification.** `npm test`; the per-recording `axisEst` lines quoted in the entry; the empty replay diff.
+
+---
+
+### WQ-014 — Bridge `devicemotion` gaps in the 180 orientation integration (Q16)
+
+- **Status:** blocked:user · **Priority:** P2 · **Size:** S · **Track:** alarm · **Env:** any
+- **Added:** 2026-10-21 by iPhone-15 analysis session (from I-05, D-61)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** iOS Safari stops delivering `devicemotion` for 98–123 ms at every portrait flip (four flips in
+`tests/recordings/iphone-15/`: `free` at 13.64 s and 81.84 s, `180-break` at 6.02 s, `safe-move` at 2.73 s).
+`motion()` in `engine.js` (line 140) clamps each sample's `dt` to `K.MAX_DT_S` = 0.1 s and integrates the new
+sample's rate over it. In the iPhone 15 drift drill the first flip fell in a fast deceleration (177 °/s before
+the gap, 63 °/s after): the engine credited 6.3° where the phone turned about 15°, and the 180 orientation
+carried a 9° pitch/roll error for the rest of the drill (jig rests 9.2°, 8.5°, 8.6°; D-61, I-05). The
+per-sample integration itself is fine: a trapezoid step changes the Pixel 11 rests by under 0.3°, and the Pixel
+set has no gaps. Offline, bridging gaps with the mean of the rates before and after over the full gap brought
+the iPhone rests to 2.7°, 3.3°, 1.6° and left the Pixel 11 at 1.6°, 1.2°, 0.6°. Crediting less of the gap
+(40 ms, 17 ms, none) made it worse (13°–23°).
+
+**Owner decision needed.** Q16: bridge the gaps as proposed (yes → re-queue; no → drop the item and accept
+up to ~9° of 180 error per fast swing through a flip)?
+
+**Scope.** `engine.js` only.
+- In `motion()`, keep the existing `dt` (clamped to `K.MAX_DT_S`) for the rate EMA and the trace (`aimH`,
+  `aimV`), so the movement alarm and the shot grading are untouched.
+- For the quaternion step (line 177, `ox/oy/oz`), use a separate `dtQ` = the raw gap clamped to
+  `K.ORIENT_GAP_MS / 1000` (a longer gap already clears downrange a few lines above), and the mean of the
+  current and previous body-frame rates (`wx, wy, wz`; store the previous triple on `st`, reset it in
+  `setDownrange` and when `refSet` is cleared). First sample after downrange: `dtQ` = 0 as today.
+- Bump `VERSION` (0.9.0 → 0.10.0): five recordings change the `dev` figure in their `alarmStart` rows
+  (`iphone-15/180-break`, `iphone-15/free`, `pixel-11/180-break`, `pixel-11/free-…23-27-38`,
+  `synthetic/180-break`); no recording changes its event count, alarm reasons or grades. Quote the
+  `npm run test:replay` diff in the completion entry.
+- `CLAUDE.md`: the `motion(m)` row of the engine table and the "Orientation" platform fact say that gaps
+  are bridged (replace the Q16/WQ-014 reference); `docs/RECORDINGS.md` needs no change.
+- Out of scope: the portrait pause (WQ-013, `index.html`); gravity correction (I-02); the off-frame drift
+  alarm (WQ-011; both items touch `engine.js`, so they must not run in the same round — WQ-011's reference
+  orientation would also benefit from this change, note it in the completion entry).
+
+**Acceptance.**
+- `npm test` passes; every recording keeps its expectation result and its event count.
+- Replaying `tests/recordings/iphone-15/tdt-free-2026-10-21-03-38-03.json` ends with `state.dev180` under
+  3° (today 8.6°); `tests/recordings/pixel-11/tdt-free-2026-10-20-23-27-38.json` under 1° (today 0.7°).
+- Owner-verifiable (iPhone 15): repeat the jig drift drill for 3 minutes (WQ-006's remaining run) with the
+  new engine; every rest reads under 5°.
+
+**Verification.** `npm test`; the replay diff; the two `dev180` figures quoted in the completion entry;
+the owner line returned `blocked:owner-machine`.
 
 ---
 
