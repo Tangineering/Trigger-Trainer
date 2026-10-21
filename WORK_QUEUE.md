@@ -31,13 +31,13 @@ updated: 2026-10-20
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-001 | Default the gyro axis order to x/y/z on every platform | P1 | M | queued | — | axis |
+| WQ-001 | Default the gyro axis order to x/y/z on every platform | P1 | M | claimed:round-20261020-1 | — | axis |
 | WQ-003 | Fail the replay test when `auto` disagrees with a phone's axis verdict | P1 | S | queued | WQ-001 | axis |
-| WQ-002 | Replace the `isIOS` platform check with feature checks | P1 | S | queued | — | platform |
+| WQ-002 | Replace the `isIOS` platform check with feature checks | P1 | S | claimed:round-20261020-1 | — | platform |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-009 | Remove the contact-size (flat-finger) check (D-46) | P1 | S | queued | — | grading |
-| WQ-010 | Lower the `jerkMs` default to 300 ms (D-47) | P1 | S | queued | — | grading |
-| WQ-004 | Build an offline gyro-axis estimator harness over the recordings | P2 | M | queued | — | axis |
+| WQ-009 | Remove the contact-size (flat-finger) check (D-46) | P1 | S | claimed:round-20261020-1 | — | grading |
+| WQ-010 | Lower the `jerkMs` default to 300 ms (D-47) | P1 | S | claimed:round-20261020-1 | — | grading |
+| WQ-004 | Build an offline gyro-axis estimator harness over the recordings | P2 | M | claimed:round-20261020-1 | — | axis |
 | WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -57,8 +57,8 @@ Tracks: axis · platform · recordings · grading · layout · decisions · docs
 
 ### WQ-001 — Default the gyro axis order to x/y/z on every platform
 
-- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** axis · **Env:** any
-- **Added:** 2026-10-20 by recordings-review session
+- **Status:** claimed:round-20261020-1 · **Priority:** P1 · **Size:** M · **Track:** axis · **Env:** any
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-20 by orchestration session (headless Chromium 156 also exposes `requestPermission`, so the smoke test now runs with the `ios` mapping and fails)
 - **Depends on:** — · **Blocks:** WQ-003
 
 **Context.** The only real-phone axis recordings (`tests/recordings/pixel-11/tdt-axis-up-*.json`,
@@ -84,6 +84,12 @@ would therefore break the Pixel trace unless the default changes first. Rational
 - Docs pass: reword the "Gyro axis order" bullet under "Known platform facts" in `CLAUDE.md`, Q1 and Q11
   in `OPEN_QUESTIONS.md`, and `docs/RECORDINGS.md` where it says the replay sets the `auto` default.
   Add a `Claude (proposed)` row to `docs/DECISIONS.md` for the new default.
+- `tests/smoke.js`: on Playwright Chromium 156 (`HeadlessChrome/156`, 2026-10-20) `DeviceMotionEvent.requestPermission`
+  exists, so `isIOS` is true and `auto` already resolves to `ios`; the 180-rule swing (`swingUntil`, rotating about
+  `beta`) assumes the spec mapping, and `npm test` fails 2 checks on `main` ("swing past 90° … 180 alarm" and
+  "Finish opens the session summary … breaks180 === 1"). Make the smoke test independent of the platform
+  detection: drive the axis that is yaw under the x/y/z order, or write the mapping it assumes into the
+  page settings before Start. All smoke checks must pass under the new default.
 - Out of scope: the `isIOS` check and its three uses in `index.html` (WQ-002); the replay-test guard
   (WQ-003); any run-time estimation of the axis order (WQ-004 and later).
 
@@ -103,8 +109,8 @@ would therefore break the Pixel trace unless the default changes first. Rational
 
 ### WQ-002 — Replace the `isIOS` platform check with feature checks
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** platform · **Env:** any
-- **Added:** 2026-10-20 by recordings-review session
+- **Status:** claimed:round-20261020-1 · **Priority:** P1 · **Size:** S · **Track:** platform · **Env:** any
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-20 by orchestration session (headless Chromium facts corrected)
 - **Depends on:** — · **Blocks:** —
 
 **Context.** `isIOS` (`index.html` line 297 at commit 87d66f1) is true when
@@ -132,8 +138,9 @@ landscape lock and shows the iPhone note on the start screen (Q11, D-44). Ration
 
 **Acceptance.**
 - `npm test` passes; `tests/smoke.js` and `tests/roundtrip.js` still run under Playwright's Chromium
-  (which has `requestFullscreen` and no `vibrate` in headless mode — check the note text logic does not
-  throw there).
+  (Playwright Chromium 156 on Windows, measured 2026-10-20: `requestFullscreen` exists, `'vibrate' in navigator`
+  is **true**, and `DeviceMotionEvent.requestPermission` exists, so today `isIOS` is true there — check the note
+  text logic and the fullscreen attempt do not throw in headless mode).
 - `grep -c "isIOS" index.html` shows only the definition, the recorder field and the debug readout.
 - Owner-verifiable (Pixel 11): Start goes fullscreen and locks landscape; the start screen shows the
   Android note; a new recording carries `device.ios: false`.
@@ -176,7 +183,7 @@ unmeasured (Q1); when the first iPhone axis recordings arrive, the test should f
 
 ### WQ-004 — Build an offline gyro-axis estimator harness over the recordings
 
-- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** axis · **Env:** any
+- **Status:** claimed:round-20261020-1 · **Priority:** P2 · **Size:** M · **Track:** axis · **Env:** any
 - **Added:** 2026-10-20 by recordings-review session
 - **Depends on:** — · **Blocks:** —
 
@@ -293,7 +300,7 @@ plotted, but exclude them from the percentages and the "steadiest press" stat.
 
 ### WQ-009 — Remove the contact-size (flat-finger) check (D-46)
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** grading · **Env:** any
+- **Status:** claimed:round-20261020-1 · **Priority:** P1 · **Size:** S · **Track:** grading · **Env:** any
 - **Added:** 2026-10-20 by recordings-review session
 - **Depends on:** — · **Blocks:** —
 
@@ -333,7 +340,7 @@ tool. The check never worked on the Pixel 11 anyway (every touch reports radius 
 
 ### WQ-010 — Lower the `jerkMs` default to 300 ms (D-47)
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** grading · **Env:** any
+- **Status:** claimed:round-20261020-1 · **Priority:** P1 · **Size:** S · **Track:** grading · **Env:** any
 - **Added:** 2026-10-20 by recordings-review session
 - **Depends on:** — · **Blocks:** —
 
