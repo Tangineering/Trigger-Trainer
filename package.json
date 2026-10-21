@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node tests/replay.js && node tests/smoke.js && node tests/roundtrip.js",
     "test:replay": "node tests/replay.js",
+    "axis-estimate": "node tests/axis-estimate.js",
     "synthetic": "node tests/make-synthetic.js"
   },
   "devDependencies": {

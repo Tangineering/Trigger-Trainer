@@ -83,3 +83,15 @@ uses the rounded values, so a replay with the same engine version reproduces `ob
 `engine.js` behavior changes, bump `VERSION`; older recordings then only check their drill expectations.
 
 A minute of recording is roughly 0.3–1 MB, depending on the phone's sensor rate.
+
+## Estimating the gyro axis order from the data
+
+`npm run axis-estimate` runs `tests/axis-estimate.js` over every recording in `tests/recordings/`
+(or over the files and folders given as arguments). It estimates which device axis each
+`rotationRate` component describes, using gravity from `accelerationIncludingGravity` as the
+reference, and prints one line per recording per estimator. Each line gives the winning candidate,
+its margin over the runner-up, the motion time until the decision last changed, and whether the
+winner agrees with the phone's `axis-up`/`axis-right` verdict. `--gravity=lp` or `--gravity=fused`
+limits the run to one gravity source; the default runs both. The script is not part of `npm test`
+and changes nothing. The method and the 2026-10-20 result are in `docs/PROPOSAL_2026-10-20.md`,
+sections 3.3 to 3.7.
