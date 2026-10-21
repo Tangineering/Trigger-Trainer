@@ -32,7 +32,6 @@ updated: 2026-10-21
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | claimed:round-20261021-5 | — | layout |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -52,7 +51,7 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014 and WQ-015 are collected below, so phone work lives in one item)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015 and WQ-016 are collected below, so phone work lives in one item)
 - **Depends on:** — · **Blocks:** —
 
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
@@ -84,6 +83,8 @@ notes the result here and in the item's entry):
 - iPhone 15: the 3-minute jig drift drill with engine 0.11.0 or later; every rest under 5° (WQ-014, D-62).
 - Pixel 11, sensor readout on: after a few seconds of handling the debug line reads `axis est xyz ×n` with n
   above 1.5 (WQ-012, D-57).
+- iPhone 15 and Pixel 11, both hands: the taller frame strip, the forward trigger and the new guard feel natural to
+  hold, and a 60 px pull breaks the shot without the finger running off the trigger (WQ-016, D-71, D-75).
 
 **Context.** Everything measured so far comes from one Pixel 11. Three open points need a second
 phone each: the iPhone gyro axis order (Q1), whether the iOS misdetection also affects other
@@ -111,119 +112,6 @@ Pixel-specific. Three short drills per phone answer all three.
   raised); Q1, Q11 and the contact-size note are updated with the measured facts.
 
 **Verification.** The "Axis verdict" lines for each phone quoted in the completion entry.
-
----
-
-### WQ-016 — Rework the frame strip, trigger guard and trigger layout; travel 60 px
-
-- **Status:** claimed:round-20261021-5 · **Priority:** P2 · **Size:** M · **Track:** layout · **Env:** browser
-- **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments) · **Updated:** 2026-10-21 by the same session (guard shape specified: rear curve and a 30° rear leg joining the grip; guard front edge +20 px approved); 2026-10-21 by orchestration session (round-20261021-4: implemented in full on branch `wq-016`, commits 191ef2d, 0b8d59e, 57eea08, pushed to origin, not merged — five real recordings change their replayed events, so the item waited on Q17); 2026-10-21 by orchestration session (Q17 answered → D-75: trigger-wins rule folded into Scope; re-queued to finish on branch `wq-016`)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** Ricky asked for four layout adjustments to the pistol side view (2026-10-21, verbatim):
-"Increase the height of the frame safe button by 20%, keeping the slide at the same size but shifting the
-trigger and trigger guard downwards." "Change the rear of the trigger guard to blend into the grip."
-"Extend the frame safe button rearwards to shrink the empty space on the frame between the safe button and
-the grip by half." "Shift the trigger default position forwards by 20px, and update the default travel to
-60px." The "frame safe button" is the `rest` zone (`INDEX FINGER — FLAT ON FRAME`, `#restZone`). This
-refines D-21 (layout), which otherwise stands. Log the request as a Ricky row in `docs/DECISIONS.md` (next
-free D-number) with the quote above, and log the interpretation choices below as `Claude (proposed)` rows.
-
-Current geometry (`engine.js:36-45`, fractions of the viewport, right-handed; left-handed mirrors x):
-`slide {x .02, y .03, w .96, h .21}`, `frame {x .23, y .26, w .75, h .26}`, `grip {x .00, y .26, w .24, h .74}`,
-`guard {x .26, y .51, w .30, h .38}`, `rest {x .38, y .28, w .58, h .22}`, `trigger {x .28, y .53, w .22, h .30}`.
-`DEFAULTS.pullPx` is 35 (`engine.js:25`). Guard CSS: `index.html:40` (7 px `--frame` border, no top, rounded
-bottom corners). Blade: `#blade` at `right: 14%` of the trigger zone, shifted by up to `pullPx * 1.2` in
-`render()` (`index.html:594`). Zones are positioned by `rectFor()`/`layout()` (`index.html:399-417`).
-
-**Scope.**
-- **Rest height +20%:** `rest.h` .22 → .264 (top edge stays at y .28, so the bottom moves to .544). Grow
-  `frame.h` by the same .044 (→ .304) so the strip stays inside the frame. `slide` unchanged.
-- **Trigger and guard down:** move `trigger.y` and `guard.y` down by the same .044 (→ .574 and .554). Check
-  that the guard bottom (.934) and trigger bottom (.874) still fit on screen and that `target`
-  (`y .55, h .43`) and the guard do not overlap visibly; adjust only `target` if they do, and say so.
-- **Rest extended rearwards:** the empty frame between the grip's front edge (x .24) and the rest's rear edge
-  (x .38) is .14; halve it to .07 → `rest.x` .31, `rest.w` .65 (front edge stays at .96).
-- **Guard rear blends into the grip (shape specified by Ricky, 2026-10-21):** the guard becomes a single
-  continuous bar of the same colour and thickness as today (`--frame`, ~7–8 px), traced front to rear:
-  1. front edge: straight down from the underside of the frame, at the guard zone's front edge;
-  2. front-bottom corner: a rounded corner (radius about 40 px at 852 px wide);
-  3. bottom: a straight run rearwards, under the trigger, to about 30% of the guard width from its rear end;
-  4. rear-bottom corner: a **rear curve** (radius about 22 px) turning the bar upwards;
-  5. rear leg: a straight line rising rearwards at **30° from horizontal** (Ricky, 2026-10-21; a steeper leg
-     was rejected), which meets the grip's front edge at that angle. With the run from step 3 (about 30% of
-     the guard width, ~88 px at 852 px wide) the rise is about 51 px, so the join sits about 63% of the
-     guard height below the guard's top. Keep the 30° angle and let the join height follow from the run if
-     the zone size differs. Finish with a small fillet into the grip so there is no gap, end cap or visible
-     seam.
-  Ricky's reference was a side photo of a typical polymer-frame pistol, where the rear of the guard sweeps up
-  into the front strap at an angle; match the feel, not any particular model (constraint 5: generic imagery,
-  no brand or model likeness). The guard zone therefore starts at the grip's front edge: `guard.x` .26 → .24,
-  and its width grows by the .02 plus the 20 px front shift below. The shape cannot be drawn with CSS
-  borders; draw it as an inline SVG path inside the `.guard` element (stretched to the zone with
-  `preserveAspectRatio="none"` and `vector-effect: non-scaling-stroke`, or with the path rebuilt in `layout()`
-  from the zone's pixel size — implementer's choice, logged as `Claude (proposed)`), mirrored for left-handed
-  use via `.lh`. The guard stays drawing-only (not touch-sensitive).
-- **Trigger 20 px forward:** move the trigger zone 20 CSS px toward the muzzle (it is fractional today;
-  20 px is about .023 of an 852-px landscape iPhone 15 viewport). Preferred: a fixed pixel offset (e.g.
-  `K.TRIGGER_FWD_PX = 20`) applied identically in the engine's trigger hit test (it has `vw`) and in
-  `rectFor()` for the drawn zone, so touch and pixels match on every phone and in both hands. The guard's
-  front edge moves forward by the same 20 px (Ricky approved, 2026-10-21) so the blade stays inside the guard;
-  the rear end stays joined to the grip. Log the choice (pixel offset vs. fraction) as `Claude (proposed)`.
-- **Default travel 60 px:** `DEFAULTS.pullPx` 35 → 60. Keep the Settings slider range (15–100). Check that a
-  60 px pull from the blade's rest position stays plausible on a small landscape phone (667 px wide: the
-  trigger zone is ~147 px) and that the blade's drawn shift (`pullPx * 1.2` = 72 px) does not run off the
-  zone or into the grip; adjust the blade's resting position within the zone if needed. Because settings are
-  stored as a diff since D-64 (WQ-015), the new default reaches every phone whose user never moved the slider —
-  note it in the decision row. Update `CLAUDE.md`'s "Units" line ("35 px ≈ 5–6 mm") and any doc that quotes 35 px
-  (`grep -rn "35 px\|35px\|pullPx" docs README.md CLAUDE.md`).
-- **Tests and recordings:** zones are not stored in recordings, so the new geometry applies to every replay;
-  real recordings carry their own `settings`, so the `pullPx` default only changes `synthetic/` (generated
-  from `DEFAULTS` in `tests/make-synthetic.js:85`). Run `npm run test:replay` before and after; regenerate
-  `synthetic/` with `node tests/make-synthetic.js` if needed. Note the overlap risk: the new rest zone
-  (y up to .544, x from .31) overlaps the old trigger zone's top band (y .53–.544, x .28–.50), so a real
-  trigger touch recorded high on the old trigger could now land in the rest zone. If any real recording
-  changes outcome, **stop and report which ones and why** (do not edit recordings; CLAUDE.md working rules) —
-  the orchestrator then decides with Ricky whether to re-record or adjust geometry. `tests/smoke.js`,
-  `tests/roundtrip.js` and `tests/make-synthetic.js` touch the zone centres via `ZONES`, so they follow
-  automatically; check they still hit the intended zone with the pixel offset.
-- **Trigger-wins rule (D-75, Ricky 2026-10-21; added after the first pass):** a touch that engaged the trigger
-  counts as on the trigger until it is lifted, wherever it moves, and never counts as frame contact. The engine
-  already ends the trigger only when the touch id disappears (`updateTrigger`, `engine.js`); the change is that
-  `restTouch()` skips the touch whose id is `st.trig.id`. Add a smoke check: a finger on the trigger that slides
-  up into the frame strip keeps the trigger engaged and does not arm or clear an alarm; lifting it and placing a
-  finger on the strip does. After the rule, replay every real recording again: `iphone-15/jerked-press` must no
-  longer gain the `alarmStop`/`ok` while engaged; the other four changes (D-75 note) are accepted; list any further
-  difference. `CLAUDE.md` Behavior spec: append a bullet for D-75.
-- Bump `engine.js` `VERSION` (outputs change for the same inputs).
-- Update the `ZONES` row in `CLAUDE.md`'s architecture table only if its wording no longer holds (append-only
-  hub rule otherwise).
-- Out of scope: per-student layout calibration (I-01), stray palm contact (Q4), any new setting for the trigger
-  position, and anything in claimed items WQ-011, WQ-013, WQ-014, WQ-015, WQ-003 (WQ-011 and WQ-013 also
-  touch `engine.js`/`index.html`, so this item must not run in parallel with them).
-
-**Acceptance.**
-- `ZONES` match the Scope figures (or documented deviations) and `DEFAULTS.pullPx` is 60; `VERSION` bumped.
-- In a 852×393 and a 667×375 landscape browser viewport, right- and left-handed: the rest strip is visibly
-  taller and starts closer to the grip; the slide is unchanged; the guard has a rounded front-bottom corner, a
-  rear curve and a rear leg rising at 30° from horizontal into the grip, with no gap or seam; the guard's front edge
-  and the trigger sit 20 px further forward than before, the blade inside the guard; the blade's full 72 px drawn travel stays on
-  the gun. Screenshots attached to the completion entry.
-- A touch at the drawn trigger zone's centre engages the trigger, and a touch at the drawn rest zone's centre
-  arms the engine, in both hands (smoke test covers this).
-- `npm test` passes; the `test:replay` before/after comparison against `main` is recorded: exactly the four
-  accepted changes (`pixel-11/free-23-27-38` one alarm fewer; `pixel-11/clean-press` one `ok` fewer; `pixel-11/free-22-40-27`
-  `trigOn` 8 ms earlier; `iphone-15/press-wobble` `alarmStop` 811 ms earlier) and nothing in `iphone-15/jerked-press`
-  (D-75). Any other difference stops the item per Scope.
-- `docs/DECISIONS.md` has the Ricky row and the `Claude (proposed)` rows; `CLAUDE.md` Units line updated.
-- *Owner-verifiable:*
-  - On a real iPhone and a real Android phone, the frame strip, trigger and guard feel natural to hold in
-    both hands, and a 60 px pull breaks the shot without the finger running off the trigger.
-
-**Verification.** Run `npm run test:replay` before the change (save the output) and after; run `npm test`.
-Take the four screenshots with the built-in browser or Playwright. Record in the completion entry: the final
-`ZONES` values, the replay diff summary (which recordings changed outcome — expected none), the new
-`VERSION`, the D-numbers added, and the screenshots.
 
 ---
 

@@ -35,6 +35,24 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-016 — Rework the frame strip, trigger guard and trigger layout; travel 60 px
+
+- **Closed:** 2026-10-21 · **Outcome:** done-with-deviations (agent-verifiable half; the on-phone feel check is tracked under WQ-006)
+- **Executed by:** execution agent on opus (first pass, round-20261021-4, returned `blocked:user` on Q17), a second execution agent on opus (D-75 rule, round-20261021-5); orchestration session (Fable 5.1) reviewed the diffs and screenshots, resolved the `docs/DECISIONS.md` merge conflict and re-ran the suites · **Round:** round-20261021-4 and round-20261021-5
+- **Commits / PR:** 191ef2d "WQ-016: Rework frame strip, trigger and guard layout; travel 60 px (D-71 to D-74)", 0b8d59e "WQ-016: Log layout decisions D-71 to D-74; update Units and ZONES notes", 57eea08 "WQ-016: Add layout screenshots at 852x393 and 667x375, both hands", 71dff1f "WQ-016: Never count an engaged trigger touch as frame contact (D-75)" (merged to main as d94bb6b)
+
+**What was done.** `engine.js` `ZONES`: `frame.h` .304; `guard {x .24, y .554, w .32, h .38}`; `rest {x .31, y .28, w .65, h .264}`; `trigger.y` .574; `target {x .60, y .55, w .38, h .43}`; new `K.TRIGGER_FWD_PX = 20` and an exported `zoneFor(name, vw)` that shifts the trigger and the guard's front edge 20 px toward the muzzle, used by the trigger hit test and by `index.html` `rectFor()`. `DEFAULTS.pullPx` 60; `VERSION` and `package.json` 0.12.0. The guard is an inline SVG whose path `drawGuard()` rebuilds in `layout()` (straight front edge, 40 px front corner, bottom run, 22 px rear curve, 30° rear leg clipped flush at the grip edge, 10 px fillet; radii scale with `innerWidth/852`; `.lh` mirrors it). `restTouch()` skips the touch whose id is `st.trig.id` (D-75), so an engaged trigger touch never counts as frame contact. Tests: `smoke.js`, `roundtrip.js` and `make-synthetic.js` use `zoneFor('trigger', W)` and pull 70–75 px; `synthetic/` regenerated; 9 new smoke checks (drawn trigger/rest centres engage and arm in both hands; D-75 slide-into-strip cases). Docs: D-71 (Ricky, with the verbatim requests), D-72 to D-74 (`Claude (proposed)`), `CLAUDE.md` Units line, `ZONES` row and a D-75 Behavior-spec bullet; screenshots in `docs/screenshots/wq-016/`.
+
+**Why.** Ricky's four layout requests of 2026-10-21 (D-71): taller frame strip, strip extended rearwards, guard blending into the grip, trigger 20 px forward with 60 px travel. The first pass changed the replayed events of five real recordings and stopped per Scope (Q17); Ricky answered with the trigger-wins rule (D-75), which removed the one unwanted change and, as it turned out, one of the accepted ones.
+
+**Deviations.** (1) `target` moved from x .58, w .40 to x .60, w .38 and `layout()` caps the dial at `tr.width − 140` because the guard's new front edge ran through the Set downrange button at 667 px wide (dial 113 px there, unchanged at 852; D-74). (2) Screenshots match `*.png` in `.gitignore`, so they were added with `git add -f`; `.gitignore` unchanged. (3) The first agent finished and committed the whole item instead of stopping at the first replay difference, leaving a complete branch; recordings untouched. (4) Synthetic `press-wobble` now grades its shot Jerked instead of Moved (the regenerated 70 px pull is faster); its expectations pass. (5) Final replay comparison against the pre-WQ-016 engine shows three changes, not the four Q17 accepted: `iphone-15/press-wobble` replays identically again because its 811 ms earlier `alarmStop` came from a trigger touch counting as frame contact, which D-75 forbids.
+
+**Verification.** Orchestrator on merged main: `npm test` passes all three suites (replay "all passed (38 recordings)", smoke "all passed", roundtrip "all passed"). Second agent: smoke 66 checks (63 + 3), the new D-75 check fails against the pre-rule engine; main-vs-final replay of all 23 real recordings differs in exactly `pixel-11/tdt-clean-press-2026-10-20-21-48-19` (one `ok` fewer at 93868.4), `pixel-11/tdt-free-2026-10-20-22-40-27` (`trigOn` 8 ms earlier, following shot 0.2435° → 0.076°, still Clean) and `pixel-11/tdt-free-2026-10-20-23-27-38` (one movement alarm fewer with its `alarmStop`/`ok` and a later `ok`); `iphone-15/jerked-press` and `iphone-15/press-wobble` identical to before. Orchestrator viewed `852x393-rh.png` and `667x375-lh.png`: strip, guard shape and blade inside the guard as specified. NOT verified (owner, iPhone 15 and Pixel 11, both hands): the strip, trigger and guard feel natural to hold, and a 60 px pull breaks the shot without the finger running off the trigger.
+
+**Follow-ups.** None; the owner check is listed in WQ-006.
+
+---
+
 ### WQ-012 — Show the run-time gyro-axis estimate in the debug readout (D-57)
 
 - **Closed:** 2026-10-21 · **Outcome:** done-with-deviations (agent-verifiable half; the Pixel 11 readout check is deferred by Ricky and tracked under WQ-006)
