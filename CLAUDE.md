@@ -131,7 +131,8 @@ Opening settings or the summary, backgrounding the page, or rotating to portrait
   `requestFullscreen` exists (D-53). iPhone Safari reports portrait for 1.5–4 s during a hard swing, and the page
   then pauses and disarms the engine; the Pixel 11 did it once. D-60 (WQ-013): the pause waits until portrait has
   persisted for 3 s. `devicemotion` stops for 98–123 ms at each flip; when that falls in a fast swing, the 100 ms
-  gap rule in `motion()` loses up to ~9° of 180 orientation (I-05, Q16, WQ-014).
+  gap rule in `motion()` loses up to ~9° of 180 orientation (I-05); D-62 (WQ-014) bridges gaps up to 300 ms with the
+  mean of the rates on both sides.
 - **Platform detection:** behavior uses feature checks, never the platform (D-53): Android Chrome also exposes
   `DeviceMotionEvent.requestPermission`, which once made a Pixel 11 look like an iPhone (recordings before D-53 say
   `ios: true`). `isIOS` is a user-agent test that only feeds the recorder's `device.ios` field and the debug readout.
