@@ -152,7 +152,7 @@ unmeasured (Q1); when the first iPhone axis recordings arrive, the test should f
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-20 by iPhone-15 analysis session (iPhone half done; second Android phone remains)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61)
 - **Depends on:** — · **Blocks:** —
 
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
@@ -160,8 +160,9 @@ drift `free` run, and the rest), and the analysis half ran for that phone: Q1 cl
 and the contact-size fact are in `CLAUDE.md` "Known platform facts", and the drift drill reads 8.5–9.3° at its rests
 (Q10; under D-49's 10° limit, but a 93 s run with no jig confirmation). Two findings went to `OPEN_QUESTIONS.md`
 rather than this item: its `clean-press` failed on its first shot (Moved at 0.96°; Q14, settled by trimming that press
-out of the file, D-59) and iOS flips to portrait and disarms during hard swings (Q15, I-04). Remaining: the second (non-Pixel) Android phone, plus a
-jig-confirmed 3-minute drift run on the iPhone if Ricky's Q10 answer calls for one.
+out of the file, D-59) and iOS flips to portrait and disarms during hard swings (Q15, I-04). Remaining: the second (non-Pixel) Android phone, plus the
+full 3-minute jig drift run on the iPhone 15 (D-61: the 93 s run was on a jig and read 9°, so the long run
+decides whether I-02 opens for that phone).
 
 **Context.** Everything measured so far comes from one Pixel 11. Three open points need a second
 phone each: the iPhone gyro axis order (Q1), whether the iOS misdetection also affects other
