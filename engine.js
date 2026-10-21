@@ -12,13 +12,15 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.10.0';
+  const VERSION = '0.11.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
     moveDps: 25,         // rotation-rate alarm threshold, deg/s
     moveAcc: 1.5,        // linear-acceleration alarm threshold, m/s^2
     graceMs: 300,        // ignore motion this long after the finger leaves the frame
+    offFrameDeg: 5,      // off the frame, muzzle drift (deg, roll ignored) past this from where it pointed
+                         // when the finger left alarms, however slow; D-56
     jerkMs: 300,         // during a press, total movement longer than this alarms (one short jerk doesn't); D-47
     rule180: true,       // alarm when the muzzle points more than limit180Deg from downrange
     limit180Deg: 90,
@@ -110,7 +112,7 @@
   /**
    * @param S     settings object (read live; the page may mutate it between sessions)
    * @param opts  { onEvent: fn({type, t, ...}) }
-   * Events: armed, ok, alarmStart {reason: 'move'|'180'}, alarmStop, trigOn, trigOff, shot, reset,
+   * Events: armed, ok, alarmStart {reason: 'move'|'180', devOff on 'move'}, alarmStop, trigOn, trigOff, shot, reset,
    *         downrange (set by the user), downrangeLost (orientation tracking interrupted)
    */
   function createEngine(S, opts) {
@@ -126,6 +128,7 @@
       // Orientation since downrange was set (quaternion w,x,y,z, device frame → reference frame).
       q: [1, 0, 0, 0], dev180: 0, refSet: false,    // 180 check is off until setDownrange()
       prevW: null,                                 // previous body-frame rates [wx, wy, wz] (deg/s) for the gap bridge
+      qOff: null, devOff: 0,                       // orientation when the finger left the frame; drift from it (deg, D-56)
       trig: null, lastTrace: null, shots: [], tally: newTally(),
       touches: new Map(),
     };
@@ -140,6 +143,8 @@
         st.refSet = false; st.dev180 = 0; st.prevW = null;   // orientation since downrange is unknown; must set it again
         emit({ type: 'downrangeLost', t: m.t });
       }
+      // Rotation during a long gap is unknown: restart the off-frame drift reference after this step (D-56).
+      const reOff = !!st.qOff && st.lastMotionT > 0 && m.t - st.lastMotionT > K.ORIENT_GAP_MS;
       const gapS = st.lastMotionT ? Math.max(0, (m.t - st.lastMotionT) / 1000) : 0;
       const dt = Math.min(gapS, K.MAX_DT_S);           // rate EMA and aim trace
       st.lastMotionT = m.t; st.motionEvents++;
@@ -194,11 +199,22 @@
         const n = Math.hypot(nq[0], nq[1], nq[2], nq[3]);
         st.q = nq.map(v => v / n);
       }
+      if (reOff) st.qOff = st.q.slice();
     }
 
-    function deviation180() {
-      const [, x, , z] = st.q;
+    // Angle between R·ŷ and ŷ for a unit quaternion (roll about the muzzle axis ŷ leaves it unchanged).
+    function muzzleAngle(q) {
+      const x = q[1], z = q[3];
       return Math.acos(Math.max(-1, Math.min(1, 1 - 2 * (x * x + z * z)))) * 180 / Math.PI;
+    }
+
+    function deviation180() { return muzzleAngle(st.q); }
+
+    /** Muzzle angle (deg, roll ignored) between orientation qRef and now: qRel = conj(qRef) · st.q. */
+    function deviationFrom(qRef) {
+      const [aw, ax, ay, az] = qRef, [bw, bx, by, bz] = st.q;
+      return muzzleAngle([aw * bw + ax * bx + ay * by + az * bz, aw * bx - ax * bw - ay * bz + az * by,
+                          aw * by + ax * bz - ay * bw - az * bx, aw * bz - ax * by + ay * bx - az * bw]);
     }
 
     /** list = [{id, cx, cy, rx, ry}] in CSS px; w/h = viewport */
@@ -275,10 +291,10 @@
 
       const rest = restTouch();
       st.restContact = !!rest;
-      if (rest) { st.restLostAt = null; st.onRest = true; }
+      if (rest) { st.restLostAt = null; st.onRest = true; st.qOff = null; }
       else if (st.onRest) {
         if (st.restLostAt == null) st.restLostAt = t;
-        if (t - st.restLostAt > K.REST_LOSS_DEBOUNCE_MS) { st.onRest = false; st.offSince = st.restLostAt; }
+        if (t - st.restLostAt > K.REST_LOSS_DEBOUNCE_MS) { st.onRest = false; st.offSince = st.restLostAt; st.qOff = st.q.slice(); }
       }
 
       const moving = st.rotEMA > S.moveDps || st.linEMA > S.moveAcc;
@@ -297,6 +313,7 @@
       if (inPress && moving) tr0.moveMs += dtMs;
 
       st.dev180 = st.refSet ? deviation180() : 0;     // live readout even before arming
+      st.devOff = st.qOff ? deviationFrom(st.qOff) : 0;
       if (!st.armed) {
         if (st.onRest) { st.armed = true; emit({ type: 'armed', t }); }
       } else {
@@ -317,14 +334,17 @@
         // counts as off the frame. During a press (pull started → shortly after the break) one short
         // jerk is graded, not alarmed, but more than jerkMs of movement in total still alarms.
         // Grace also applies after a press ends and after the finger leaves the trigger.
+        // In every off-frame state (trigger and press included) the muzzle may also drift at most
+        // offFrameDeg from where it pointed when the finger left, however slowly (D-56).
         if (!st.onRest && !st.alarmActive) {
           let alarm;
           if (st.inPress) alarm = st.trig.moveMs > S.jerkMs;
           else alarm = moving && t - st.offSince > S.graceMs && t - st.pressEndAt > S.graceMs && t - st.trigOffAt > S.graceMs
                        && (!st.trig || t - st.movingSince > K.ON_TRIGGER_CONFIRM_MS);
+          if (!alarm && st.qOff && st.devOff > S.offFrameDeg && t - st.offSince > S.graceMs) alarm = true;
           if (alarm) {
             st.alarmActive = true; st.alarmReason = 'move'; st.violations++;
-            emit({ type: 'alarmStart', t, reason: 'move', rot: st.rotEMA, lin: st.linEMA, dev: st.dev180 });
+            emit({ type: 'alarmStart', t, reason: 'move', rot: st.rotEMA, lin: st.linEMA, dev: st.dev180, devOff: st.devOff });
           }
         }
       }
@@ -344,6 +364,7 @@
       if (p) {
         if (st.alarmActive) { st.alarmActive = false; st.alarmReason = null; emit({ type: 'alarmStop', t }); }
         st.armed = false; st.onRest = st.wasOnRest = false; st.restLostAt = null; st.restContact = false;
+        st.qOff = null; st.devOff = 0;
         if (st.trig) endTrigger(t);
       } else if (st.touches.size) {
         updateTrigger(t);
@@ -353,6 +374,7 @@
     /** The user pressed Set downrange: wherever the muzzle points now is downrange. */
     function setDownrange(t) {
       st.q = [1, 0, 0, 0]; st.refSet = true; st.dev180 = 0; st.prevW = null;
+      if (st.qOff) st.qOff = st.q.slice();           // st.q restarted: restart the off-frame drift reference too
       emit({ type: 'downrange', t });
     }
 

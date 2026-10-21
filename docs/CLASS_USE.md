@@ -19,12 +19,16 @@
 ## Drills
 - **Ready and move:** finger on the frame, move between "targets" around the room. No alarm should sound.
 - **Finger off = freeze:** lift the finger to the trigger only when the phone is still. Any movement → alarm.
+  Slow movement counts too: once the muzzle has drifted more than 5° (Settings, "Max muzzle drift off the
+  frame") from where it pointed when the finger left the frame, the alarm sounds, also on the trigger and
+  during a press. Twisting the phone about the barrel axis does not count. Finger back on the frame clears it.
 - **Press, don't slap:** slow rearward press; watch the blue trace and the shot dot. Green ring = clean.
 - **Reset and follow-up:** after a shot, let the trigger forward until it re-arms, press again.
 - **Back to the frame:** after every string, finger flat on the frame → OK tone before moving.
 - **Finger on the trigger is not a rest:** resting the fingertip on the trigger and moving alarms, and so does
   moving during a press. One short jerk during the press is graded, not alarmed; anything longer, or
-  several wobbles adding up to more than about a third of a second (300 ms by default), alarms.
+  several wobbles adding up to more than about a third of a second (300 ms by default), alarms. A jerk
+  that moves the muzzle more than the 5° drift limit alarms as well.
 - **180:** turn and move freely with the finger on the frame. Past 90° from downrange a lower "wail" alarm
   sounds even with the finger on the frame. "Muzzle N° from downrange" under the muzzle shows how close they are.
 

@@ -118,8 +118,10 @@ const check = (name, cond, state) => {
   s = await st(); check('trigger reset allows follow-up; drift graded as moved', s.shots === 2 && s.lastGrade === 'Moved', s);
 
   let v = s.violations;
-  await motion(150, 60, 6);                                  // short hard jerk right after the break
-  s = await st(); check('short hard jerk during the press: no alarm', !s.alarmActive && s.violations === v, s);
+  // Short hard jerk right after the break that recoils: fast, but the muzzle stays within
+  // offFrameDeg of where it pointed when the finger left the frame (D-34 allowance, D-56 limit).
+  await motion(60, 0, 3); await motion(-60, 0, 3);
+  s = await st(); check('short hard jerk during the press: no alarm', !s.alarmActive && s.violations === v && s.devOff < 5, s);
 
   await motion(0, 0, 40);                                    // press window closes 0.5 s after the break
   await wobble(80);                                          // finger still resting on the trigger, phone swings
@@ -169,6 +171,43 @@ const check = (name, cond, state) => {
   await swingUntil(120, x => x.dev180 < 30);
   await motion(0, 0, 5);
   s = await st(); check('back downrange with finger on the frame: 180 alarm clears', !s.alarmActive && s.onRest, s);
+
+  // D-56: off the frame the muzzle may drift at most offFrameDeg (5°) from where it pointed when the
+  // finger left, however slowly. 8°/s is well under the rate limit (moveDps 25°/s).
+  const offFrame = async () => { await touch('touchEnd', []); await motion(0, 0, 25); };
+  const backOnFrame = async () => { await touch('touchStart', [REST]); await motion(0, 0, 8); };
+  v = (await st()).violations;
+  await offFrame();
+  await swingUntil(8, x => x.devOff > 4 || x.alarmActive);
+  s = await st(); check('slow drift off the frame to 4°: no alarm', !s.alarmActive && s.devOff > 4 && s.devOff < 5 && s.rotEMA < 25, s);
+  await swingUntil(8, x => x.alarmActive || x.devOff > 7);
+  s = await st(); check('slow drift off the frame past 5°: move alarm', s.alarmActive && s.alarmReason === 'move' &&
+    s.violations === v + 1 && s.devOff > 5 && s.devOff < 6.5 && s.rotEMA < 25, s);
+  await motion(0, 0, 10);
+  s = await st(); check('drift alarm latches after the muzzle stops', s.alarmActive, s);
+  await backOnFrame();
+  s = await st(); check('finger back on the frame clears the drift alarm', s.onRest && !s.alarmActive && s.devOff === 0, s);
+
+  await offFrame();
+  await swingUntil(-8, x => x.devOff > 4 || x.alarmActive);
+  await motion(0, 0, 40);
+  s = await st(); check('slow 4° drift off the frame, then still: no alarm', !s.alarmActive && s.devOff > 3.5 && s.devOff < 5, s);
+  await backOnFrame();
+
+  await offFrame();
+  await motion(0, 20, 45);                                   // twist about the barrel axis (device y) only
+  s = await st(); check('twist about the barrel axis off the frame: no alarm', !s.alarmActive && s.devOff < 1, s);
+  await backOnFrame();
+
+  v = (await st()).violations;
+  await offFrame();
+  await touch('touchStart', [TRG]); await motion(0, 0, 3);
+  await touch('touchMove', [[TRG[0] - 20, TRG[1], 2]]); await motion(0, 0, 2);   // press started, not broken
+  await swingUntil(8, x => x.alarmActive || x.devOff > 7);
+  s = await st(); check('slow drift past 5° during a press: move alarm', s.alarmActive && s.alarmReason === 'move' &&
+    s.inPress && s.violations === v + 1 && s.devOff < 6.5, s);
+  await touch('touchEnd', []); await backOnFrame();
+  s = await st(); check('back on the frame after the press clears it', s.onRest && !s.alarmActive && !s.trig, s);
 
   // Finish (Settings) → session summary; New session clears it and returns to the start screen.
   const shotsSoFar = (await st()).shots;

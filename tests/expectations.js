@@ -1,5 +1,5 @@
 // What each recording label must produce when replayed. Each returns [[description, pass], ...].
-// r = summary from replay.js: { alarms, shots[], armed, peak: {h, v} }
+// r = summary from replay.js: { alarms, shots[], armed, finalAlarm, peak: {h, v} }
 
 const dominant = (p, axis, sign) => {
   const main = axis === 'v' ? p.v : p.h, other = axis === 'v' ? p.h : p.v;
@@ -8,9 +8,12 @@ const dominant = (p, axis, sign) => {
 
 module.exports = {
   'free': () => [],
+  // A recording ends with the finger lifted to tap Stop; since D-56 the phone moving more than
+  // offFrameDeg in that last moment alarms, and the alarm is still on when the recording ends.
   'safe-move': r => [
     ['arms on the frame', r.armed > 0],
-    ['no alarm while finger stays on the frame', r.alarms === 0],
+    ['no alarm while finger stays on the frame (one still active at the end is the lift to stop)',
+      r.alarms === 0 || (r.alarms === 1 && r.finalAlarm)],
   ],
   'off-frame-move': r => [
     ['arms on the frame', r.armed > 0],
@@ -25,10 +28,13 @@ module.exports = {
     ['no alarm', r.alarms === 0],
     ['every shot graded Clean', r.shots.length > 0 && r.shots.every(s => s.grade === 'Clean')],
   ],
+  // D-34: a short jerk is graded, not alarmed by the rate/time rule. Since D-56 a jerk (or drift
+  // over several follow-up shots) that moves the muzzle more than offFrameDeg from where it pointed
+  // when the finger left the frame alarms, so this label no longer requires zero alarms; the
+  // under-the-limit case is covered by tests/smoke.js.
   'jerked-press': r => [
     ['at least one shot', r.shots.length >= 1],
     ['at least one shot graded Moved or Jerked', r.shots.some(s => s.grade !== 'Clean')],
-    ['no alarm: a jerk on the trigger is graded, not alarmed', r.alarms === 0],
   ],
   'press-wobble': r => [
     ['alarm when the phone keeps moving during a press', r.alarms >= 1],
