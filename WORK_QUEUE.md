@@ -23,8 +23,8 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-013
-updated: 2026-10-20
+next_id: WQ-014
+updated: 2026-10-21
 ```
 
 ## Index
@@ -34,6 +34,7 @@ updated: 2026-10-20
 | WQ-011 | Alarm when the muzzle drifts more than 5° while the finger is off the frame (D-56) | P1 | M | queued | — | alarm |
 | WQ-003 | Fail the replay test when `auto` disagrees with a phone's axis verdict | P1 | S | queued | — | axis |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
+| WQ-013 | Pause on portrait only after it has persisted for 3 s (D-60) | P1 | M | queued | — | ui |
 | WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
 | WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | queued | — | axis |
 
@@ -46,7 +47,7 @@ Mechanical edits (claim, un-claim, archive, invariant check) go through
 `python scripts/wq.py …`; see `work-queue-run`. On Ricky's PC the interpreter is
 `C:\Users\ricky\.local\bin\python.exe` (the `python` alias on PATH is the Microsoft Store stub).
 
-Tracks: axis · platform · recordings · grading · alarm · layout · decisions · docs
+Tracks: axis · platform · recordings · grading · alarm · layout · decisions · docs · ui
 
 ---
 
@@ -188,6 +189,74 @@ Pixel-specific. Three short drills per phone answer all three.
   raised); Q1, Q11 and the contact-size note are updated with the measured facts.
 
 **Verification.** The "Axis verdict" lines for each phone quoted in the completion entry.
+
+---
+
+### WQ-013 — Pause on portrait only after it has persisted for 3 s (D-60)
+
+- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** ui · **Env:** any
+- **Added:** 2026-10-21 by iPhone-15 analysis session (Q15 answered → D-60; promotes `docs/IDEAS.md` I-04)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** On the iPhone 15 a hard swing makes iOS report portrait for 1.5–3.8 s (screen angle 0,
+viewport 393×694 instead of 852×321), and `index.html` then pauses and disarms the engine at once:
+`tick()` passes `isPortrait()` (`innerHeight > innerWidth`, line 374) into `setEnginePaused(...)` (line 555).
+It happened mid-swing in `180-break` (6.0–7.5 s), in `safe-move` (2.7–4.4 s) and twice in `free`
+(13.6–15.5 s and 81.8–85.6 s) of `tests/recordings/iphone-15/` (the `p` rows in those files), and once on
+the Pixel 11 (`tests/recordings/pixel-11/tdt-free-2026-10-20-22-40-27.json`, 34.7 s). While paused the 180
+alarm cannot start and the student must put the finger back on the frame to re-arm, so a 180 drill on an
+iPhone can disarm in the middle of the swing it should catch. iPhone Safari cannot lock orientation (no
+`requestFullscreen`). Ricky chose option 2 of Q15: keep landscape until portrait has persisted for 3 s (D-60,
+refining D-13). Motion samples keep arriving through the flip (gaps of 98–123 ms), so the orientation
+integration needs no change. The engine is not involved: `engine.js` never reads the orientation, only the
+`angle` field of each motion sample and the touch coordinates the page feeds it.
+
+**Scope.** `index.html` only; `engine.js` unchanged (no `VERSION` bump: same inputs give the same outputs).
+- Add a page constant `PORTRAIT_HOLD_MS = 3000` next to `REC_MAX_MS`. In `tick()` replace the `isPortrait()`
+  term of the `setEnginePaused` call (line 555) with a held flag: the first portrait frame starts a timer
+  (from the frame time `t`, not `Date.now()`), the flag becomes true once portrait has lasted
+  `PORTRAIT_HOLD_MS`, and any landscape frame clears both. Behaviour while paused and after the hold
+  expires is exactly today's (D-13).
+- While portrait is pending (reported but under 3 s), keep feeding the engine landscape inputs:
+  - Motion: `onMotion` (line 520) passes `screenAngle()` into `TDT.fromDeviceMotion`; pass the last angle
+    seen while landscape instead, so the trace's yaw sign (`upSign` in `engine.js` `motion()`, line 165) does
+    not flip for those seconds. The recorder logs the row as fed, so recordings stay replay-exact.
+  - Touches: the portrait viewport has different CSS coordinates and dimensions, and the toolbar heights make
+    an exact rotation of coordinates impossible. Keep the last landscape touch list (`curTouches` plus the
+    landscape `innerWidth`/`innerHeight` passed to `feedTouches`) as long as at least one touch is present;
+    feed the empty list as soon as the touch count drops to zero (finger lifted → off frame as today). This
+    is a `Claude (proposed)` reading of D-60: log it in `docs/DECISIONS.md`. Pressing the trigger during a
+    portrait flip is not supported and need not be.
+- The **Rotate to landscape** overlay: today the CSS media query (line 140, `#rotateOv.armed` in
+  `@media (orientation: portrait)`) shows it the moment portrait is reported; it is a `.ui` element, so a new
+  touch landing on it is filtered out by `isUi` (line 524). Show it from JS only once the hold has expired
+  (toggle a class in `tick()`), and remove the media query. The `armed` toggles at lines 786 and 895 stay.
+- `CLAUDE.md`: the state-machine paragraph ("rotating to portrait disarms and silences") and the
+  `index.html` table row for `tick` (rAF) say that portrait must persist 3 s (D-60); the "Orientation"
+  platform fact already names D-60/WQ-013. `docs/CLASS_USE.md`: adjust any sentence that says the trainer
+  stops as soon as the phone is turned portrait.
+- `tests/smoke.js`: add a case that emulates the flip with `page.setViewportSize` — portrait for 1.5 s
+  keeps `running` and `armed` true in `window.__tdt()` and the engine unpaused (extend `__tdt()` with
+  `paused: enginePaused` if needed); portrait for 3.5 s pauses and disarms; back to landscape the finger
+  must return to the frame to re-arm, as today.
+- Out of scope: `engine.js` (WQ-011 owns the next engine change); the debug readout (WQ-012; this item
+  touches `index.html` too, so it must not run in the same round as WQ-011 or WQ-012); any gravity-based
+  portrait decision (option 3 of Q15, rejected by D-60); orientation locking.
+
+**Acceptance.**
+- `npm test` passes (replay, smoke, roundtrip); `npm run test:replay` output is identical to before (no
+  engine change), diff quoted in the completion entry.
+- The new smoke case passes: a 1.5 s portrait emulation leaves the engine running and armed; a 3.5 s one
+  pauses and disarms; the rotate overlay is hidden during the first and shown during the second.
+- Owner-verifiable (iPhone 15, then Pixel 11): with the finger on the frame, swing the muzzle through
+  vertical so the phone flips to portrait for a moment — no disarm, no overlay, the OK tone is not replayed,
+  and the 180 drill `180-break` still alarms past 90°. Hold the phone in portrait for 4 s — the overlay
+  appears and the trainer disarms as before. Record `180-break` and `free` again on the iPhone and check in
+  the files that the `p` rows no longer appear at the flips.
+
+**Verification.** `npm test`; the replay diff (empty) and the new smoke case's output quoted in the completion
+entry; D-60 cited, the touch-hold reading logged as `Claude (proposed)`; the owner lines returned
+`blocked:owner-machine`.
 
 ---
 
