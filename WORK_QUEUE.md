@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-017
+next_id: WQ-018
 updated: 2026-10-21
 ```
 
@@ -32,6 +32,7 @@ updated: 2026-10-21
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
+| WQ-017 | Lower the `offFrameDeg` default from 5° to 3° (D-77) | P1 | S | queued | — | alarm |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -73,7 +74,7 @@ notes the result here and in the item's entry):
 - Pixel 11 with its old saved settings: after loading the updated page once, Settings shows `jerkMs` at 300 while
   deliberately moved sliders keep their values; after "Restore defaults" a reload keeps every slider at the code
   default (WQ-015).
-- Pixel 11 and iPhone 15, finger off the frame: a slow sweep of about 10° alarms within a second of passing 5°;
+- Pixel 11 and iPhone 15, finger off the frame: a slow sweep of about 10° alarms within a second of passing `offFrameDeg` (5°; 3° once WQ-017 lands, D-77);
   holding still off the frame does not alarm; twisting about the barrel axis alone does not alarm; decide whether a
   jerk past 5° during a press should alarm as it does now (WQ-011, D-67).
 - iPhone 15 then Pixel 11, finger on the frame: swing through vertical so the phone flips to portrait for a moment:
@@ -129,6 +130,56 @@ entry. If a new recording fails an expectation, stop and report it (do not edit 
   raised); Q1, Q11 and the contact-size note are updated with the measured facts.
 
 **Verification.** The "Axis verdict" lines for each phone quoted in the completion entry.
+
+---
+
+### WQ-017 — Lower the `offFrameDeg` default from 5° to 3° (D-77)
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** alarm · **Env:** browser
+- **Added:** 2026-10-21 by off-frame-estimator session (Ricky decision D-77)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** D-56 (WQ-011) alarms when the muzzle drifts more than `offFrameDeg` from where it pointed when the
+finger left the frame. Ricky observed slow off-frame moves running without an alarm and recorded six of them
+(`tests/recordings/pixel-11/tdt-free-2026-10-21-19-43-01.json`): at 5° five alarmed 0.7–4.4 s after the lift and
+one never did. The offline evaluation in `docs/IDEAS.md` I-06 found no estimator (leaky velocity, rotation path,
+accelerometer RMS, gravity tilt, a fused Kalman filter) that beats `devOff`; the only gain is a lower limit. On
+engine 0.12.0, the drift on 15 quiet off-frame periods of the real recordings peaks at 1.83°; 3° trips none of
+them and alarms 0.3–1.4 s earlier than 5° on four of the six moves. Ricky chose 3° (D-77, 2026-10-21).
+
+**Scope.**
+- `engine.js` `DEFAULTS.offFrameDeg` (line 22): 5 → 3; keep the comment accurate. Settings slider stays (1–20°,
+  `index.html` line 754). Bump `VERSION` (0.12.0 → 0.12.1): replays of recordings whose `settings` lack
+  `offFrameDeg` (all made before 0.11.0) take the default, and one of them changes (below).
+- `tests/smoke.js` hard-codes the 5° limit in its D-56 block (lines 121–124 and 179–213): the "slow drift to 4°:
+  no alarm" checks (lines 185–186, 199–201) and "past 5°" checks (lines 187–189, 210–212) must move to the new
+  limit (for example sub-limit at 2–2.5°, alarm between 3° and 4.5°), and the short-jerk check (line 124,
+  `s.devOff < 5`) must still stay under the limit — reduce the jerk if it does not. Prefer reading the limit from the
+  page's settings over a second hard-coded number. Keep each check's intent.
+- Regenerate `tests/recordings/synthetic/` (`npm run synthetic`) if any synthetic replay changes, and say so.
+- Text that quotes 5° as the default: `CLAUDE.md` line 63 ("`offFrameDeg` (5°)"; hub file, edit only that
+  parenthesis), `docs/CLASS_USE.md` lines 22 and 31. Comments in `tests/expectations.js` and `docs/RECORDINGS.md`
+  name `offFrameDeg` without a number and stay.
+- Before and after, run `npm run test:replay`. Expected (measured 2026-10-21 on 0.12.0): no drill expectation fails;
+  `pixel-11/tdt-free-2026-10-20-22-40-27.json` goes from 3 to 4 alarms (a press at 66.8 s whose drift reaches 4.0°);
+  every other real recording keeps its alarm count. Any other change: stop and report it.
+- Out of scope: any translation (slide) detection (I-06 found none worth building), smoothing or hold times on
+  `devOff`, the rate thresholds, and the D-34 jerk allowance.
+
+**Acceptance.**
+- `DEFAULTS.offFrameDeg` is 3, `VERSION` is bumped, `npm test` passes.
+- `npm run test:replay` differs from the "before" run only in the alarm count of
+  `pixel-11/tdt-free-2026-10-20-22-40-27.json` (3 → 4); all recordings pass.
+- The smoke test checks a sub-limit drift without alarm and a drift past 3° with a `move` alarm, off the frame and
+  during a press, and the short jerk stays unalarmed.
+- `CLAUDE.md` and `docs/CLASS_USE.md` say 3°.
+- *Owner-verifiable:*
+  - On the Pixel 11 and the iPhone 15, with the drift slider never moved, Settings shows 3° after loading the
+    updated page; holding still off the frame for 10 s does not alarm; a slow sweep alarms within about a second
+    of passing 3°; a clean press does not alarm.
+
+**Verification.** Save the `npm run test:replay` output before and after and quote the changed line in the
+completion entry; run `npm test`; record the new `VERSION` and the smoke-test checks that changed.
 
 ---
 
