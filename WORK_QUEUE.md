@@ -32,7 +32,6 @@ updated: 2026-10-21
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | claimed:round-20261021-3 | — | grading |
 | WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | claimed:round-20261021-3 | — | axis |
 | WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | queued | — | layout |
 
@@ -111,45 +110,6 @@ Pixel-specific. Three short drills per phone answer all three.
   raised); Q1, Q11 and the contact-size note are updated with the measured facts.
 
 **Verification.** The "Axis verdict" lines for each phone quoted in the completion entry.
-
----
-
-### WQ-007 — Exclude shots fired during an alarm from the summary percentages (D-45)
-
-- **Status:** claimed:round-20261021-3 · **Priority:** P2 · **Size:** S · **Track:** grading · **Env:** any
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-20 by recordings-review session (Ricky chose option 2 → D-45; re-queued)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** Q5 asked whether a shot fired during an alarm should count differently. The two
-`press-wobble` recordings in `tests/recordings/pixel-11/` show the real case: 5 of 5 shots fired
-within 0.3 s of a movement alarm, all graded Jerked (8°–50°). The summary (`TDT.summarize`,
-`engine.js`; D-39) shows "shots during an alarm" as a separate count but includes them in the shot
-total and the Clean / Moved / Jerked percentages. Ricky decided (D-45): keep them counted, graded and
-plotted, but exclude them from the percentages and the "steadiest press" stat.
-
-**Scope.**
-- `engine.js` `summarize(state)`: the Clean / Moved / Jerked counts and percentages, the average
-  movement and the "steadiest" value use only shots whose `duringAlarm` (or equivalent flag — verify
-  the field name in the shot record and `state.tally`) is false. The total shot count, the
-  "shots during an alarm" line and the plot keep every shot. If the tally does not yet separate
-  grades by alarm state, extend `newTally` and the place shots are tallied; this is a summary-only
-  change, so no `shot` event changes and no `VERSION` bump (D-20).
-- `index.html` `showSummary()`: label the percentage rows so it is clear they exclude alarmed shots
-  (for example "of N shots with no alarm").
-- `tests/smoke.js`: extend or add a case that fires one clean shot and one shot during an alarm and
-  checks the summary numbers.
-- Docs pass: D-39's description in `docs/DECISIONS.md` gets a note pointing at D-45; `docs/CLASS_USE.md`
-  if it describes the summary percentages.
-- Out of scope: alarm thresholds (Q2, WQ-010); the engine's shot event or grading.
-
-**Acceptance.**
-- `npm test` passes, with the new smoke case.
-- Replaying `tests/recordings/pixel-11/tdt-press-wobble-2026-10-20-21-50-38.json` and calling
-  `TDT.summarize` gives 3 shots total, 3 during an alarm, and percentages computed over 0 no-alarm
-  shots (shown as "—", not NaN).
-- `npm run test:replay` output is unchanged (no `VERSION` bump).
-
-**Verification.** `npm test`; the summary numbers from the replay above quoted in the completion entry.
 
 ---
 

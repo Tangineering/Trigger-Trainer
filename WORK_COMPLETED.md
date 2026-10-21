@@ -35,6 +35,24 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-007 — Exclude shots fired during an alarm from the summary percentages (D-45)
+
+- **Closed:** 2026-10-21 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff and re-ran the suites · **Round:** round-20261021-3
+- **Commits / PR:** b399720 "WQ-007: Grade only shots fired with no alarm in the summary (D-45)" (fast-forwarded to main)
+
+**What was done.** `engine.js` `addToTally()` counts every shot in `shots`, `unsafe` and `dirs`, but adds to the Clean/Moved/Jerked counts and `devSum`/`devN`/`best` only when `shot.unsafe` is false; `summarize()` returns a new `graded` field (`shots − unsafe`) and bases `cleanPct` on it (null when 0). `index.html` `showSummary()` computes the percentages over `graded`, labels the rows "Clean, of N shots with no alarm" (likewise Moved, Jerked), marks the movement rows "(no alarm)", and moves the during-alarm row next to the shot total as "Shots fired during an alarm (not graded below)". `tests/smoke.js`: the sustained-movement press is now completed during the alarm (a third shot) and three checks cover the summary numbers. Docs: D-39 note pointing at D-45, D-69 (`Claude (proposed)`), `docs/CLASS_USE.md` summary paragraph, `CLAUDE.md` `summarize` row. No `VERSION` bump.
+
+**Why.** D-45 (Ricky): shots fired during an alarm stay counted, graded and plotted but leave the percentages and the steadiest-press stat.
+
+**Deviations.** (1) "Most common miss" still counts every shot: D-45 names only the percentages and the steadiest value, so it was left and logged in D-69 for Ricky to confirm or reverse (a one-line change in `addToTally` if reversed). (2) Average movement is excluded together with the steadiest value, as the item's Scope says, although D-45's text names only "steadiest". (3) Summary rows reordered and reworded (D-69).
+
+**Verification.** Orchestrator on merged main: `npm test` passes all three suites (replay "all passed (38 recordings)", smoke "all passed", roundtrip "all passed"). Agent: smoke 57 PASS (54 + 3 new); `npm run test:replay` before/after diff identical. Acceptance numbers from replaying `pixel-11/tdt-press-wobble-2026-10-20-21-50-38.json`: `{"shots":3,"graded":0,"clean":0,"moved":0,"jerked":0,"cleanPct":null,"unsafeShots":3,"avgDev":null,"bestDev":null,"commonMiss":{"dir":"high-left","n":1},"moveAlarms":3,"breaks180":0}`; the sibling `…21-49-46` gives 2 shots, 2 during an alarm, 0 graded; `showSummary()` shows "0 (—)" and "—", not NaN. Not run: a visual check of the overlay on a phone (summary-only change, no sensor or touch part).
+
+**Follow-ups.** Ricky to confirm D-69 (most-common-miss keeps alarmed shots); none otherwise.
+
+---
+
 ### WQ-003 — Fail the replay test when `auto` disagrees with a phone's axis verdict
 
 - **Closed:** 2026-10-21 · **Outcome:** done-with-deviations
