@@ -121,19 +121,24 @@ Opening settings or the summary, backgrounding the page, or rotating to portrait
 - **Gyro axis order:** the spec maps `rotationRate` alpha/beta/gamma to z/x/y. Some iOS builds have been
   reported to deliver x/y/z order instead, and so does Chrome 155 on a Pixel 11 (its axis recordings fit only x/y/z).
   `axisMode: 'auto'` therefore means x/y/z order (the `ios` value) on every platform, independent of `isIOS` (D-52);
-  `spec` remains a manual override. Correct on a Pixel 11 by eye (D-40); **unverified on iPhone** — first thing to
-  check (OPEN_QUESTIONS Q1). The alarm uses magnitude,
+  `spec` remains a manual override. Verified on both phones measured: Pixel 11 (D-40, D-52) and iPhone 15, iOS 18.7
+  (D-58; `tests/recordings/iphone-15/`). Q1 is closed. The alarm uses magnitude,
   so it's unaffected; only the trace direction and the "low-left" style labels depend on this. Resolve it from `axis-up` and
   `axis-right` recordings: `npm run test:replay` prints the mapping that fits both for each phone.
 - **Orientation:** sign of yaw uses `screen.orientation.angle` (or `window.orientation` on iOS): 90 vs 270.
   iOS can't lock orientation from a web page; Start tries fullscreen + `orientation.lock('landscape')` wherever
-  `requestFullscreen` exists (D-53).
+  `requestFullscreen` exists (D-53). iPhone Safari reports portrait for 1.5–4 s during a hard swing, and the page
+  then pauses and disarms the engine (Q15, I-04); the Pixel 11 did it once. Motion samples keep arriving through the flip.
 - **Platform detection:** behavior uses feature checks, never the platform (D-53): Android Chrome also exposes
   `DeviceMotionEvent.requestPermission`, which once made a Pixel 11 look like an iPhone (recordings before D-53 say
   `ios: true`). `isIOS` is a user-agent test that only feeds the recorder's `device.ios` field and the debug readout.
 - **180 orientation:** integrated from the gyro rates (quaternion, `motion()`), so it depends on the axis mapping
-  (Q1) and drifts slowly (Q10). The muzzle lies along device ±y in both landscape directions and both hands, so
+  (Q1) and drifts slowly (Q10: Pixel 11 under 2.5° over 3 minutes; iPhone 15 about 9° after a 93 s swing set, jig unconfirmed). The muzzle lies along device ±y in both landscape directions and both hands, so
   the deviation is simply the angle between R·ŷ and ŷ (sign-independent; roll-invariant).
+- **Motion rate and fields:** both phones deliver `devicemotion` at about 60 Hz (median 17 ms). The iPhone 15 reports
+  `acceleration` alongside `accelerationIncludingGravity`, so the fused gravity source (D-55) works there too.
+- **Touch contact size:** iPhone 15 Safari reports a non-zero `radiusX`/`radiusY` on every touch; Chrome 155 on the
+  Pixel 11 reports 0. Nothing reads it since D-46; the recorder keeps `rx`/`ry` in the row format (D-18).
 - **Units:** pull distance is CSS px (~160 px per inch on most phones, so 35 px ≈ 5–6 mm). Drift is degrees
   of muzzle angle (1° ≈ 6.3" at 10 yd).
 
