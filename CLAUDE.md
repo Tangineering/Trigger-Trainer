@@ -59,6 +59,10 @@ How the queue and the other documents fit together:
 - During a trigger press (from the start of the pull until shortly after the break) a short jerk is graded,
   not alarmed; any other movement during the press alarms (D-34). A finger resting on the trigger without
   pulling counts as off the frame (D-24).
+- **Off-frame drift limit** (D-56): while the finger is off the frame (on the trigger and during a press too), the
+  muzzle may drift at most `offFrameDeg` (5°) from where it pointed when the finger left; twist about the barrel
+  axis is ignored. A larger drift alarms however slowly it happened, and the alarm holds until the finger is back on
+  the frame. The rate-based alarm and D-34's jerk allowance stay.
 - **180 rule** (D-26, D-31): the student points downrange and taps **Set downrange** (bottom right, next to the
   shot radar). Until then the 180 check is off and everything else works. Once set, if the muzzle points more
   than 90° from downrange (any mix of left/right and up/down), a distinct alarm sounds even with the finger on
@@ -111,6 +115,9 @@ or (motion > threshold after `graceMs`) → `ALARM` (latched) → (finger on fra
 During a press (pull ≥ 15% → 500 ms after the break) movement alarms once its total exceeds `jerkMs` (default 300 ms, D-47); resting on
 the trigger without pulling is treated as off the frame. `graceMs` applies after leaving the frame, after a press,
 and after leaving the trigger.
+Off-frame drift (D-56, any off-frame state, press included): the orientation `st.q` at the moment the finger left is
+kept as `qOff`; once `graceMs` has passed, a muzzle deviation `devOff` > `offFrameDeg` from it (roll ignored) starts a
+`move` alarm. `qOff` is re-captured when `setDownrange` restarts `st.q` and after a motion gap > `ORIENT_GAP_MS`.
 180 rule (any state while armed): muzzle > `limit180Deg` from downrange → `ALARM (180)`, which also escalates a movement
 alarm; clears when back inside the limit by `HYST_180_DEG` with the finger on the frame. Only active after `setDownrange`;
 a motion gap > `ORIENT_GAP_MS` clears downrange (`downrangeLost`).

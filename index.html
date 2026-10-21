@@ -648,6 +648,7 @@ function renderDebug(s) {
     `orient ${screenAngle()}  axes ${S.axisMode}${isIOS ? ' (iOS)' : ''}  evts ${s.motionEvents}\n` +
     `rest ${s.onRest} armed ${s.armed} alarm ${s.alarmActive ? s.alarmReason : '-'}${rec ? '  REC ' + rec.log.length : ''}\n` +
     `180 ${s.refSet ? s.dev180.toFixed(1) + '°' : 'unset'} (limit ${S.limit180Deg}${S.rule180 ? '' : ', off'})  press ${s.inPress}\n` +
+    `drift off frame ${s.devOff.toFixed(1)}° (limit ${S.offFrameDeg})\n` +
     `trigger ${s.trig ? 'pull ' + s.trig.pull.toFixed(0) + '/' + S.pullPx + 'px' + (s.trig.fired ? ' FIRED' : '') : '-'}\n` +
     `touches:\n${tl || '  none'}`;
 }
@@ -701,6 +702,7 @@ const SLIDERS = {
     { k: 'moveDps', label: 'Rotation limit', min: 5, max: 90, step: 1, unit: '°/s', help: 'Turning the phone faster than this with the finger off the frame trips the alarm.' },
     { k: 'moveAcc', label: 'Linear limit', min: 0.3, max: 5, step: 0.1, unit: 'm/s²', help: 'Shoving the phone harder than this with the finger off the frame trips the alarm.' },
     { k: 'graceMs', label: 'Grace after leaving frame', min: 0, max: 1000, step: 25, unit: 'ms', help: 'Ignores the jolt of lifting the finger.' },
+    { k: 'offFrameDeg', label: 'Max muzzle drift off the frame', min: 1, max: 20, step: 1, unit: '°', help: 'Slow movement past this angle alarms even when the rate thresholds are not reached (D-56).' },
     { k: 'jerkMs', label: 'Jerk allowance during a press', min: 100, max: 1500, step: 50, unit: 'ms', help: 'While pressing the trigger, one short jerk is graded, not alarmed. If the phone moves for longer than this in total during the press (one long movement or several short ones), it alarms. Resting on the trigger without pulling alarms like being off the frame.' },
   ],
   sliders2: [
@@ -935,7 +937,7 @@ window.__tdt = () => {
   return { running, armed: s.armed, onRest: s.onRest, alarmActive: s.alarmActive, violations: s.violations,
     shots: s.shots.length, lastGrade: s.shots.length ? s.shots[s.shots.length - 1].grade : null,
     trig: s.trig ? { pull: s.trig.pull, fired: s.trig.fired } : null, rotEMA: s.rotEMA, aimH: s.aimH, aimV: s.aimV,
-    recording: !!rec, alarmSound: Snd.alarm ? Snd.alarm.kind : null, refSet: s.refSet, alarmReason: s.alarmReason, dev180: s.dev180, breaks180: s.breaks180, inPress: s.inPress,
+    recording: !!rec, alarmSound: Snd.alarm ? Snd.alarm.kind : null, refSet: s.refSet, alarmReason: s.alarmReason, dev180: s.dev180, devOff: s.devOff, breaks180: s.breaks180, inPress: s.inPress,
     summary: TDT.summarize(s), summaryOpen: $('summaryOv').classList.contains('show') };
 };
 })();
