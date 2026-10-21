@@ -37,7 +37,10 @@
   .frame { background: var(--frame); border-radius: 6px 10px 10px 6px; }
   .grip { background: repeating-linear-gradient(45deg, #1a1d21 0 6px, #202429 6px 12px);
           border-radius: 0 0 18px 18px; display: flex; align-items: center; justify-content: center; }
-  .guard { border: 7px solid var(--frame); border-top: none; border-radius: 0 0 46% 46% / 0 0 70% 70%; }
+  .guard svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }   /* path built in layout() (D-73) */
+  .guard .bar { fill: none; stroke: var(--frame); stroke-linejoin: round; }
+  .guard .fillet { fill: var(--frame); }
+  .lh .guard svg { transform: scaleX(-1); }
   .rest { border: 2px dashed rgba(255,255,255,.28); border-radius: 12px; background: rgba(255,255,255,.04);
           display: flex; align-items: center; justify-content: center; transition: background .1s, border-color .1s; }
   .rest.on { background: rgba(47,191,113,.24); border: 2px solid var(--safe); }
@@ -148,7 +151,7 @@
     <div class="z slide" data-z="slide"><div class="serr"></div><div class="label muzzle-tag" id="muzzleTag">MUZZLE ▸</div></div>
     <div class="z frame" data-z="frame"></div>
     <div class="z grip" data-z="grip"><span class="label">GRIP<br>(ignored)</span></div>
-    <div class="z guard" data-z="guard"></div>
+    <div class="z guard" data-z="guard"><svg aria-hidden="true"><path class="fillet" id="guardFillet"/><path class="bar" id="guardBar"/></svg></div>
     <div class="z rest" data-z="rest" id="restZone"><span class="label">INDEX FINGER — FLAT ON FRAME</span></div>
     <div class="z trigger" data-z="trigger" id="trigZone"><div id="blade"></div><span class="label">TRIGGER<br>press &amp; pull back</span></div>
   </div>
@@ -396,23 +399,52 @@ function screenAngle() {
   return ((a % 360) + 360) % 360;
 }
 const isPortrait = () => innerHeight > innerWidth;
-function rectFor(z) {
-  const W = innerWidth, H = innerHeight;
+function rectFor(name) {
+  const W = innerWidth, H = innerHeight, z = TDT.zoneFor(name, W);   // trigger and guard carry a px offset (D-72)
   const x = S.hand === 'left' ? 1 - z.x - z.w : z.x;
   return { left: x * W, top: z.y * H, width: z.w * W, height: z.h * H };
 }
 function layout() {
   document.querySelectorAll('[data-z]').forEach(el => {
-    const r = rectFor(ZONES[el.dataset.z]);
+    const r = rectFor(el.dataset.z);
     el.style.left = r.left + 'px'; el.style.top = r.top + 'px';
     el.style.width = r.width + 'px'; el.style.height = r.height + 'px';
   });
   stage.classList.toggle('lh', S.hand === 'left');
   stage.classList.toggle('dbg', !!S.debug);
   $('muzzleTag').textContent = S.hand === 'left' ? '◂ MUZZLE' : 'MUZZLE ▸';
-  const tr = rectFor(ZONES.target);
-  sizeCanvas($('target'), Math.max(60, Math.min(tr.height - 8, tr.width * 0.55, 220)));
+  drawGuard(rectFor('guard'));
+  const tr = rectFor('target');
+  // Leave ~140 px beside the dial for the shot text and the nowrap Set downrange button, so the button stays
+  // clear of the guard's front edge on small phones (D-74).
+  sizeCanvas($('target'), Math.max(60, Math.min(tr.height - 8, tr.width * 0.55, tr.width - 140, 220)));
   if (engine) drawTarget(engine.state);
+}
+/* Trigger guard, drawn right-handed in the guard zone's pixel box (x = 0 is the grip's front edge;
+   .lh mirrors the SVG). One bar: front edge down from the frame, rounded front-bottom corner, bottom run
+   under the trigger, rear curve, then a rear leg rising rearwards at GUARD.legDeg into the grip, with a
+   filled fillet in the corner under the leg (D-71, D-73). Radii scale with the viewport width. */
+const GUARD = { bar: 7, frontR: 40, rearR: 22, rearRun: 0.30, legDeg: 30, fillet: 10, refW: 852 };
+function drawGuard(r) {
+  const w = r.width, h = r.height, k = innerWidth / GUARD.refW, s = GUARD.bar, hs = s / 2;
+  const xf = w - hs, yb = h - hs;                                  // stroke centre lines: front edge, bottom
+  const P = w * GUARD.rearRun;                                     // bottom/leg corner, from the grip edge
+  const a = GUARD.legDeg * Math.PI / 180, tn = Math.tan(a);
+  const Rf = Math.max(0, Math.min(GUARD.frontR * k, (xf - P) / 2, yb / 2));
+  const Rr = GUARD.rearR * k, t = Rr * Math.tan(a / 2);          // rear-curve tangent length
+  const yj = yb - P * tn;                                          // leg centre line at the grip edge
+  const f = (n, d = 1) => n.toFixed(d);
+  // Start above the box and finish past the grip edge so the SVG viewport clips both ends flush.
+  $('guardBar').setAttribute('d',
+    `M${f(xf)} ${f(-s)} L${f(xf)} ${f(yb - Rf)} A${f(Rf)} ${f(Rf)} 0 0 1 ${f(xf - Rf)} ${f(yb)} ` +
+    `L${f(P + t)} ${f(yb)} A${f(Rr)} ${f(Rr)} 0 0 1 ${f(P - t * Math.cos(a))} ${f(yb - t * Math.sin(a))} ` +
+    `L${f(-s)} ${f(yj - s * tn)}`);
+  $('guardBar').style.strokeWidth = s + 'px';
+  // Fillet: the 60° corner between the grip edge and the leg's underside, closed with a concave curve.
+  const yl = yj + hs / Math.cos(a), F = GUARD.fillet * k;          // leg underside at the grip edge
+  $('guardFillet').setAttribute('d',
+    `M0 ${f(yl - 1)} L0 ${f(yl + F)} Q0 ${f(yl)} ${f(F * Math.cos(a))} ${f(yl + F * Math.sin(a))} ` +
+    `L${f(F * Math.cos(a))} ${f(yl + F * Math.sin(a) - hs)} Z`);
 }
 function sizeCanvas(cv, css) {
   const dpr = window.devicePixelRatio || 1;
