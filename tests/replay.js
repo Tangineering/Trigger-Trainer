@@ -2,7 +2,10 @@
 //  1. label expectations (tests/expectations.js)
 //  2. live == replay: for recordings made with the current engine version, the replay must
 //     reproduce the events the phone produced live, exactly
-//  3. for axis-* recordings: which gyro axis mapping / flips would read the motion correctly
+//  3. for axis-* recordings: which gyro axis mapping / flips would read the motion correctly;
+//     for a real phone with both axis recordings, FAIL when the default axisMode 'auto' resolves
+//     to a mapping outside that phone's verdict (synthetic recordings pin 'spec' and are skipped)
+//  4. WARN when a recording's device.ios disagrees with its device.ua (pre-D-53 recordings)
 // Usage: node tests/replay.js [file-or-dir ...]
 const fs = require('fs');
 const path = require('path');
@@ -38,11 +41,24 @@ function summarize(res) {
   };
 }
 
+const IOS_UA = /iP(hone|ad|od)/;
+const mappingName = (axisMode, flipH, flipV) => `${axisMode}${flipH ? '+flipH' : ''}${flipV ? '+flipV' : ''}`;
+
+// Which concrete mapping the default settings (axisMode 'auto', default flips) resolve to for this
+// recording: the explicit mapping whose replay is identical (events and aim path) to the 'auto' replay.
+function autoResolution(rec) {
+  const base = { flipH: TDT.DEFAULTS.flipH, flipV: TDT.DEFAULTS.flipV };
+  const key = r => JSON.stringify([r.packed, r.path]);
+  const auto = key(TDT.replay(rec, Object.assign({ axisMode: 'auto' }, base)));
+  const hits = ['spec', 'ios'].filter(m => key(TDT.replay(rec, Object.assign({ axisMode: m }, base))) === auto);
+  return hits.length === 1 ? mappingName(hits[0], base.flipH, base.flipV) : null;
+}
+
 function axisDiagnosis(rec) {
   const ok = [];
   for (const axisMode of ['spec', 'ios']) for (const flipH of [false, true]) for (const flipV of [false, true]) {
     const r = summarize(TDT.replay(rec, { axisMode, flipH, flipV }));
-    if (EXPECT[rec.label](r).every(([, pass]) => pass)) ok.push(`${axisMode}${flipH ? '+flipH' : ''}${flipV ? '+flipV' : ''}`);
+    if (EXPECT[rec.label](r).every(([, pass]) => pass)) ok.push(mappingName(axisMode, flipH, flipV));
   }
   return ok;
 }
@@ -80,11 +96,16 @@ for (const f of files) {
     }
   }
 
+  if (rec.device && typeof rec.device.ua === 'string' && typeof rec.device.ios === 'boolean' &&
+      rec.device.ios !== IOS_UA.test(rec.device.ua)) {
+    console.log(`  WARN  device.ios is ${rec.device.ios} but the user agent ${rec.device.ios ? 'names no' : 'names an'} iPhone/iPad/iPod`);
+  }
+
   if (rec.label === 'axis-up' || rec.label === 'axis-right') {
     const ok = axisDiagnosis(rec);
     console.log(`  INFO  mappings that read this correctly: ${ok.join(', ') || 'none'}`);
     const dev = (rec.device && rec.device.ua) || 'unknown';
-    (byDevice[dev] = byDevice[dev] || []).push({ label: rec.label, ok, ios: rec.device && rec.device.ios });
+    (byDevice[dev] = byDevice[dev] || []).push({ label: rec.label, ok, rec, rel });
   }
 }
 
@@ -93,6 +114,16 @@ for (const [ua, list] of Object.entries(byDevice)) {
   if (labels.size < 2) continue;
   const common = list.map(x => new Set(x.ok)).reduce((a, b) => new Set([...a].filter(v => b.has(v))));
   console.log(`\nAxis verdict for ${ua.slice(0, 80)}: ${[...common].join(', ') || 'no single mapping fits both'}`);
+  if (list.some(x => x.rec.synthetic)) {
+    console.log(`  INFO  synthetic recordings pin their own axisMode; 'auto' check skipped`);
+    continue;
+  }
+  for (const x of list) {
+    const chosen = autoResolution(x.rec);
+    const pass = chosen !== null && common.has(chosen);
+    console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${x.label}: auto → ${chosen || 'unresolved'}; fits: ${[...common].join(', ') || 'none'}  (${x.rel})`);
+    if (!pass) failures++;
+  }
 }
 
 console.log(failures ? `\n${failures} failed` : `\nall passed (${files.length} recordings)`);

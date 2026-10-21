@@ -43,6 +43,16 @@ Expectations live in `tests/expectations.js`. For `axis-*` drills the replay als
 mapping and flip, and when a phone has both axis recordings it prints the one mapping that fits both.
 That answers OPEN_QUESTIONS Q1.
 
+The verdict is also a test. For each real phone (keyed by user agent) with both `axis-*` recordings,
+the replay runs those recordings again with the default settings (`axisMode: 'auto'`, no flips) and
+FAILs when the mapping `auto` resolves to is not in that phone's verdict; the line names both, for
+example `auto → ios; fits: spec`. A failure means the shipped default reads that phone's gyro wrong.
+Synthetic recordings pin `axisMode: 'spec'` and skip this check.
+
+Every recording whose `device.ios` disagrees with its user agent (`/iP(hone|ad|od)/`) gets a WARN
+line. The `pixel-11/` recordings carry `device.ios: true` because they predate D-53; the WARN is
+expected there and does not fail the run.
+
 ## Where files go
 
 ```
