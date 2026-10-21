@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-016
+next_id: WQ-017
 updated: 2026-10-21
 ```
 
@@ -39,6 +39,7 @@ updated: 2026-10-21
 | WQ-007 | Exclude shots fired during an alarm from the summary percentages (D-45) | P2 | S | queued | — | grading |
 | WQ-012 | Show the run-time gyro-axis estimate in the debug readout (D-57) | P2 | M | queued | — | axis |
 | WQ-014 | Bridge `devicemotion` gaps in the 180 orientation integration (D-62) | P2 | S | claimed:round-20261021-2 | — | alarm |
+| WQ-016 | Rework the frame strip, trigger guard and trigger layout; travel 60 px | P2 | M | queued | — | layout |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -452,6 +453,92 @@ an uncapped bridge over a 1 s gap at a 100 °/s mean could add 90° of fictitiou
 
 **Verification.** `npm test`; the replay diff; the two `dev180` figures quoted in the completion entry;
 the owner line returned `blocked:owner-machine`.
+
+---
+
+### WQ-016 — Rework the frame strip, trigger guard and trigger layout; travel 60 px
+
+- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** layout · **Env:** browser
+- **Added:** 2026-10-21 by exploratory session (Ricky's UI adjustments)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Ricky asked for four layout adjustments to the pistol side view (2026-10-21, verbatim):
+"Increase the height of the frame safe button by 20%, keeping the slide at the same size but shifting the
+trigger and trigger guard downwards." "Change the rear of the trigger guard to blend into the grip."
+"Extend the frame safe button rearwards to shrink the empty space on the frame between the safe button and
+the grip by half." "Shift the trigger default position forwards by 20px, and update the default travel to
+60px." The "frame safe button" is the `rest` zone (`INDEX FINGER — FLAT ON FRAME`, `#restZone`). This
+refines D-21 (layout), which otherwise stands. Log the request as a Ricky row in `docs/DECISIONS.md` (next
+free D-number) with the quote above, and log the interpretation choices below as `Claude (proposed)` rows.
+
+Current geometry (`engine.js:36-45`, fractions of the viewport, right-handed; left-handed mirrors x):
+`slide {x .02, y .03, w .96, h .21}`, `frame {x .23, y .26, w .75, h .26}`, `grip {x .00, y .26, w .24, h .74}`,
+`guard {x .26, y .51, w .30, h .38}`, `rest {x .38, y .28, w .58, h .22}`, `trigger {x .28, y .53, w .22, h .30}`.
+`DEFAULTS.pullPx` is 35 (`engine.js:25`). Guard CSS: `index.html:40` (7 px `--frame` border, no top, rounded
+bottom corners). Blade: `#blade` at `right: 14%` of the trigger zone, shifted by up to `pullPx * 1.2` in
+`render()` (`index.html:594`). Zones are positioned by `rectFor()`/`layout()` (`index.html:399-417`).
+
+**Scope.**
+- **Rest height +20%:** `rest.h` .22 → .264 (top edge stays at y .28, so the bottom moves to .544). Grow
+  `frame.h` by the same .044 (→ .304) so the strip stays inside the frame. `slide` unchanged.
+- **Trigger and guard down:** move `trigger.y` and `guard.y` down by the same .044 (→ .574 and .554). Check
+  that the guard bottom (.934) and trigger bottom (.874) still fit on screen and that `target`
+  (`y .55, h .43`) and the guard do not overlap visibly; adjust only `target` if they do, and say so.
+- **Rest extended rearwards:** the empty frame between the grip's front edge (x .24) and the rest's rear edge
+  (x .38) is .14; halve it to .07 → `rest.x` .31, `rest.w` .65 (front edge stays at .96).
+- **Guard rear blends into the grip:** the guard's rear end should join the grip like a pistol's guard meets
+  the front strap: start the guard at the grip's front edge (x .24 or slightly overlapping), drop the rear
+  rounding/border so no gap or end cap shows, and keep the front curve. CSS-only if possible (`.guard`,
+  plus the left-handed mirror via `.lh`). Keep imagery generic (constraint 5).
+- **Trigger 20 px forward:** move the trigger zone 20 CSS px toward the muzzle (it is fractional today;
+  20 px is about .023 of an 852-px landscape iPhone 15 viewport). Preferred: a fixed pixel offset (e.g.
+  `K.TRIGGER_FWD_PX = 20`) applied identically in the engine's trigger hit test (it has `vw`) and in
+  `rectFor()` for the drawn zone, so touch and pixels match on every phone and in both hands. Extend the
+  guard's front edge by the same amount so the blade stays inside the guard. Log the choice
+  (pixel offset vs. fraction) as `Claude (proposed)`.
+- **Default travel 60 px:** `DEFAULTS.pullPx` 35 → 60. Keep the Settings slider range (15–100). Check that a
+  60 px pull from the blade's rest position stays plausible on a small landscape phone (667 px wide: the
+  trigger zone is ~147 px) and that the blade's drawn shift (`pullPx * 1.2` = 72 px) does not run off the
+  zone or into the grip; adjust the blade's resting position within the zone if needed. Because settings are
+  stored as a diff since D-64 (WQ-015), the new default reaches every phone whose user never moved the slider —
+  note it in the decision row. Update `CLAUDE.md`'s "Units" line ("35 px ≈ 5–6 mm") and any doc that quotes 35 px
+  (`grep -rn "35 px\|35px\|pullPx" docs README.md CLAUDE.md`).
+- **Tests and recordings:** zones are not stored in recordings, so the new geometry applies to every replay;
+  real recordings carry their own `settings`, so the `pullPx` default only changes `synthetic/` (generated
+  from `DEFAULTS` in `tests/make-synthetic.js:85`). Run `npm run test:replay` before and after; regenerate
+  `synthetic/` with `node tests/make-synthetic.js` if needed. Note the overlap risk: the new rest zone
+  (y up to .544, x from .31) overlaps the old trigger zone's top band (y .53–.544, x .28–.50), so a real
+  trigger touch recorded high on the old trigger could now land in the rest zone. If any real recording
+  changes outcome, **stop and report which ones and why** (do not edit recordings; CLAUDE.md working rules) —
+  the orchestrator then decides with Ricky whether to re-record or adjust geometry. `tests/smoke.js`,
+  `tests/roundtrip.js` and `tests/make-synthetic.js` touch the zone centres via `ZONES`, so they follow
+  automatically; check they still hit the intended zone with the pixel offset.
+- Bump `engine.js` `VERSION` (outputs change for the same inputs).
+- Update the `ZONES` row in `CLAUDE.md`'s architecture table only if its wording no longer holds (append-only
+  hub rule otherwise).
+- Out of scope: per-student layout calibration (I-01), stray palm contact (Q4), any new setting for the trigger
+  position, and anything in claimed items WQ-011, WQ-013, WQ-014, WQ-015, WQ-003 (WQ-011 and WQ-013 also
+  touch `engine.js`/`index.html`, so this item must not run in parallel with them).
+
+**Acceptance.**
+- `ZONES` match the Scope figures (or documented deviations) and `DEFAULTS.pullPx` is 60; `VERSION` bumped.
+- In a 852×393 and a 667×375 landscape browser viewport, right- and left-handed: the rest strip is visibly
+  taller and starts closer to the grip; the slide is unchanged; the guard's rear joins the grip with no gap; the
+  trigger sits 20 px further forward than before, inside the guard; the blade's full 72 px drawn travel stays on
+  the gun. Screenshots attached to the completion entry.
+- A touch at the drawn trigger zone's centre engages the trigger, and a touch at the drawn rest zone's centre
+  arms the engine, in both hands (smoke test covers this).
+- `npm test` passes; the `test:replay` before/after comparison is recorded, and no real recording changes
+  outcome (otherwise the item stops per Scope).
+- `docs/DECISIONS.md` has the Ricky row and the `Claude (proposed)` rows; `CLAUDE.md` Units line updated.
+- *Owner-verifiable:*
+  - On a real iPhone and a real Android phone, the frame strip, trigger and guard feel natural to hold in
+    both hands, and a 60 px pull breaks the shot without the finger running off the trigger.
+
+**Verification.** Run `npm run test:replay` before the change (save the output) and after; run `npm test`.
+Take the four screenshots with the built-in browser or Playwright. Record in the completion entry: the final
+`ZONES` values, the replay diff summary (which recordings changed outcome — expected none), the new
+`VERSION`, the D-numbers added, and the screenshots.
 
 ---
 
