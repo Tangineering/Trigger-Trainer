@@ -85,7 +85,7 @@ inside the engine.
 | `DEFAULTS`, `ZONES`, `K` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. |
 | `summarize(state)` | Session totals for the summary screen, from `state.tally` (not capped like `state.shots`) and the alarm counters. |
 | `createEngine(S, {onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`. Starts paused. |
-| `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace. Axis mapping per `axisMode`. |
+| `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace (each sample's `dt` clamped to `MAX_DT_S`). The 180 orientation quaternion integrates the mean of the previous and current rates over the raw gap, capped at `ORIENT_BRIDGE_MS` (300 ms), so `devicemotion` gaps are bridged (D-62). Axis mapping per `axisMode`. |
 | `touches(t, list, vw, vh)` | Full current touch list in CSS px; drives the trigger (engage on entering the zone, fire at `pullPx` rearward, re-arm at `RESET_FRACTION`). |
 | `tick(t)` | State machine: debounced frame contact → armed / safe / off-frame / alarm; trace capture. |
 | `fromDeviceMotion`, `fromTouch`, `pack*`, `replay(rec, overrides)` | Capture-time rounding, the recording row format, and deterministic replay (`docs/RECORDINGS.md`). |
@@ -130,9 +130,10 @@ Opening settings or the summary, backgrounding the page, or rotating to portrait
   iOS can't lock orientation from a web page; Start tries fullscreen + `orientation.lock('landscape')` wherever
   `requestFullscreen` exists (D-53). iPhone Safari reports portrait for 1.5–4 s during a hard swing, and the page
   then pauses and disarms the engine; the Pixel 11 did it once. D-60 (WQ-013): the pause waits until portrait has
-  persisted for 3 s. `devicemotion` stops for 98–123 ms at each flip; when that falls in a fast swing, the 100 ms
-  gap rule in `motion()` loses up to ~9° of 180 orientation (I-05); D-62 (WQ-014) bridges gaps up to 300 ms with the
-  mean of the rates on both sides.
+  persisted for 3 s. `devicemotion` stops for 98–123 ms at each flip; when that fell in a fast swing, the old 100 ms
+  gap rule lost up to ~9° of 180 orientation (I-05). Since D-62, `motion()` bridges each gap in the 180 orientation
+  with the mean of the rates on both sides, up to `ORIENT_BRIDGE_MS` (300 ms); the iPhone 15 drift drill now ends
+  at 1.6° (was 8.6°). The rate EMA and the trace keep the 100 ms clamp.
 - **Platform detection:** behavior uses feature checks, never the platform (D-53): Android Chrome also exposes
   `DeviceMotionEvent.requestPermission`, which once made a Pixel 11 look like an iPhone (recordings before D-53 say
   `ios: true`). `isIOS` is a user-agent test that only feeds the recorder's `device.ios` field and the debug readout.

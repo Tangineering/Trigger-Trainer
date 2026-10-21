@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.9.0';
+  const VERSION = '0.10.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -56,8 +56,10 @@
     EMA_TAU_S: 0.08,             // motion smoothing time constant
     MAX_DT_S: 0.1,
     TRACE_MAX: 1500,
-    HYST_180_DEG: 5,
-    ORIENT_GAP_MS: 1000,         // motion data gap this long (page hidden, sensor stall) invalidates downrange             // a 180 alarm can clear only once the muzzle is this far back inside the limit
+    HYST_180_DEG: 5,             // a 180 alarm can clear only once the muzzle is this far back inside the limit
+    ORIENT_GAP_MS: 1000,         // motion data gap this long (page hidden, sensor stall) invalidates downrange
+    ORIENT_BRIDGE_MS: 300,       // longest motion gap bridged in the 180 orientation (mean of the rates before and
+                                 // after); longer gaps are credited 300 ms, and gaps over ORIENT_GAP_MS clear downrange
   });
 
   const inZone = (p, z) => p.x >= z.x && p.x <= z.x + z.w && p.y >= z.y && p.y <= z.y + z.h;
@@ -123,6 +125,7 @@
       alarmActive: false, alarmReason: null, violations: 0, breaks180: 0,
       // Orientation since downrange was set (quaternion w,x,y,z, device frame → reference frame).
       q: [1, 0, 0, 0], dev180: 0, refSet: false,    // 180 check is off until setDownrange()
+      prevW: null,                                 // previous body-frame rates [wx, wy, wz] (deg/s) for the gap bridge
       trig: null, lastTrace: null, shots: [], tally: newTally(),
       touches: new Map(),
     };
@@ -134,10 +137,11 @@
     /** m = {t, a, b, g, ax, ay, az, gx, gy, gz, angle}; a/b/g = rotationRate alpha/beta/gamma (deg/s) */
     function motion(m) {
       if (st.refSet && st.lastMotionT && m.t - st.lastMotionT > K.ORIENT_GAP_MS) {
-        st.refSet = false; st.dev180 = 0;            // orientation since downrange is unknown; must set it again
+        st.refSet = false; st.dev180 = 0; st.prevW = null;   // orientation since downrange is unknown; must set it again
         emit({ type: 'downrangeLost', t: m.t });
       }
-      const dt = st.lastMotionT ? Math.max(0, Math.min((m.t - st.lastMotionT) / 1000, K.MAX_DT_S)) : 0;
+      const gapS = st.lastMotionT ? Math.max(0, (m.t - st.lastMotionT) / 1000) : 0;
+      const dt = Math.min(gapS, K.MAX_DT_S);           // rate EMA and aim trace
       st.lastMotionT = m.t; st.motionEvents++;
 
       const a = m.a || 0, b = m.b || 0, g = m.g || 0;
@@ -174,7 +178,13 @@
       // along device ±y for either hand and either landscape direction, and the angle between two
       // vectors doesn't depend on sign, so deviation = angle between R·ŷ and ŷ. Roll (canting,
       // rotation about the muzzle axis) correctly leaves it unchanged.
-      const D2R = Math.PI / 180, ox = wx * D2R * dt, oy = wy * D2R * dt, oz = wz * D2R * dt;
+      // Each step integrates the mean of the previous and current rates over the raw gap (capped at
+      // ORIENT_BRIDGE_MS), so a sensor stall (iOS stops devicemotion ~100-120 ms at a portrait flip) is
+      // bridged instead of losing rotation. No previous rates (first sample, after setDownrange): no step.
+      const pw = st.prevW, dtQ = pw ? Math.min(gapS, K.ORIENT_BRIDGE_MS / 1000) : 0;
+      const mx = pw ? (pw[0] + wx) / 2 : wx, my = pw ? (pw[1] + wy) / 2 : wy, mz = pw ? (pw[2] + wz) / 2 : wz;
+      st.prevW = [wx, wy, wz];
+      const D2R = Math.PI / 180, ox = mx * D2R * dtQ, oy = my * D2R * dtQ, oz = mz * D2R * dtQ;
       const th = Math.hypot(ox, oy, oz);
       if (th > 0) {
         const sn = Math.sin(th / 2) / th, c = Math.cos(th / 2);
@@ -342,7 +352,7 @@
 
     /** The user pressed Set downrange: wherever the muzzle points now is downrange. */
     function setDownrange(t) {
-      st.q = [1, 0, 0, 0]; st.refSet = true; st.dev180 = 0;
+      st.q = [1, 0, 0, 0]; st.refSet = true; st.dev180 = 0; st.prevW = null;
       emit({ type: 'downrange', t });
     }
 
