@@ -354,9 +354,11 @@
       if (!st.paused) updateTrigger(t);
     }
 
+    // D-75: the touch that engaged the trigger never counts as frame contact, wherever it moves.
     function restTouch() {
       let best = null;
-      for (const tc of st.touches.values()) {
+      for (const [id, tc] of st.touches) {
+        if (st.trig && id === st.trig.id) continue;
         if (!inZone(tc, ZONES.rest)) continue;
         best = tc;
       }

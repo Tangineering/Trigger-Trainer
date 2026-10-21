@@ -69,6 +69,8 @@ How the queue and the other documents fit together:
   the frame; it clears once the muzzle is back downrange with the finger on the frame.
 - Layout (D-21): wide grip at the rear, thin slide, frame strip and trigger high; the shot movement
   indicator sits in the empty area under the muzzle.
+- **Trigger wins** (D-75, WQ-016): a touch that engaged the trigger counts as on the trigger until it is lifted,
+  wherever it moves; it never counts as frame contact, even inside the frame strip.
 
 Additions made in the prototype (Claude, proposed — see DECISIONS): aim-drift trace and shot grading on a
 mini target, trigger reset for follow-up shots, handedness mirror, grace period, settings panel, axis-check

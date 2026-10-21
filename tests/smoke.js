@@ -258,6 +258,21 @@ const check = (name, cond, state) => {
   }
   await page.$eval('#hand', el => { el.value = 'right'; el.dispatchEvent(new Event('change')); });
 
+  // D-75: a touch that engaged the trigger stays on the trigger until it lifts, wherever it slides;
+  // it never counts as frame contact, so sliding it into the frame strip neither arms nor clears an alarm.
+  await offFrame();
+  await touch('touchStart', [TRG]); await motion(0, 0, 3);
+  await wobble(80);                                          // resting on the trigger, phone swings: alarm
+  await motion(0, 0, 10);
+  s = await st(); check('D-75: moving while resting on the trigger alarms', s.alarmActive && !!s.trig, s);
+  await touch('touchMove', [[REST[0], REST[1], 2]]); await motion(0, 0, 10);
+  s = await st(); check('D-75: trigger finger slid into the frame strip stays on the trigger, not on the frame',
+    !!s.trig && !s.onRest && s.alarmActive, s);
+  await touch('touchEnd', []); await motion(0, 0, 3);
+  await touch('touchStart', [REST]); await motion(0, 0, 8);
+  s = await st(); check('D-75: lifting it and placing a finger on the strip arms and clears the alarm',
+    !s.trig && s.onRest && !s.alarmActive, s);
+
   // Finish (Settings) → session summary; New session clears it and returns to the start screen.
   const shotsSoFar = (await st()).shots;
   await page.click('#gear'); await page.click('#finishBtn'); await page.waitForTimeout(50);
