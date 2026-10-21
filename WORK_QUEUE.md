@@ -58,7 +58,7 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 ### WQ-011 — Alarm when the muzzle drifts more than 5° while the finger is off the frame (D-56)
 
 - **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
-- **Added:** 2026-10-20 by orchestration session
+- **Added:** 2026-10-20 by orchestration session · **Updated:** 2026-10-21 by orchestration session (Ricky confirmed the limit applies during presses; no longer a Claude reading)
 - **Depends on:** — · **Blocks:** —
 
 **Context.** Ricky observed in use (2026-10-20) that with the finger off the frame, slow continuous movement
@@ -85,9 +85,8 @@ quaternion `st.q` (`motion()`, line 181–185) and has a roll-invariant deviatio
   where `dev180` is computed).
 - Alarm: in the off-frame block (lines 310–318), alarm when `st.devOff > S.offFrameDeg` after `graceMs` has
   elapsed since `offSince` (the grace covers the lift jolt; the reference is still the pose at the moment of
-  leaving, per D-56). Apply it in every off-frame state — on the trigger and during a press as well (D-34's jerk
-  allowance covers the rate/time rule; a 5° muzzle deviation during a press is a gross error) — and record this
-  reading as `Claude (proposed)` in `docs/DECISIONS.md`. Use `reason: 'move'` (same sound and overlay) and add
+  leaving, per D-56). Apply it in every off-frame state — on the trigger and during a press as well (Ricky, D-56, 2026-10-21:
+  "put the 5deg limit on trigger presses too"; D-34's jerk allowance covers the rate/time rule and stays). Use `reason: 'move'` (same sound and overlay) and add
   `devOff` to the `alarmStart` event payload. The alarm clears exactly as today (finger back on the frame).
 - Bump `VERSION` (0.9.0 → 0.10.0) and `package.json`: outputs change for the same inputs.
 - `index.html`: add an `offFrameDeg` slider to the Movement group in `SLIDERS` (line 675; `graceMs` is at 679):
@@ -117,7 +116,7 @@ quaternion `st.q` (`motion()`, line 181–185) and has a roll-invariant deviatio
   not alarm.
 
 **Verification.** `npm test`; `npm run test:replay` before and after (quote the per-recording lines that
-changed); the `VERSION` bump and the DECISIONS row named in the entry.
+changed); the `VERSION` bump named in the entry.
 
 ---
 
@@ -154,7 +153,7 @@ unmeasured (Q1); when the first iPhone axis recordings arrive, the test should f
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; only the iPhone 3-minute drift run is expected next, after WQ-014 ships)
 - **Depends on:** — · **Blocks:** —
 
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
