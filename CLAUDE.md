@@ -107,7 +107,7 @@ inside the engine.
 `not armed` → (finger on frame) → `SAFE` (OK tone) → (finger lifts) → `OFF FRAME`
 → either `ON TRIGGER` → `SHOT` → (reset / lift) … → back to `SAFE` (OK tone),
 or (motion > threshold after `graceMs`) → `ALARM` (latched) → (finger on frame) → `SAFE` (OK tone).
-During a press (pull ≥ 15% → 500 ms after the break) movement alarms once its total exceeds `jerkMs`; resting on
+During a press (pull ≥ 15% → 500 ms after the break) movement alarms once its total exceeds `jerkMs` (default 300 ms, D-47); resting on
 the trigger without pulling is treated as off the frame. `graceMs` applies after leaving the frame, after a press,
 and after leaving the trigger.
 180 rule (any state while armed): muzzle > `limit180Deg` from downrange → `ALARM (180)`, which also escalates a movement

@@ -12,14 +12,14 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.8.0';
+  const VERSION = '0.9.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
     moveDps: 25,         // rotation-rate alarm threshold, deg/s
     moveAcc: 1.5,        // linear-acceleration alarm threshold, m/s^2
     graceMs: 300,        // ignore motion this long after the finger leaves the frame
-    jerkMs: 500,         // during a press, total movement longer than this alarms (one short jerk doesn't)
+    jerkMs: 300,         // during a press, total movement longer than this alarms (one short jerk doesn't); D-47
     rule180: true,       // alarm when the muzzle points more than limit180Deg from downrange
     limit180Deg: 90,
     pullPx: 35,          // rearward finger travel (CSS px) that breaks the shot

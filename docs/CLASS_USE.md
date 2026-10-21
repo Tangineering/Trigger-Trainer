@@ -22,7 +22,7 @@
 - **Back to the frame:** after every string, finger flat on the frame → OK tone before moving.
 - **Finger on the trigger is not a rest:** resting the fingertip on the trigger and moving alarms, and so does
   moving during a press. One short jerk during the press is graded, not alarmed; anything longer, or
-  several wobbles adding up to more than about half a second, alarms.
+  several wobbles adding up to more than about a third of a second (300 ms by default), alarms.
 - **180:** turn and move freely with the finger on the frame. Past 90° from downrange a lower "wail" alarm
   sounds even with the finger on the frame. "Muzzle N° from downrange" under the muzzle shows how close they are.
 
