@@ -11,7 +11,10 @@ committed to) go in `docs/IDEAS.md`; never build one without a Ricky decision. T
 **Outstanding work lives in `WORK_QUEUE.md`** — the central planning document: one `WQ-NNN` item per unit
 of work, self-contained enough to be an execution agent's whole brief. Finished work lives in
 `WORK_COMPLETED.md` (what was done, why, deviations). Add items with the `work-queue-add` skill; run rounds
-with `work-queue-run`. Never mark an item done inside the queue — it is moved to the archive by the run
+with `work-queue-run`; size-L code items are implemented with `orchestrated-feature`, whose project specifics
+(checks, invariants, protected paths) live in `.claude/skills/orchestrated-feature/PROJECT.md`. Which model
+each dispatched agent runs on is fixed by `.claude/skills/work-queue-run/MODELS.md` (overrides, with reasons,
+go in that `PROJECT.md`). Never mark an item done inside the queue — it is moved to the archive by the run
 skill. Queue edits get their own `queue:` commits, never bundled into feature commits. `scripts/wq.py`
 (stdlib Python; on Ricky's PC `C:\Users\ricky\.local\bin\python.exe`) does the mechanical edits.
 
@@ -172,7 +175,8 @@ OPEN_QUESTIONS.md       blocking/pending questions for Ricky
 WORK_QUEUE.md           outstanding work, one WQ-NNN item per unit (the planning document)
 WORK_COMPLETED.md       archive of finished queue items
 scripts/wq.py           queue invariant check, claim/unclaim/archive
-.claude/skills/         work-queue-add, work-queue-run (+ BRIEF_RULES.md for execution agents)
+.claude/skills/         work-queue-add, work-queue-run (+ BRIEF_RULES.md for execution agents, MODELS.md
+                        for agent models), orchestrated-feature (+ PROJECT.md for this repo's specifics)
 README.md               short public description + deploy steps
 LICENSE                 MIT (Tangineering)
 ```

@@ -11,7 +11,8 @@ queue items; it plans rounds, briefs execution agents, judges their results,
 and keeps the two documents truthful. Adding new items uses the
 `work-queue-add` skill (this session may raise items too, for example from
 a failed round). Mechanical queue edits — claiming, un-claiming, archiving,
-the invariant check — go through `scripts/wq.py`, never through ad-hoc
+the invariant check — go through `scripts/wq.py` (stdlib Python 3;
+`python3` where `python` is absent), never through ad-hoc
 regex edits (an unanchored `| WQ-005 |` once matched inside another row's
 "Depends on" cell and spliced two index rows together).
 
@@ -73,7 +74,9 @@ regex edits (an unanchored `| WQ-005 |` once matched inside another row's
   Outside the hub files, two items that edit the same file never run in
   parallel; when unsure, read each item's Scope anchors and compare.
 - Claim: `python scripts/wq.py claim round-<YYYYMMDD>-<n> WQ-… WQ-…`,
-  commit `WORK_QUEUE.md` (`queue: claim round …`), and push. Another
+  then `python scripts/wq.py check --allow-claimed` (plain `check` fails
+  on purpose while claimed rows exist), commit `WORK_QUEUE.md`
+  (`queue: claim round …`), and push. Another
   session reading the queue must see the claim. Adding an item to a
   running round is fine — claim it the same way in its own commit.
 
@@ -86,30 +89,41 @@ For each item:
    **not** rely on an agent tool's own worktree isolation — it branches
    from the repository's default branch, not from your HEAD, so the agent
    never sees the rounds already merged and re-creates their work. Add
-   `.claude/worktrees/` to `.git/info/exclude` (not `.gitignore`) so the
-   untracked directory does not trip a stop hook.
-2. Spawn an execution agent whose brief is, in this order:
+   `.claude/worktrees/` to `$(git rev-parse --git-common-dir)/info/exclude`
+   (not `.gitignore`; the common dir, because `.git` is a file when this
+   session itself runs in a worktree) so the untracked directory does not
+   trip a stop hook. A new worktree has none of the repo's gitignored
+   dependencies (`node_modules`, a venv): install them there, or state in
+   the brief's Environment paragraph exactly how the agent must.
+2. Spawn an execution agent — model per `MODELS.md` (beside this skill:
+   Opus for anything that edits product code, Sonnet only for a mechanical
+   docs/tooling S item, never Haiku for an edit) — whose brief is, in this
+   order:
    - The item's full text, verbatim, from `### WQ-NNN` to the next `---`.
-   - `BRIEF_RULES.md` (the kit's standing-rules preamble) with its
-     environment paragraph filled in from §0 and the worktree path named:
-     work ONLY in that directory, never `git checkout`/`git worktree`,
-     commit there with messages prefixed `WQ-NNN:`, never push, never edit
-     the two queue documents.
-   - Its file ownership for the round: which files it owns, which the
-     parallel items own (by id), and the hub-file append-only rule.
-   - The report contract (already in `BRIEF_RULES.md`): the agent ends
-     with a block containing `Outcome:` (done | done-with-deviations |
-     blocked | failed), `Commits:`, `What was done:`, `Deviations:`,
-     `Verification:` (commands and results, verbatim counts),
-     `Follow-ups:` (proposed new items, each with a one-line context).
-     This maps 1:1 onto the `WORK_COMPLETED.md` entry template, so the
-     orchestrator can archive without re-deriving.
-3. Size L: in the product code, run the multi-agent procedure the item's
-   Size line names, with the item text as the spec. In packaging, docs or
-   tooling, run **one implementer plus a separate reviewer agent** whose
-   brief is the item's Acceptance list and "find what would fail on the
-   target platform"; the reviewer never edits. An empirical build or run
-   on whatever platform this session has beats a second reviewer.
+   - `BRIEF_RULES.md` (beside this skill) with its `<…>` placeholders
+     filled in: the worktree path and branch, the file ownership from §2
+     (which files this item owns, which the parallel items own by id, the
+     hub-file append-only rule), and the environment from §0. It already
+     carries the worktree rules and the report contract — do not restate
+     them, or the two copies drift.
+   - The agent's closing report block (defined in `BRIEF_RULES.md`) maps
+     onto the entry's Outcome, Commits, What was done, Deviations,
+     Verification and Follow-ups fields; the orchestrator adds Closed,
+     Executed by (role and model), Round, and Why (from the item's
+     Context). The entry's extra outcomes `closed-wontdo` /
+     `superseded-by` are the orchestrator's, never an agent's.
+3. Size L: in the product code, run the `orchestrated-feature` skill (or
+   the procedure the item's Size line names, if different) with the item
+   text as the spec; it runs in this session, since agents cannot spawn
+   agents, and its stages carry their models (Opus implementer, independent
+   Sonnet test writer, parallel Opus invariants-lens + Sonnet
+   correctness-lens reviewers, fixes routed back to the original agents,
+   then your own final review — the `MODELS.md` rows). In packaging, docs
+   or tooling, run **one implementer plus a separate reviewer agent** (both
+   Opus) whose brief is the item's Acceptance list and "find what would
+   fail on the target platform"; the reviewer never edits. An empirical
+   build or run on whatever platform this session has beats a second
+   reviewer.
 
 Do not paraphrase the item into the brief. Paraphrase loses the anchors
 and the out-of-scope line, which are the two things that keep agents from
@@ -170,7 +184,8 @@ For each finished item:
 ## 6. Round report
 
 End the round with a short report to the owner: items archived (ID +
-outcome), items returned to the queue and why, new items raised, open
+outcome, and which model ran each agent — see `MODELS.md` rule 5), items
+returned to the queue and why, new items raised, open
 `blocked:user` questions (one line each), what `blocked:owner-machine`
 items need run, and the ready set for the next round. If a round untracked
 files (`git rm --cached`), warn that a `git pull` on another clone deletes
@@ -180,22 +195,30 @@ documents hold the detail.
 ## Invariants (check before ending any round)
 
 `python scripts/wq.py check` enforces these; run it before every `queue:`
-commit:
+commit — with `--allow-claimed` while a round is open, plain before the
+round ends (so a surviving `claimed:` row fails):
 
 - `WORK_QUEUE.md` contains only outstanding work: no `claimed:` status
   survives the round, no item has an archived twin.
 - Every ID appears in exactly one of the two files.
 - `next_id` is greater than every ID in either file.
-- Each `WORK_COMPLETED.md` entry has all six fields.
+- Each `WORK_COMPLETED.md` entry has all eight fields (Closed, Executed
+  by, Commits / PR, What was done, Why, Deviations, Verification,
+  Follow-ups).
 - The index table matches the item sections (same IDs, same statuses).
 - Every `Depends on` target exists in one of the two files.
 
 ## Tools this session may lean on
 
-- The repo's own skills for implementation, verification and closure —
-  list them in the brief when an item names one.
+- `orchestrated-feature` for size-L code items (its `PROJECT.md` holds
+  this repo's checks and invariants), and the repo's own skills for
+  implementation, verification and closure — list them in the brief when
+  an item names one.
+- `MODELS.md` (installed beside this skill) for which model each dispatched
+  role runs on, in this skill and in `orchestrated-feature` alike; a repo's
+  overrides live in `orchestrated-feature/PROJECT.md`.
 - Parallel `Agent` calls for independent items in one round; sequential
   handoff for items sharing files.
-- A scheduled wake-up (`send_later` or equivalent) to start the next round
+- A scheduled wake-up (the harness's scheduling tool, if it has one) to start the next round
   when agents run long, rather than polling. When the harness notifies on
   agent completion, no wake-up is needed.

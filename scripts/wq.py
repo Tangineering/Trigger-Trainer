@@ -126,6 +126,8 @@ def cmd_check(root, args):
         st = re.search(r"- \*\*Status:\*\* ([^·\n]*)", sec.group(0)) if sec else None
         if not sec:
             errors.append(f"{wq}: section has no trailing '---' line")
+        elif len(re.findall(r"^### WQ-\d+ ", sec.group(0), re.M)) > 1:
+            errors.append(f"{wq}: section swallows the next item - a '---' line is missing before it")
         elif st and st.group(1).strip() != row.strip():
             errors.append(f"{wq}: index status {row.strip()!r} != section status {st.group(1).strip()!r}")
     # Depends on targets exist
@@ -202,7 +204,7 @@ def cmd_archive(root, args):
     c = c.replace("_(none yet)_\n", "", 1)
     c = c.replace(marker, marker + entry, 1)
     _write(dp, c)
-    print("archived", args.id, "- remember: remove it from other items' Blocks lines, then run check")
+    print("archived", args.id, "- remember: remove it from other items' Depends on / Blocks lines, then run check")
     return 0
 
 

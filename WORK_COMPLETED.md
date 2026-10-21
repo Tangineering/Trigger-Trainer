@@ -13,7 +13,7 @@ Entry template (copy verbatim; keep every heading even when the answer is
 ### WQ-NNN — <title as it stood in the queue>
 
 - **Closed:** YYYY-MM-DD · **Outcome:** done | done-with-deviations | closed-wontdo | superseded-by WQ-MMM
-- **Executed by:** <session title / agent kind> · **Round:** <orchestration round id, if any>
+- **Executed by:** <role> on <model>, plus <reviewer role / model, …> when any · **Round:** <orchestration round id, if any>
 - **Commits / PR:** <hashes or PR link on the branch>
 
 **What was done.** Two to six sentences. Name files and functions touched.
@@ -25,7 +25,7 @@ learned during execution that changes the reasoning.
 why. "None" if none. A dropped sub-scope goes here AND becomes a new queue
 item if it is still wanted.
 
-**Verification.** What was run and its result (test counts, baseline hashes,
+**Verification.** What was run and its result (test counts, regression-check results,
 manual checks). Say "not verified" plainly where that is the truth.
 
 **Follow-ups.** New `WQ-` IDs raised from this work, or "none".

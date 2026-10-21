@@ -1,6 +1,6 @@
 ---
 name: work-queue-add
-description: Add, refine, split, or re-prioritize items in WORK_QUEUE.md — the project's central planning document. For exploratory sessions that discover work (a bug, a gap, a beta-prep task, a follow-up from a completed item) and for the orchestration session when it raises items itself. Produces a self-contained item an execution agent can act on from the item text alone.
+description: Add, refine, split, or re-prioritize items in WORK_QUEUE.md — the project's central planning document. For exploratory sessions that discover work (a bug, a gap, a release-prep task, a follow-up from a completed item) and for the orchestration session when it raises items itself. Produces a self-contained item an execution agent can act on from the item text alone.
 ---
 
 # Adding to the work queue
@@ -23,7 +23,7 @@ no memory of your session.
    trust them. Quote `path:line` only for lines you have just read.
 3. Decide whether it is one item or several. One item = one coherent change
    an agent can finish and verify in one round (size S ≈ under an hour of
-   agent work, M ≈ a session, L ≈ needs a multi-agent or multi-session procedure). Split
+   agent work, M ≈ a session, L ≈ needs `orchestrated-feature` or another multi-agent procedure). Split
    anything larger; link the parts with `Depends on`.
 
 ## Item format
@@ -56,17 +56,25 @@ owns it.
 must pass, commands whose output must match, states that must exist. When
 some lines need `Env: owner-machine` (a folder, binary or platform only the
 owner has), split them: *agent-verifiable* lines first, then an
-*Owner-verifiable* sub-list — the orchestrator archives the first half and
-returns the item `blocked:owner-machine` for the second.
+*Owner-verifiable* sub-list — when the first half lands, the orchestrator
+records it in an `Updated` line and returns the item `blocked:owner-machine`
+for the second; the item is archived only once both halves hold.
 
 **Verification.** How the executor proves acceptance (commands, skills to
 run, if the repo has any), and what to record in the completion
 entry.
+
+---
 ```
+
+Every item ends with a line containing only `---` followed by a blank line.
+`scripts/wq.py` finds an item's end by that line: without it, archiving the
+item cuts the next one too.
 
 Optional extra headings when useful: **Risk.** (destructive or
 hard-to-reverse steps), **Notes.** (links, prior attempts, measured dead
-ends — cite the CLAUDE.md "Hard-won lessons" entry rather than repeating it).
+ends — cite the repo's recorded lesson, e.g. a CLAUDE.md entry, rather than
+repeating it).
 
 ## Field rules
 
@@ -75,8 +83,9 @@ ends — cite the CLAUDE.md "Hard-won lessons" entry rather than repeating it).
 - **Priority**: P0 = must ship before the next milestone can even start;
   P1 = required for the milestone; P2 = wanted, not gating; P3 = nice to
   have. Do not inflate — an all-P0 queue schedules nothing.
-- **Size**: S / M / L as defined above. L items should say which project
-  skill or procedure runs them, if the repo has one.
+- **Size**: S / M / L as defined above. L code items run through
+  `orchestrated-feature` by default; name a different skill or procedure
+  only when one fits better.
 - **Track**: one word grouping items that ship together (`hygiene`,
   `packaging`, `docs`, `backend`, `ui`, …). Add a new track name if none
   fits; mention it in the "Tracks:" line under the index.
@@ -104,7 +113,8 @@ ends — cite the CLAUDE.md "Hard-won lessons" entry rather than repeating it).
 3. If the item came from a completed item's follow-up, cross-reference:
    the completion entry's "Follow-ups" names the new ID, and the new item's
    Context names the completed one.
-4. Run `python scripts/wq.py check`, then commit `WORK_QUEUE.md` on its own
+4. Run `python scripts/wq.py check` (`--allow-claimed` while a round is
+   open), then commit `WORK_QUEUE.md` on its own
    (message `queue: add WQ-NNN <title>`), so orchestration rounds can diff
    the queue cleanly. Do not bundle queue edits into feature commits.
 

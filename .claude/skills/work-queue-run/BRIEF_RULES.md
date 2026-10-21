@@ -1,6 +1,6 @@
 ## Standing rules (apply to every item)
 
-<!-- The orchestrator prepends this to every execution-agent brief, after the
+<!-- The orchestrator appends this to every execution-agent brief, after the
      item's verbatim text. Fill in the two <…> paragraphs per session; leave
      the rest as it is. -->
 
