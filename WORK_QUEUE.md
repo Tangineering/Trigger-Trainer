@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-018
+next_id: WQ-019
 updated: 2026-10-21
 ```
 
@@ -33,6 +33,7 @@ updated: 2026-10-21
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-017 | Lower the `offFrameDeg` default from 5° to 3° (D-77) | P1 | S | queued | — | alarm |
+| WQ-018 | Lengthen the trigger blade to half the gap above the guard bar (D-78) | P2 | S | queued | — | layout |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -180,6 +181,55 @@ them and alarms 0.3–1.4 s earlier than 5° on four of the six moves. Ricky cho
 
 **Verification.** Save the `npm run test:replay` output before and after and quote the changed line in the
 completion entry; run `npm test`; record the new `VERSION` and the smoke-test checks that changed.
+
+---
+
+### WQ-018 — Lengthen the trigger blade to half the gap above the guard bar (D-78)
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** layout · **Env:** browser
+- **Added:** 2026-10-21 by orchestration session (Ricky's UI edit → D-78)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** After WQ-016 (D-71) the blade `#blade` sits inside the trigger zone at `top: 2%; height: 62%`
+(`index.html:49` at commit d8d2124), so its tip ends at 64% of the zone height, and a band of empty frame
+remains between the tip and the guard's bottom bar. Ricky (2026-10-21, D-78): "increase the length of the
+trigger itself to take up half of the empty space between the bottom tip of the trigger and the trigger
+guard." Geometry (fractions of the viewport height H, right-handed): trigger zone y .574, h .30 (bottom .874);
+guard zone y .554, h .38 (bottom .934); the guard bar is `GUARD.bar` = 7 px wide with its stroke centre
+`yb = h − 3.5 px` inside the guard zone (`drawGuard()`, `index.html:428`), so the bar's inner (upper) edge is at
+.934·H − 7 px. Blade tip today: .574·H + .64·.30·H = .766·H. Empty space: (.934·H − 7 px) − .766·H.
+
+**Scope.** `index.html` only; `engine.js` unchanged (the blade is drawing-only; the trigger hit zone and
+`pullPx` do not change, so no `VERSION` bump and no replay change).
+- New blade tip = .766·H + ((.934·H − 7 px) − .766·H) / 2 = .85·H − 3.5 px. As a fraction of the trigger zone's
+  height that is (.85·H − 3.5 px − .574·H) / (.30·H) = .92 − 11.7 px / H, i.e. about 89% at H = 393 and 88.9% at
+  H = 375, so `height: 62%` → about `87%` with `top: 2%` kept. Implementer's choice, logged as
+  `Claude (proposed)`: either the fixed `height: 87%` in CSS, or set the blade height in `layout()` from the
+  measured guard rectangle so the "half the gap" rule holds exactly on every viewport.
+- The blade's drawn pull shift (`translateX`, `render()`, `index.html:643`) and width (16 px) stay.
+- The zone label (`TRIGGER` / `press & pull back`, `.trigger .label`) currently sits below the blade; a longer
+  blade runs into it. Keep the label readable: move it to the muzzle side of the blade inside the zone,
+  vertically centred, or shrink and tuck it beside the blade — implementer's choice, logged in the same
+  `Claude (proposed)` row. The label must not overlap the blade at full 72 px drawn travel (the blade moves
+  rearward, away from the muzzle side) in either hand.
+- Left-handed (`.lh`): the blade is mirrored by the existing `.lh #blade` rule; the label placement must
+  mirror too.
+- Update `docs/screenshots/wq-016/` with four new screenshots (852×393 and 667×375, right- and left-handed,
+  blade at rest) under `docs/screenshots/wq-018/`, committed with `git add -f` (PNGs are gitignored).
+- Docs: none beyond the DECISIONS row; `CLAUDE.md` needs no change (the blade is not described there).
+- Out of scope: the trigger zone, `pullPx`, the guard shape (WQ-016), anything in `engine.js` (WQ-017 edits
+  `engine.js` and `index.html` this round and must land first; this item runs after it).
+
+**Acceptance.**
+- In 852×393 and 667×375 landscape viewports, both hands: the blade tip sits halfway between where it was
+  (64% of the zone) and the guard bar's inner edge, measured from the screenshots or from `getBoundingClientRect`
+  in Playwright (tolerance 2 px); the label is readable and does not touch the blade at rest or at full travel.
+- `npm test` passes; `npm run test:replay` output identical to before (diff quoted); `VERSION` unchanged.
+- Screenshots in `docs/screenshots/wq-018/` referenced in the completion entry.
+- Owner-verifiable (any phone): the longer blade reads as the trigger and the label is legible.
+
+**Verification.** `npm test`; a Playwright measurement of blade tip and guard-bar edge quoted in the entry;
+the four screenshots.
 
 ---
 
