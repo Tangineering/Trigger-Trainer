@@ -31,7 +31,6 @@ updated: 2026-10-21
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-019 | Widen the `offFrameDeg` default back to 5° (D-81) | P1 | S | claimed:round-20261021-7 | — | alarm |
 | WQ-020 | Move the trigger another 20 px toward the muzzle (D-82) | P1 | S | claimed:round-20261021-7 | — | layout |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 
@@ -50,45 +49,11 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 
 ## Items
 
-### WQ-019 — Widen the `offFrameDeg` default back to 5° (D-81)
-
-- **Status:** claimed:round-20261021-7 · **Priority:** P1 · **Size:** S · **Track:** alarm · **Env:** any
-- **Added:** 2026-10-21 by orchestration session (Ricky decision D-81, reversing D-77)
-- **Depends on:** — · **Blocks:** WQ-020
-
-**Context.** WQ-017 lowered `DEFAULTS.offFrameDeg` from 5° to 3° (D-77, engine 0.12.1). Ricky found 3° too tight in
-use and decided (D-81, 2026-10-21) to return to 5°. D-56 (the off-frame drift alarm itself) stands.
-
-**Scope.**
-- `engine.js` `DEFAULTS.offFrameDeg` (line 22 at commit 14e88fc): 3 → 5; comment cites D-81 (and keeps the D-56
-  reference). Settings slider range unchanged.
-- Bump `VERSION` 0.12.1 → 0.12.2 and `package.json` `version`: recordings whose `settings` lack `offFrameDeg` take
-  the default, and `pixel-11/tdt-free-2026-10-20-22-40-27.json` goes back from 4 to 3 alarms.
-- `tests/smoke.js` reads the limit as `LIM = TDT.DEFAULTS.offFrameDeg` (WQ-017), so its D-56 checks follow the
-  default; run them and confirm the drift steps still land on both sides of 5° (the sub-limit check drifts to
-  `LIM − 0.8`, the alarm check to between `LIM` and `LIM + 1.5`). The short-jerk check (`devOff < LIM`) stays.
-- Docs that quote the default: `CLAUDE.md` line 63 ("`offFrameDeg` (3°)" → "(5°)", hub file, that parenthesis
-  only); `docs/CLASS_USE.md` lines that say "3° by default" (two, from WQ-017). `docs/IDEAS.md` I-06 and
-  `docs/PROPOSAL_2026-10-20.md` are history and stay.
-- Do not regenerate `tests/recordings/synthetic/` unless a synthetic replay changes outcome (WQ-017 precedent).
-- Out of scope: the drift rule, the rate thresholds, any slide detection (I-06), the trigger position (WQ-020).
-
-**Acceptance.**
-- `DEFAULTS.offFrameDeg` is 5; `VERSION` 0.12.2; `npm test` passes.
-- `npm run test:replay` before/after differs only in `pixel-11/tdt-free-2026-10-20-22-40-27.json` (alarms 4 → 3)
-  and the version string in INFO lines; all 41 recordings pass. Any other change: stop and report.
-- `CLAUDE.md` and `docs/CLASS_USE.md` say 5°.
-- Owner-verifiable (Pixel 11, iPhone 15, drift slider never moved): Settings shows 5° after loading the updated page.
-
-**Verification.** `npm test`; the changed replay line quoted before and after in the completion entry.
-
----
-
 ### WQ-020 — Move the trigger another 20 px toward the muzzle (D-82)
 
 - **Status:** claimed:round-20261021-7 · **Priority:** P1 · **Size:** S · **Track:** layout · **Env:** browser
 - **Added:** 2026-10-21 by orchestration session (Ricky decision D-82)
-- **Depends on:** WQ-019 · **Blocks:** —
+- **Depends on:** — · **Blocks:** —
 
 **Context.** WQ-016 (D-72) moved the trigger zone and the guard's front edge 20 CSS px toward the muzzle through
 `K.TRIGGER_FWD_PX = 20` (`engine.js` line 51 at commit 14e88fc), applied by `zoneFor(name, vw)` (line 73) to the
@@ -138,7 +103,7 @@ screenshots.
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (D-76: Ricky will re-record the full drill set on the 0.12.0 layout on both phones; the old sets become legacy — see "Re-record on the new layout" below); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015, WQ-016, WQ-017 and WQ-018 are collected below, so phone work lives in one item); 2026-10-22 by S20+ recordings session (second Android phone: axis drills in, D-80)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (D-76: Ricky will re-record the full drill set on the 0.12.0 layout on both phones; the old sets become legacy — see "Re-record on the new layout" below); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015, WQ-016, WQ-017, WQ-018 and WQ-019 are collected below, so phone work lives in one item); 2026-10-22 by S20+ recordings session (second Android phone: axis drills in, D-80)
 - **Depends on:** — · **Blocks:** —
 
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
@@ -179,7 +144,7 @@ notes the result here and in the item's entry):
   hold, and a 60 px pull breaks the shot without the finger running off the trigger (WQ-016, D-71, D-75).
 - Pixel 11 and iPhone 15, drift slider never moved: Settings shows 3° after loading the updated page; 10 s still off
   the frame does not alarm; a slow sweep alarms within about a second of passing 3°; a clean press does not alarm
-  (WQ-017, D-77).
+  (WQ-017, D-77); since WQ-019 (D-81) the default is 5° again, so Settings should show 5°.
 - Any phone: the longer trigger blade reads as the trigger and the vertical label beside it is legible (WQ-018, D-78, D-79).
 
 **Context.** Everything measured so far comes from one Pixel 11. Three open points need a second

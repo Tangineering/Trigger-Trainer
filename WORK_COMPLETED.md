@@ -35,6 +35,24 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-019 — Widen the `offFrameDeg` default back to 5° (D-81)
+
+- **Closed:** 2026-10-21 · **Outcome:** done
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff, fixed one stale comment, and re-ran the suites · **Round:** round-20261021-7
+- **Commits / PR:** df6cc66 "WQ-019: Widen offFrameDeg default back to 5° (D-81)", 7cb08fe "WQ-019: Update the smoke-test comment to the 5° default" (orchestrator) — on main
+
+**What was done.** `engine.js` `DEFAULTS.offFrameDeg` 3 → 5 (comment "D-56, 5° (D-81)"); `VERSION` and `package.json` 0.12.1 → 0.12.2. `CLAUDE.md` line 63 reads "(5°)"; `docs/CLASS_USE.md` says "5° by default" in both places. The smoke test reads the limit from `TDT.DEFAULTS`, so its D-56 checks followed without edits; the orchestrator updated the stale comment on `tests/smoke.js` line 181. Settings slider and synthetic recordings unchanged.
+
+**Why.** D-81 (Ricky, 2026-10-21): the 3° limit of D-77 was too tight in use.
+
+**Deviations.** None. `package-lock.json` (untracked) still says 0.12.1 and was left alone.
+
+**Verification.** Orchestrator on merged main: `npm test` passes all three suites (replay "all passed (41 recordings)", smoke "all passed", roundtrip "all passed"). Agent's replay before/after: the only outcome change is `pixel-11/tdt-free-2026-10-20-22-40-27.json` alarms 4 → 3; every other difference is the version string in INFO lines (the two `samsung-s20` axis recordings, made with 0.12.1, moved from "PASS replay reproduces the live run" to "INFO … replay still matches"). Smoke D-56 checks ran with `LIM = 5`: "slow drift off the frame to just under 5°: no alarm", "… past 5°: move alarm", "… then still: no alarm", "slow drift past 5° during a press: move alarm", short jerk `devOff < LIM`. NOT verified (owner, Pixel 11 and iPhone 15, drift slider never moved): Settings shows 5° after loading the updated page.
+
+**Follow-ups.** None.
+
+---
+
 ### WQ-018 — Lengthen the trigger blade to half the gap above the guard bar (D-78)
 
 - **Closed:** 2026-10-21 · **Outcome:** done
