@@ -178,7 +178,7 @@ const check = (name, cond, state) => {
   await motion(0, 0, 5);
   s = await st(); check('back downrange with finger on the frame: 180 alarm clears', !s.alarmActive && s.onRest, s);
 
-  // D-56: off the frame the muzzle may drift at most offFrameDeg (LIM, 3° by default since D-77) from where
+  // D-56: off the frame the muzzle may drift at most offFrameDeg (LIM, 5° by default (D-81; was 3° under D-77)) from where
   // it pointed when the finger left, however slowly. 8°/s is well under the rate limit (moveDps 25°/s).
   const offFrame = async () => { await touch('touchEnd', []); await motion(0, 0, 25); };
   const backOnFrame = async () => { await touch('touchStart', [REST]); await motion(0, 0, 8); };
