@@ -31,8 +31,8 @@ updated: 2026-10-21
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-019 | Widen the `offFrameDeg` default back to 5° (D-81) | P1 | S | queued | — | alarm |
-| WQ-020 | Move the trigger another 20 px toward the muzzle (D-82) | P1 | S | queued | — | layout |
+| WQ-019 | Widen the `offFrameDeg` default back to 5° (D-81) | P1 | S | claimed:round-20261021-7 | — | alarm |
+| WQ-020 | Move the trigger another 20 px toward the muzzle (D-82) | P1 | S | claimed:round-20261021-7 | — | layout |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -52,7 +52,7 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 
 ### WQ-019 — Widen the `offFrameDeg` default back to 5° (D-81)
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** alarm · **Env:** any
+- **Status:** claimed:round-20261021-7 · **Priority:** P1 · **Size:** S · **Track:** alarm · **Env:** any
 - **Added:** 2026-10-21 by orchestration session (Ricky decision D-81, reversing D-77)
 - **Depends on:** — · **Blocks:** WQ-020
 
@@ -86,7 +86,7 @@ use and decided (D-81, 2026-10-21) to return to 5°. D-56 (the off-frame drift a
 
 ### WQ-020 — Move the trigger another 20 px toward the muzzle (D-82)
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** layout · **Env:** browser
+- **Status:** claimed:round-20261021-7 · **Priority:** P1 · **Size:** S · **Track:** layout · **Env:** browser
 - **Added:** 2026-10-21 by orchestration session (Ricky decision D-82)
 - **Depends on:** WQ-019 · **Blocks:** —
 
