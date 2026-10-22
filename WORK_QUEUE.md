@@ -32,8 +32,8 @@ updated: 2026-10-21
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-017 | Lower the `offFrameDeg` default from 5° to 3° (D-77) | P1 | S | queued | — | alarm |
-| WQ-018 | Lengthen the trigger blade to half the gap above the guard bar (D-78) | P2 | S | queued | — | layout |
+| WQ-017 | Lower the `offFrameDeg` default from 5° to 3° (D-77) | P1 | S | claimed:round-20261021-6 | — | alarm |
+| WQ-018 | Lengthen the trigger blade to half the gap above the guard bar (D-78) | P2 | S | claimed:round-20261021-6 | — | layout |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -136,7 +136,7 @@ entry. If a new recording fails an expectation, stop and report it (do not edit 
 
 ### WQ-017 — Lower the `offFrameDeg` default from 5° to 3° (D-77)
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** alarm · **Env:** browser
+- **Status:** claimed:round-20261021-6 · **Priority:** P1 · **Size:** S · **Track:** alarm · **Env:** browser
 - **Added:** 2026-10-21 by off-frame-estimator session (Ricky decision D-77)
 - **Depends on:** — · **Blocks:** —
 
@@ -186,7 +186,7 @@ completion entry; run `npm test`; record the new `VERSION` and the smoke-test ch
 
 ### WQ-018 — Lengthen the trigger blade to half the gap above the guard bar (D-78)
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** layout · **Env:** browser
+- **Status:** claimed:round-20261021-6 · **Priority:** P2 · **Size:** S · **Track:** layout · **Env:** browser
 - **Added:** 2026-10-21 by orchestration session (Ricky's UI edit → D-78)
 - **Depends on:** — · **Blocks:** —
 
