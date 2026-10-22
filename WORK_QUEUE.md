@@ -32,7 +32,6 @@ updated: 2026-10-21
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-017 | Lower the `offFrameDeg` default from 5° to 3° (D-77) | P1 | S | claimed:round-20261021-6 | — | alarm |
 | WQ-018 | Lengthen the trigger blade to half the gap above the guard bar (D-78) | P2 | S | claimed:round-20261021-6 | — | layout |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -53,7 +52,7 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (D-76: Ricky will re-record the full drill set on the 0.12.0 layout on both phones; the old sets become legacy — see "Re-record on the new layout" below); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015 and WQ-016 are collected below, so phone work lives in one item)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (D-76: Ricky will re-record the full drill set on the 0.12.0 layout on both phones; the old sets become legacy — see "Re-record on the new layout" below); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015, WQ-016 and WQ-017 are collected below, so phone work lives in one item)
 - **Depends on:** — · **Blocks:** —
 
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
@@ -87,6 +86,9 @@ notes the result here and in the item's entry):
   above 1.5 (WQ-012, D-57).
 - iPhone 15 and Pixel 11, both hands: the taller frame strip, the forward trigger and the new guard feel natural to
   hold, and a 60 px pull breaks the shot without the finger running off the trigger (WQ-016, D-71, D-75).
+- Pixel 11 and iPhone 15, drift slider never moved: Settings shows 3° after loading the updated page; 10 s still off
+  the frame does not alarm; a slow sweep alarms within about a second of passing 3°; a clean press does not alarm
+  (WQ-017, D-77).
 
 **Context.** Everything measured so far comes from one Pixel 11. Three open points need a second
 phone each: the iPhone gyro axis order (Q1), whether the iOS misdetection also affects other
@@ -131,56 +133,6 @@ entry. If a new recording fails an expectation, stop and report it (do not edit 
   raised); Q1, Q11 and the contact-size note are updated with the measured facts.
 
 **Verification.** The "Axis verdict" lines for each phone quoted in the completion entry.
-
----
-
-### WQ-017 — Lower the `offFrameDeg` default from 5° to 3° (D-77)
-
-- **Status:** claimed:round-20261021-6 · **Priority:** P1 · **Size:** S · **Track:** alarm · **Env:** browser
-- **Added:** 2026-10-21 by off-frame-estimator session (Ricky decision D-77)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** D-56 (WQ-011) alarms when the muzzle drifts more than `offFrameDeg` from where it pointed when the
-finger left the frame. Ricky observed slow off-frame moves running without an alarm and recorded six of them
-(`tests/recordings/pixel-11/tdt-free-2026-10-21-19-43-01.json`): at 5° five alarmed 0.7–4.4 s after the lift and
-one never did. The offline evaluation in `docs/IDEAS.md` I-06 found no estimator (leaky velocity, rotation path,
-accelerometer RMS, gravity tilt, a fused Kalman filter) that beats `devOff`; the only gain is a lower limit. On
-engine 0.12.0, the drift on 15 quiet off-frame periods of the real recordings peaks at 1.83°; 3° trips none of
-them and alarms 0.3–1.4 s earlier than 5° on four of the six moves. Ricky chose 3° (D-77, 2026-10-21).
-
-**Scope.**
-- `engine.js` `DEFAULTS.offFrameDeg` (line 22): 5 → 3; keep the comment accurate. Settings slider stays (1–20°,
-  `index.html` line 754). Bump `VERSION` (0.12.0 → 0.12.1): replays of recordings whose `settings` lack
-  `offFrameDeg` (all made before 0.11.0) take the default, and one of them changes (below).
-- `tests/smoke.js` hard-codes the 5° limit in its D-56 block (lines 121–124 and 179–213): the "slow drift to 4°:
-  no alarm" checks (lines 185–186, 199–201) and "past 5°" checks (lines 187–189, 210–212) must move to the new
-  limit (for example sub-limit at 2–2.5°, alarm between 3° and 4.5°), and the short-jerk check (line 124,
-  `s.devOff < 5`) must still stay under the limit — reduce the jerk if it does not. Prefer reading the limit from the
-  page's settings over a second hard-coded number. Keep each check's intent.
-- Regenerate `tests/recordings/synthetic/` (`npm run synthetic`) if any synthetic replay changes, and say so.
-- Text that quotes 5° as the default: `CLAUDE.md` line 63 ("`offFrameDeg` (5°)"; hub file, edit only that
-  parenthesis), `docs/CLASS_USE.md` lines 22 and 31. Comments in `tests/expectations.js` and `docs/RECORDINGS.md`
-  name `offFrameDeg` without a number and stay.
-- Before and after, run `npm run test:replay`. Expected (measured 2026-10-21 on 0.12.0): no drill expectation fails;
-  `pixel-11/tdt-free-2026-10-20-22-40-27.json` goes from 3 to 4 alarms (a press at 66.8 s whose drift reaches 4.0°);
-  every other real recording keeps its alarm count. Any other change: stop and report it.
-- Out of scope: any translation (slide) detection (I-06 found none worth building), smoothing or hold times on
-  `devOff`, the rate thresholds, and the D-34 jerk allowance.
-
-**Acceptance.**
-- `DEFAULTS.offFrameDeg` is 3, `VERSION` is bumped, `npm test` passes.
-- `npm run test:replay` differs from the "before" run only in the alarm count of
-  `pixel-11/tdt-free-2026-10-20-22-40-27.json` (3 → 4); all recordings pass.
-- The smoke test checks a sub-limit drift without alarm and a drift past 3° with a `move` alarm, off the frame and
-  during a press, and the short jerk stays unalarmed.
-- `CLAUDE.md` and `docs/CLASS_USE.md` say 3°.
-- *Owner-verifiable:*
-  - On the Pixel 11 and the iPhone 15, with the drift slider never moved, Settings shows 3° after loading the
-    updated page; holding still off the frame for 10 s does not alarm; a slow sweep alarms within about a second
-    of passing 3°; a clean press does not alarm.
-
-**Verification.** Save the `npm run test:replay` output before and after and quote the changed line in the
-completion entry; run `npm test`; record the new `VERSION` and the smoke-test checks that changed.
 
 ---
 

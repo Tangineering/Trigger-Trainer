@@ -35,6 +35,24 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-017 — Lower the `offFrameDeg` default from 5° to 3° (D-77)
+
+- **Closed:** 2026-10-21 · **Outcome:** done-with-deviations (agent-verifiable half; the phone check is listed under Verification and tracked in WQ-006)
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff and re-ran the suites · **Round:** round-20261021-6
+- **Commits / PR:** 748ed57 "WQ-017: Lower the offFrameDeg default from 5° to 3° (D-77)" (fast-forwarded to main)
+
+**What was done.** `engine.js` `DEFAULTS.offFrameDeg` 5 → 3 (comment cites D-77); `VERSION` and `package.json` 0.12.0 → 0.12.1. `tests/smoke.js` reads the limit as `LIM = TDT.DEFAULTS.offFrameDeg` and checks a sub-limit drift (off the frame, then holding still), a drift past `LIM` with a `move` alarm (off the frame and during a press), and the short jerk with `devOff < LIM`. `CLAUDE.md` off-frame bullet says "(3°)"; `docs/CLASS_USE.md` says 3° by default in both places.
+
+**Why.** D-77 (Ricky, after the I-06 estimator study): slow off-frame moves alarmed late or never at 5°; on engine 0.12.0 the drift over 15 quiet off-frame periods peaks at 1.83°, so 3° trips none of them and alarms 0.3–1.4 s earlier on four of six recorded moves.
+
+**Deviations.** `tests/recordings/synthetic/` was not regenerated: no synthetic replay changed outcome, and a trial regeneration rewrote only the header fields (`app`, `settings.offFrameDeg`), so it was reverted; the committed synthetic files still record app 0.12.0 and `offFrameDeg: 5` in their own settings. The smoke test reads the limit from `TDT.DEFAULTS` rather than the page's `S` (which sits in a closure); equal because the test clears `localStorage` first. No DECISIONS row added.
+
+**Verification.** Orchestrator on merged main: `npm test` passes all three suites (replay "all passed (39 recordings)", smoke "all passed", roundtrip "all passed"). Agent's replay before/after: the only outcome change is `pixel-11/tdt-free-2026-10-20-22-40-27.json` alarms 3 → 4 (the expected press at 66.8 s whose drift reaches 4.0°); every other difference is the version string in INFO lines. Smoke 66 PASS, with the five D-56 checks renamed to the 3° limit. NOT verified (owner, Pixel 11 and iPhone 15, drift slider never moved): Settings shows 3° after loading the updated page; 10 s still off the frame does not alarm; a slow sweep alarms within about a second of passing 3°; a clean press does not alarm.
+
+**Follow-ups.** None; the owner check is listed in WQ-006.
+
+---
+
 ### WQ-016 — Rework the frame strip, trigger guard and trigger layout; travel 60 px
 
 - **Closed:** 2026-10-21 · **Outcome:** done-with-deviations (agent-verifiable half; the on-phone feel check is tracked under WQ-006)
