@@ -35,6 +35,24 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-020 — Move the trigger another 20 px toward the muzzle (D-82)
+
+- **Closed:** 2026-10-21 · **Outcome:** done-with-deviations (agent-verifiable half; the on-phone check is tracked under WQ-006)
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff and the 667×375 screenshot and re-ran the suites · **Round:** round-20261021-7
+- **Commits / PR:** 01e36bd "WQ-020: Move the trigger another 20 px toward the muzzle (D-82)", 04d4177 "WQ-020: Reserve 160 px beside the dial so Set downrange clears the guard", 9a2196f "WQ-020: Log D-83 (guard follows the trigger, dial cap 160 px)" (merged to main as 0e16de5)
+
+**What was done.** `engine.js` `K.TRIGGER_FWD_PX` 20 → 40 (comment cites D-82); `VERSION` and `package.json` 0.12.2 → 0.12.3. The guard's front edge follows through the existing `zoneFor` rule. The 11 synthetic recordings were regenerated (their trigger touches come from the zone centre). `index.html` `layout()` reserves 160 px beside the dial instead of 140 so Set downrange clears the wider guard at 667×375. Four screenshots in `docs/screenshots/wq-020/`. D-83 (`Claude (proposed)`): the guard follows the trigger; the dial-cap change; the measurements.
+
+**Why.** D-82 (Ricky, 2026-10-21): "move the trigger another 20px towards the muzzle."
+
+**Deviations.** `index.html` did need a change: at 667×375 the guard's front edge overlapped the Set downrange button by 13.4 px, so the dial cap moved from `tr.width − 140` to `tr.width − 160`; the dial there shrinks from 113.5 to 95.5 px (852×393 unchanged). `CLAUDE.md` unchanged (its `zoneFor` row carries no number).
+
+**Verification.** Orchestrator on merged main: `npm test` passes all three suites (replay "all passed (41 recordings)", smoke "all passed", roundtrip "all passed"); viewed `667x375-right.png`. Agent's Playwright measurements, both viewports and hands: trigger zone and guard front edge 40.0 px (±0.03) forward of the `ZONES` fractions; blade inside the guard at full 72 px travel (rear edge 147 / 105 px forward of the guard's rear end, tip 28–30 px above the bar); label 5.98 px from the blade with 35.8 / 19.0 px to the front bar; Set downrange clear of the guard by 16.8 px at 852 and 6.6 px at 667 (same as before D-82); dial clear by 154.9 / 144.7 px. Event-level replay of all 30 real recordings against the pre-change engine: only `pixel-11/tdt-free-2026-10-20-22-40-27.json` changes — one trigger touch at x ≈ 463 px (viewport 852 wide) was 17 px forward of the old zone's front edge (446 px) and is inside the new one (466 px), so that press engages 343 ms earlier (`trigOn` 98583.5 instead of 98926.4) and its shot breaks at 98934.7 instead of 98943.3; event counts identical; every expectation passes. `npm run test:replay` before/after identical apart from version strings. NOT verified (owner, any phone, both hands): the trigger sits where the finger expects it and a full press still breaks without the finger running off the zone.
+
+**Follow-ups.** Parked (needs a Ricky decision): derive the dial cap from the guard's measured front edge instead of the fixed 160 px, so a future `TRIGGER_FWD_PX` change cannot reach the Set downrange button again.
+
+---
+
 ### WQ-019 — Widen the `offFrameDeg` default back to 5° (D-81)
 
 - **Closed:** 2026-10-21 · **Outcome:** done

@@ -31,7 +31,6 @@ updated: 2026-10-21
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-020 | Move the trigger another 20 px toward the muzzle (D-82) | P1 | S | claimed:round-20261021-7 | — | layout |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -49,61 +48,10 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 
 ## Items
 
-### WQ-020 — Move the trigger another 20 px toward the muzzle (D-82)
-
-- **Status:** claimed:round-20261021-7 · **Priority:** P1 · **Size:** S · **Track:** layout · **Env:** browser
-- **Added:** 2026-10-21 by orchestration session (Ricky decision D-82)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** WQ-016 (D-72) moved the trigger zone and the guard's front edge 20 CSS px toward the muzzle through
-`K.TRIGGER_FWD_PX = 20` (`engine.js` line 51 at commit 14e88fc), applied by `zoneFor(name, vw)` (line 73) to the
-engine's hit test and, through `rectFor()` (`index.html` line 409), to the drawn trigger and guard. Ricky
-(D-82, 2026-10-21): "move the trigger another 20px towards the muzzle."
-
-**Scope.**
-- `engine.js` `K.TRIGGER_FWD_PX` 20 → 40; comment cites D-82. The guard's front edge follows through the same
-  `zoneFor` rule (orchestrator's reading of D-82, consistent with D-72 so the blade stays inside the guard; log it
-  as a `Claude (proposed)` row). `ZONES` fractions unchanged.
-- Bump `VERSION` 0.12.2 → 0.12.3 and `package.json`: the hit zone moves, so touch rows replay differently.
-- `index.html`: nothing should need changing — `rectFor()`, `drawGuard()` (guard width grows by the offset),
-  `sizeBlade()` and the vertical trigger label (D-79, on the muzzle side of the blade) all follow the zone.
-  Check at 667×375 that the guard's front edge still clears the Set downrange button and the dial: `layout()`
-  caps the dial at `tr.width − 140` (D-74); if the guard now runs into the button, widen that cap and say so.
-  Check that the trigger label still fits between the blade and the guard's front bar in both hands (the gap
-  is unchanged in principle since both move together; confirm by measurement).
-- Tests: `tests/smoke.js`, `tests/roundtrip.js` and `tests/make-synthetic.js` take the trigger centre from
-  `TDT.zoneFor('trigger', W)` (WQ-016), so they follow; regenerate `tests/recordings/synthetic/` with
-  `npm run synthetic` (the synthetic touch coordinates come from the zone centre, so they change) and confirm
-  every synthetic expectation still passes.
-- Real recordings: run `npm run test:replay` before and after and list every recording whose events change
-  (trigger touches made on the 0.12.x layout sit 20 px further rearward than the new zone's front edge, so some
-  presses may engage later or miss the zone). Every drill expectation must still pass; if one fails, stop and
-  report which (D-76: Ricky is re-recording the whole drill set on the new layout, so event changes in
-  pre-0.12.3 recordings are expected and acceptable, but a failed expectation is not).
-- Screenshots: four under `docs/screenshots/wq-020/` (852×393 and 667×375, both hands, blade at rest), `git add -f`.
-- Docs: `CLAUDE.md` `ZONES`/`zoneFor` row only if its wording no longer holds (it names `K.TRIGGER_FWD_PX`
-  without a number, so probably not).
-- Out of scope: `pullPx`, the blade length (D-78), the guard shape (D-71), the drift limit (WQ-019).
-
-**Acceptance.**
-- `K.TRIGGER_FWD_PX` is 40; `VERSION` 0.12.3; `npm test` passes with every expectation.
-- Playwright measurement in both viewports and both hands: the drawn trigger zone and the guard's front edge sit
-  40 px toward the muzzle from the `ZONES` fractions (20 px further than at commit 14e88fc); the blade stays inside
-  the guard at full 72 px travel; the label does not touch the blade; the dial and Set downrange button are clear
-  of the guard.
-- The replay comparison lists every real recording whose events changed, with the cause.
-- Owner-verifiable (any phone, both hands): the trigger sits where the finger expects it and a press still breaks
-  without the finger running off the zone.
-
-**Verification.** `npm test`; the measurements and the replay comparison quoted in the completion entry; the
-screenshots.
-
----
-
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (D-76: Ricky will re-record the full drill set on the 0.12.0 layout on both phones; the old sets become legacy — see "Re-record on the new layout" below); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015, WQ-016, WQ-017, WQ-018 and WQ-019 are collected below, so phone work lives in one item); 2026-10-22 by S20+ recordings session (second Android phone: axis drills in, D-80)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (D-76: Ricky will re-record the full drill set on the 0.12.0 layout on both phones; the old sets become legacy — see "Re-record on the new layout" below); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015, WQ-016, WQ-017, WQ-018, WQ-019 and WQ-020 are collected below, so phone work lives in one item); 2026-10-22 by S20+ recordings session (second Android phone: axis drills in, D-80)
 - **Depends on:** — · **Blocks:** —
 
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
@@ -146,6 +94,8 @@ notes the result here and in the item's entry):
   the frame does not alarm; a slow sweep alarms within about a second of passing 3°; a clean press does not alarm
   (WQ-017, D-77); since WQ-019 (D-81) the default is 5° again, so Settings should show 5°.
 - Any phone: the longer trigger blade reads as the trigger and the vertical label beside it is legible (WQ-018, D-78, D-79).
+- Any phone, both hands: with the trigger 40 px forward of the zone fraction (WQ-020, D-82) it sits where the finger
+  expects it, and a full press still breaks without the finger running off the zone.
 
 **Context.** Everything measured so far comes from one Pixel 11. Three open points need a second
 phone each: the iPhone gyro axis order (Q1), whether the iOS misdetection also affects other
@@ -211,6 +161,9 @@ promote one with `work-queue-add`):
   fallback is `docs/IDEAS.md` I-01 (per-student layout calibration).
 - **Re-record the three `safe-move` drills with the current engine.** The 0.6.0 recordings still pass
   with current defaults; only worth doing so every real recording has a live-equals-replay check.
+- **Dial cap derived from the guard's front edge** (from WQ-020): `layout()` reserves a fixed 160 px beside the dial
+  so Set downrange clears the guard; computing it from the measured guard rectangle would survive future
+  `TRIGGER_FWD_PX` changes. Needs a Ricky decision.
 - **Operating modes on the start screen** (`docs/IDEAS.md` I-03, Ricky). Waiting for Ricky to list the modes.
 - **`CLAUDE.md` says recordings go "one folder per phone"** — the 2026-10-20 set has been moved to
   `pixel-11/`; nothing left to do unless a second Pixel appears.
