@@ -422,9 +422,9 @@ function layout() {
   drawGuard(rectFor('guard'));
   sizeBlade(rectFor('trigger'), rectFor('guard'));
   const tr = rectFor('target');
-  // Leave ~140 px beside the dial for the shot text and the nowrap Set downrange button, so the button stays
-  // clear of the guard's front edge on small phones (D-74).
-  sizeCanvas($('target'), Math.max(60, Math.min(tr.height - 8, tr.width * 0.55, tr.width - 140, 220)));
+  // Leave 160 px beside the dial for the shot text and the nowrap Set downrange button, so the button stays
+  // clear of the guard's front edge on small phones (D-74; 140 → 160 px when the guard grew 20 px, D-83).
+  sizeCanvas($('target'), Math.max(60, Math.min(tr.height - 8, tr.width * 0.55, tr.width - 160, 220)));
   if (engine) drawTarget(engine.state);
 }
 /* Blade length (D-78, D-79): the tip goes halfway between the D-71 tip (64% of the trigger zone) and the
