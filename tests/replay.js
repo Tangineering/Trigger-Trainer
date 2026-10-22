@@ -3,7 +3,8 @@
 //  2. live == replay: for recordings made with the current engine version, the replay must
 //     reproduce the events the phone produced live, exactly
 //  3. for axis-* recordings: which gyro axis mapping / flips would read the motion correctly;
-//     for a real phone with both axis recordings, FAIL when the default axisMode 'auto' resolves
+//     for a real phone (one recordings folder + user agent; Chrome's reduced UA is the same on
+//     every Android phone) with both axis recordings, FAIL when the default axisMode 'auto' resolves
 //     to a mapping outside that phone's verdict (synthetic recordings pin 'spec' and are skipped)
 //  4. WARN when a recording's device.ios disagrees with its device.ua (pre-D-53 recordings)
 // Usage: node tests/replay.js [file-or-dir ...]
@@ -110,7 +111,7 @@ for (const f of files) {
   if (rec.label === 'axis-up' || rec.label === 'axis-right') {
     const ok = axisDiagnosis(rec);
     console.log(`  INFO  mappings that read this correctly: ${ok.join(', ') || 'none'}`);
-    const dev = (rec.device && rec.device.ua) || 'unknown';
+    const dev = `${path.basename(path.dirname(f))}: ${(rec.device && rec.device.ua) || 'unknown'}`;
     (byDevice[dev] = byDevice[dev] || []).push({ label: rec.label, ok, rec, rel });
   }
 }
@@ -119,7 +120,7 @@ for (const [ua, list] of Object.entries(byDevice)) {
   const labels = new Set(list.map(x => x.label));
   if (labels.size < 2) continue;
   const common = list.map(x => new Set(x.ok)).reduce((a, b) => new Set([...a].filter(v => b.has(v))));
-  console.log(`\nAxis verdict for ${ua.slice(0, 80)}: ${[...common].join(', ') || 'no single mapping fits both'}`);
+  console.log(`\nAxis verdict for ${ua.slice(0, 96)}: ${[...common].join(', ') || 'no single mapping fits both'}`);
   if (list.some(x => x.rec.synthetic)) {
     console.log(`  INFO  synthetic recordings pin their own axisMode; 'auto' check skipped`);
     continue;
