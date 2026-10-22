@@ -35,6 +35,24 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-018 — Lengthen the trigger blade to half the gap above the guard bar (D-78)
+
+- **Closed:** 2026-10-21 · **Outcome:** done
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff and a screenshot and re-ran the suites · **Round:** round-20261021-6
+- **Commits / PR:** 40e2fb8 "WQ-018: Lengthen the trigger blade to half the gap above the guard bar (D-78)", 151ae0b "WQ-018: Log D-79 blade sizing and vertical trigger label", d2150d5 "WQ-018: Add blade screenshots at 852x393 and 667x375, both hands" (merged to main as 17168f2)
+
+**What was done.** `index.html`: new `sizeBlade(z, g)`, called from `layout()` after `drawGuard()`, sets the `#blade` height in px so the tip sits exactly halfway between the D-71 tip (64% of the trigger zone) and the guard bar's inner edge (guard zone bottom minus `GUARD.bar`); the CSS height is an 87% fallback; top, width, `right: 14%` and the `translateX` pull shift are unchanged. The trigger label is absolutely positioned on the muzzle side of the blade, 6 px away, vertically centred and set with `writing-mode: vertical-rl`; `.lh .trigger .label` mirrors it. D-79 (`Claude (proposed)`) records the sizing method and the label placement. Screenshots in `docs/screenshots/wq-018/`. `engine.js`, `VERSION` (0.12.1) and the tests are unchanged.
+
+**Why.** D-78 (Ricky, 2026-10-21): "increase the length of the trigger itself to take up half of the empty space between the bottom tip of the trigger and the trigger guard."
+
+**Deviations.** None to the blade. The label placement is the agent's choice (D-79): the muzzle-side gap between the blade and the guard's front bar is 53 px at 667×375, too narrow for the 106 px horizontal label, and the rear side is swept by the 72 px pull, so the label stands vertically; in `vertical-rl` the "TRIGGER" column is on the right in both hands, so the text order is not mirrored.
+
+**Verification.** Orchestrator on merged main: `npm test` passes all three suites (replay "all passed (39 recordings)", smoke "all passed", roundtrip "all passed"); viewed `852x393-right.png`. Agent's Playwright measurements (`getBoundingClientRect`): 852×393 both hands blade tip 301.0 → 330.5 px against a target of 330.6 (bar inner edge 360.0), error −0.05 px; 667×375 both hands 287.3 → 315.3 against 315.3 (bar inner edge 343.3), error +0.03 px. Label never overlaps the blade at rest or at 72 px travel in any of the four cases. `npm run test:replay` before/after diff empty. NOT verified (owner, any phone): the longer blade reads as the trigger and the vertical label is legible.
+
+**Follow-ups.** None; if the vertical label is unwanted, a one-line decision picks another placement.
+
+---
+
 ### WQ-017 — Lower the `offFrameDeg` default from 5° to 3° (D-77)
 
 - **Closed:** 2026-10-21 · **Outcome:** done-with-deviations (agent-verifiable half; the phone check is listed under Verification and tracked in WQ-006)
