@@ -60,7 +60,7 @@ How the queue and the other documents fit together:
   not alarmed; any other movement during the press alarms (D-34). A finger resting on the trigger without
   pulling counts as off the frame (D-24).
 - **Off-frame drift limit** (D-56): while the finger is off the frame (on the trigger and during a press too), the
-  muzzle may drift at most `offFrameDeg` (3°) from where it pointed when the finger left; twist about the barrel
+  muzzle may drift at most `offFrameDeg` (5°) from where it pointed when the finger left; twist about the barrel
   axis is ignored. A larger drift alarms however slowly it happened, and the alarm holds until the finger is back on
   the frame. The rate-based alarm and D-34's jerk allowance stay.
 - **180 rule** (D-26, D-31): the student points downrange and taps **Set downrange** (bottom right, next to the
