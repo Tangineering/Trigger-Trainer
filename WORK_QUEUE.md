@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-019
+next_id: WQ-021
 updated: 2026-10-21
 ```
 
@@ -31,6 +31,8 @@ updated: 2026-10-21
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
+| WQ-019 | Widen the `offFrameDeg` default back to 5° (D-81) | P1 | S | queued | — | alarm |
+| WQ-020 | Move the trigger another 20 px toward the muzzle (D-82) | P1 | S | queued | — | layout |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -47,6 +49,91 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 ---
 
 ## Items
+
+### WQ-019 — Widen the `offFrameDeg` default back to 5° (D-81)
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** alarm · **Env:** any
+- **Added:** 2026-10-21 by orchestration session (Ricky decision D-81, reversing D-77)
+- **Depends on:** — · **Blocks:** WQ-020
+
+**Context.** WQ-017 lowered `DEFAULTS.offFrameDeg` from 5° to 3° (D-77, engine 0.12.1). Ricky found 3° too tight in
+use and decided (D-81, 2026-10-21) to return to 5°. D-56 (the off-frame drift alarm itself) stands.
+
+**Scope.**
+- `engine.js` `DEFAULTS.offFrameDeg` (line 22 at commit 14e88fc): 3 → 5; comment cites D-81 (and keeps the D-56
+  reference). Settings slider range unchanged.
+- Bump `VERSION` 0.12.1 → 0.12.2 and `package.json` `version`: recordings whose `settings` lack `offFrameDeg` take
+  the default, and `pixel-11/tdt-free-2026-10-20-22-40-27.json` goes back from 4 to 3 alarms.
+- `tests/smoke.js` reads the limit as `LIM = TDT.DEFAULTS.offFrameDeg` (WQ-017), so its D-56 checks follow the
+  default; run them and confirm the drift steps still land on both sides of 5° (the sub-limit check drifts to
+  `LIM − 0.8`, the alarm check to between `LIM` and `LIM + 1.5`). The short-jerk check (`devOff < LIM`) stays.
+- Docs that quote the default: `CLAUDE.md` line 63 ("`offFrameDeg` (3°)" → "(5°)", hub file, that parenthesis
+  only); `docs/CLASS_USE.md` lines that say "3° by default" (two, from WQ-017). `docs/IDEAS.md` I-06 and
+  `docs/PROPOSAL_2026-10-20.md` are history and stay.
+- Do not regenerate `tests/recordings/synthetic/` unless a synthetic replay changes outcome (WQ-017 precedent).
+- Out of scope: the drift rule, the rate thresholds, any slide detection (I-06), the trigger position (WQ-020).
+
+**Acceptance.**
+- `DEFAULTS.offFrameDeg` is 5; `VERSION` 0.12.2; `npm test` passes.
+- `npm run test:replay` before/after differs only in `pixel-11/tdt-free-2026-10-20-22-40-27.json` (alarms 4 → 3)
+  and the version string in INFO lines; all 41 recordings pass. Any other change: stop and report.
+- `CLAUDE.md` and `docs/CLASS_USE.md` say 5°.
+- Owner-verifiable (Pixel 11, iPhone 15, drift slider never moved): Settings shows 5° after loading the updated page.
+
+**Verification.** `npm test`; the changed replay line quoted before and after in the completion entry.
+
+---
+
+### WQ-020 — Move the trigger another 20 px toward the muzzle (D-82)
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** layout · **Env:** browser
+- **Added:** 2026-10-21 by orchestration session (Ricky decision D-82)
+- **Depends on:** WQ-019 · **Blocks:** —
+
+**Context.** WQ-016 (D-72) moved the trigger zone and the guard's front edge 20 CSS px toward the muzzle through
+`K.TRIGGER_FWD_PX = 20` (`engine.js` line 51 at commit 14e88fc), applied by `zoneFor(name, vw)` (line 73) to the
+engine's hit test and, through `rectFor()` (`index.html` line 409), to the drawn trigger and guard. Ricky
+(D-82, 2026-10-21): "move the trigger another 20px towards the muzzle."
+
+**Scope.**
+- `engine.js` `K.TRIGGER_FWD_PX` 20 → 40; comment cites D-82. The guard's front edge follows through the same
+  `zoneFor` rule (orchestrator's reading of D-82, consistent with D-72 so the blade stays inside the guard; log it
+  as a `Claude (proposed)` row). `ZONES` fractions unchanged.
+- Bump `VERSION` 0.12.2 → 0.12.3 and `package.json`: the hit zone moves, so touch rows replay differently.
+- `index.html`: nothing should need changing — `rectFor()`, `drawGuard()` (guard width grows by the offset),
+  `sizeBlade()` and the vertical trigger label (D-79, on the muzzle side of the blade) all follow the zone.
+  Check at 667×375 that the guard's front edge still clears the Set downrange button and the dial: `layout()`
+  caps the dial at `tr.width − 140` (D-74); if the guard now runs into the button, widen that cap and say so.
+  Check that the trigger label still fits between the blade and the guard's front bar in both hands (the gap
+  is unchanged in principle since both move together; confirm by measurement).
+- Tests: `tests/smoke.js`, `tests/roundtrip.js` and `tests/make-synthetic.js` take the trigger centre from
+  `TDT.zoneFor('trigger', W)` (WQ-016), so they follow; regenerate `tests/recordings/synthetic/` with
+  `npm run synthetic` (the synthetic touch coordinates come from the zone centre, so they change) and confirm
+  every synthetic expectation still passes.
+- Real recordings: run `npm run test:replay` before and after and list every recording whose events change
+  (trigger touches made on the 0.12.x layout sit 20 px further rearward than the new zone's front edge, so some
+  presses may engage later or miss the zone). Every drill expectation must still pass; if one fails, stop and
+  report which (D-76: Ricky is re-recording the whole drill set on the new layout, so event changes in
+  pre-0.12.3 recordings are expected and acceptable, but a failed expectation is not).
+- Screenshots: four under `docs/screenshots/wq-020/` (852×393 and 667×375, both hands, blade at rest), `git add -f`.
+- Docs: `CLAUDE.md` `ZONES`/`zoneFor` row only if its wording no longer holds (it names `K.TRIGGER_FWD_PX`
+  without a number, so probably not).
+- Out of scope: `pullPx`, the blade length (D-78), the guard shape (D-71), the drift limit (WQ-019).
+
+**Acceptance.**
+- `K.TRIGGER_FWD_PX` is 40; `VERSION` 0.12.3; `npm test` passes with every expectation.
+- Playwright measurement in both viewports and both hands: the drawn trigger zone and the guard's front edge sit
+  40 px toward the muzzle from the `ZONES` fractions (20 px further than at commit 14e88fc); the blade stays inside
+  the guard at full 72 px travel; the label does not touch the blade; the dial and Set downrange button are clear
+  of the guard.
+- The replay comparison lists every real recording whose events changed, with the cause.
+- Owner-verifiable (any phone, both hands): the trigger sits where the finger expects it and a press still breaks
+  without the finger running off the zone.
+
+**Verification.** `npm test`; the measurements and the replay comparison quoted in the completion entry; the
+screenshots.
+
+---
 
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
