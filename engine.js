@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.12.2';
+  const VERSION = '0.12.3';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -48,7 +48,7 @@
   });
 
   const K = Object.freeze({
-    TRIGGER_FWD_PX: 20,          // trigger zone (and the guard's front edge) sit this many CSS px toward the muzzle (D-72)
+    TRIGGER_FWD_PX: 40,          // trigger zone (and the guard's front edge) sit this many CSS px toward the muzzle (D-72, D-82)
     REST_LOSS_DEBOUNCE_MS: 60,   // contact flicker tolerance on the frame strip
     RESET_FRACTION: 0.5,         // trigger re-arms after returning forward to this fraction of travel
     FOLLOW_THROUGH_MS: 350,      // keep tracing aim this long after the break
