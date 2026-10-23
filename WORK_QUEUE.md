@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-021
+next_id: WQ-022
 updated: 2026-10-21
 ```
 
@@ -31,6 +31,7 @@ updated: 2026-10-21
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
+| WQ-021 | Let the 180 limit slider go down to 30° (D-84) | P2 | S | queued | — | ui |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -47,6 +48,39 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 ---
 
 ## Items
+
+### WQ-021 — Let the 180 limit slider go down to 30° (D-84)
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
+- **Added:** 2026-10-22 by orchestration session (Ricky decision D-84)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** The Settings slider for the 180 rule limit (`limit180Deg`, `SLIDERS` in `index.html` line 775 at
+commit 9626d53: `min: 45, max: 90, step: 5`) stops at 45°. Ricky (D-84, 2026-10-22): let it go down to 30°. The
+engine applies the limit as given (`engine.js` lines 447 and 452) with a 5° hysteresis (`K.HYST_180_DEG`), and
+the dial's warning band starts at `limit − 20` (`index.html` line 678), so 30° needs no engine or hysteresis
+change: at 30° the alarm clears below 25° and the dial turns amber above 10°.
+
+**Scope.** `index.html` only; `engine.js` unchanged (no `VERSION` bump: `DEFAULTS.limit180Deg` stays 90 and no
+output changes for the same inputs).
+- `SLIDERS`: `limit180Deg` `min: 45` → `min: 30`; keep `max: 90, step: 5`. Update the help text so it mentions the
+  range ("90° is the 180 rule. Lower it for a tighter safe zone, down to 30°.").
+- Check that a stored `limit180Deg` below 45 (none can exist today) would not break the slider; nothing to do if
+  the slider code clamps or just displays the value.
+- `tests/smoke.js`: add one check that the rendered `limit180Deg` slider has `min` = 30 (the settings panel is
+  built from `SLIDERS` at start, so read the input's `min` attribute).
+- Docs: `docs/CLASS_USE.md` if it quotes the 45° floor (grep "45°"); otherwise nothing.
+- Out of scope: the default (90°), the hysteresis, the 180 rule itself.
+
+**Acceptance.**
+- `npm test` passes with the new smoke check; `npm run test:replay` output identical to before.
+- The slider shows 30° as its minimum; `grep -n "min: 45" index.html` finds nothing.
+- Owner-verifiable (any phone): Settings → Limit from downrange reaches 30°, and at 30° a swing past 30° from
+  downrange alarms and clears below 25°.
+
+**Verification.** `npm test`; the grep quoted in the completion entry.
+
+---
 
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
