@@ -38,6 +38,8 @@ const check = (name, cond, state) => {
     await page.evaluate(() => localStorage.getItem('tdt.settings.v2')) === JSON.stringify({ volume: 0.35 }));
   check('settings volume slider shows the same value',
     await page.$eval('#s_sliders4_volume', el => +el.value) === 0.35);
+  check('180 limit slider goes down to 30° (D-84)',
+    await page.$eval('#s_sliders180_limit180Deg', el => el.min) === '30');
   await page.mouse.up(); await page.waitForTimeout(50);
   s0 = await st(); check('releasing Test sound stops it', s0.alarmSound === null && !s0.running, s0);
 
