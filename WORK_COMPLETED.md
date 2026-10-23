@@ -35,6 +35,24 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-021 — Let the 180 limit slider go down to 30° (D-84)
+
+- **Closed:** 2026-10-22 · **Outcome:** done
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff and re-ran the suites · **Round:** round-20261022-8
+- **Commits / PR:** 3b2f198 "WQ-021: let the 180 limit slider go down to 30° (D-84)" (fast-forwarded to main)
+
+**What was done.** `index.html` `SLIDERS.sliders180` entry for `limit180Deg`: `min: 45` → `min: 30` (`max: 90, step: 5` unchanged); help text "90° is the 180 rule. Lower it for a tighter safe zone, down to 30°." `tests/smoke.js` gained "180 limit slider goes down to 30° (D-84)", reading the `min` attribute of `#s_sliders180_limit180Deg`. `engine.js` unchanged, no `VERSION` bump, no DECISIONS row beyond D-84.
+
+**Why.** D-84 (Ricky, 2026-10-22). The engine applies the limit as given with a 5° hysteresis and the dial's warning band starts at limit − 20, so 30° needs no engine change.
+
+**Deviations.** None. `buildSettings()` only sets and displays the value and the browser clamps a range input natively, so a stored value below the old floor needed no handling; `docs/CLASS_USE.md` does not quote 45°.
+
+**Verification.** Orchestrator on merged main: `npm test` passes all three suites (replay "all passed (41 recordings)", smoke "all passed", roundtrip "all passed"). Agent: `npm run test:replay` before/after diff empty; `grep -n "min: 45" index.html` finds nothing. NOT verified (owner, any phone): Settings → Limit from downrange reaches 30°; at 30° a swing past 30° from downrange alarms and clears below 25° with the finger on the frame.
+
+**Follow-ups.** None; the owner check is listed in WQ-006.
+
+---
+
 ### WQ-020 — Move the trigger another 20 px toward the muzzle (D-82)
 
 - **Closed:** 2026-10-21 · **Outcome:** done-with-deviations (agent-verifiable half; the on-phone check is tracked under WQ-006)

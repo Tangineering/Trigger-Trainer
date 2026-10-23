@@ -31,7 +31,6 @@ updated: 2026-10-22
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-021 | Let the 180 limit slider go down to 30° (D-84) | P2 | S | claimed:round-20261022-8 | — | ui |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -49,43 +48,10 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 
 ## Items
 
-### WQ-021 — Let the 180 limit slider go down to 30° (D-84)
-
-- **Status:** claimed:round-20261022-8 · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
-- **Added:** 2026-10-22 by orchestration session (Ricky decision D-84)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** The Settings slider for the 180 rule limit (`limit180Deg`, `SLIDERS` in `index.html` line 775 at
-commit 9626d53: `min: 45, max: 90, step: 5`) stops at 45°. Ricky (D-84, 2026-10-22): let it go down to 30°. The
-engine applies the limit as given (`engine.js` lines 447 and 452) with a 5° hysteresis (`K.HYST_180_DEG`), and
-the dial's warning band starts at `limit − 20` (`index.html` line 678), so 30° needs no engine or hysteresis
-change: at 30° the alarm clears below 25° and the dial turns amber above 10°.
-
-**Scope.** `index.html` only; `engine.js` unchanged (no `VERSION` bump: `DEFAULTS.limit180Deg` stays 90 and no
-output changes for the same inputs).
-- `SLIDERS`: `limit180Deg` `min: 45` → `min: 30`; keep `max: 90, step: 5`. Update the help text so it mentions the
-  range ("90° is the 180 rule. Lower it for a tighter safe zone, down to 30°.").
-- Check that a stored `limit180Deg` below 45 (none can exist today) would not break the slider; nothing to do if
-  the slider code clamps or just displays the value.
-- `tests/smoke.js`: add one check that the rendered `limit180Deg` slider has `min` = 30 (the settings panel is
-  built from `SLIDERS` at start, so read the input's `min` attribute).
-- Docs: `docs/CLASS_USE.md` if it quotes the 45° floor (grep "45°"); otherwise nothing.
-- Out of scope: the default (90°), the hysteresis, the 180 rule itself.
-
-**Acceptance.**
-- `npm test` passes with the new smoke check; `npm run test:replay` output identical to before.
-- The slider shows 30° as its minimum; `grep -n "min: 45" index.html` finds nothing.
-- Owner-verifiable (any phone): Settings → Limit from downrange reaches 30°, and at 30° a swing past 30° from
-  downrange alarms and clears below 25°.
-
-**Verification.** `npm test`; the grep quoted in the completion entry.
-
----
-
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
 - **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** recordings · **Env:** owner-machine
-- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (D-76: Ricky will re-record the full drill set on the 0.12.0 layout on both phones; the old sets become legacy — see "Re-record on the new layout" below); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015, WQ-016, WQ-017, WQ-018, WQ-019 and WQ-020 are collected below, so phone work lives in one item); 2026-10-22 by S20+ recordings session (second Android phone: axis drills in, D-80)
+- **Added:** 2026-10-20 by recordings-review session · **Updated:** 2026-10-21 by iPhone-15 analysis session (iPhone half done; second Android phone and the iPhone 3-minute drift run remain, D-61); 2026-10-21 by orchestration session (Ricky: the second Android phone waits for later; the iPhone 3-minute drift run also waits for later (Ricky, 2026-10-21); nothing is expected from the owner until Ricky says so); 2026-10-21 by orchestration session (D-76: Ricky will re-record the full drill set on the 0.12.0 layout on both phones; the old sets become legacy — see "Re-record on the new layout" below); 2026-10-21 by orchestration session (round-20261021-2 closed: the owner-verifiable checks of WQ-001, WQ-002, WQ-009, WQ-011, WQ-012, WQ-013, WQ-014, WQ-015, WQ-016, WQ-017, WQ-018, WQ-019, WQ-020 and WQ-021 are collected below, so phone work lives in one item); 2026-10-22 by S20+ recordings session (second Android phone: axis drills in, D-80)
 - **Depends on:** — · **Blocks:** —
 
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
@@ -130,6 +96,8 @@ notes the result here and in the item's entry):
 - Any phone: the longer trigger blade reads as the trigger and the vertical label beside it is legible (WQ-018, D-78, D-79).
 - Any phone, both hands: with the trigger 40 px forward of the zone fraction (WQ-020, D-82) it sits where the finger
   expects it, and a full press still breaks without the finger running off the zone.
+- Any phone: Settings → Limit from downrange reaches 30°; at 30° a swing past 30° from downrange alarms and clears
+  below 25° with the finger on the frame (WQ-021, D-84).
 
 **Context.** Everything measured so far comes from one Pixel 11. Three open points need a second
 phone each: the iPhone gyro axis order (Q1), whether the iOS misdetection also affects other
