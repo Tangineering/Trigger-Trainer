@@ -24,14 +24,14 @@ How to use it:
 
 ```yaml
 next_id: WQ-022
-updated: 2026-10-21
+updated: 2026-10-22
 ```
 
 ## Index
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-021 | Let the 180 limit slider go down to 30° (D-84) | P2 | S | queued | — | ui |
+| WQ-021 | Let the 180 limit slider go down to 30° (D-84) | P2 | S | claimed:round-20261022-8 | — | ui |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -51,7 +51,7 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 
 ### WQ-021 — Let the 180 limit slider go down to 30° (D-84)
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
+- **Status:** claimed:round-20261022-8 · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
 - **Added:** 2026-10-22 by orchestration session (Ricky decision D-84)
 - **Depends on:** — · **Blocks:** —
 
