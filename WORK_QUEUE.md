@@ -151,14 +151,14 @@ entry. If a new recording fails an expectation, stop and report it (do not edit 
 ### WQ-022 — Drill framework, start-screen drill picker and the Bill Drill (D-85, D-86, D-89, D-90)
 
 - **Status:** queued · **Priority:** P2 · **Size:** L · **Track:** drills · **Env:** any
-- **Added:** 2026-10-24 by drill-planning session
+- **Added:** 2026-10-24 by drill-planning session · **Updated:** 2026-10-24 by drill-planning session (Ricky accepted D-90)
 - **Depends on:** — · **Blocks:** WQ-023, WQ-024
 
 **Context.** Ricky decided to add timed drills next to today's trainer (D-85). The start screen gets a **Drill** selector;
 its picker lists **Freestyle** (today's trainer, unchanged, the default), **Low Ready**, **Box Drill**, **Bill Drill**, in
 that order, and shows a diagram of what to do for the selected drill. Every drill ends with a completion tone (D-86).
 The Bill Drill is six shots from the start beep, with no muzzle-angle requirement before the beep (D-89). The details
-Ricky did not state are fixed in D-90 (Claude, proposed): read D-85–D-90 in `docs/DECISIONS.md` before starting;
+Ricky did not state at first are fixed in D-90 (Claude → Ricky accepted): read D-85–D-90 in `docs/DECISIONS.md` before starting;
 they are this item's spec. Approved look: `docs/mockups/drills/picker-*.png` (landscape 844 × 390 and portrait
 390 × 844, one per drill), drawn from the SVG strings in `docs/mockups/drills/diagrams.js` (exports `freestyle`,
 `lr`, `box`, `bill`; each a 360 × 200 SVG string).
@@ -262,10 +262,10 @@ paths, and every `Claude (proposed)` row added. Size L: implement with `orchestr
 ### WQ-023 — Low Ready drill with the three-beep cue (D-88, D-90)
 
 - **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** drills · **Env:** any
-- **Added:** 2026-10-24 by drill-planning session
+- **Added:** 2026-10-24 by drill-planning session · **Updated:** 2026-10-24 by drill-planning session (Ricky accepted D-90)
 - **Depends on:** WQ-022 · **Blocks:** WQ-024
 
-**Context.** D-88 (Ricky) defines the Low Ready drill and D-90 (Claude, proposed) fills its gaps; read both. Low ready
+**Context.** D-88 (Ricky) defines the Low Ready drill and D-90 (Claude → Ricky accepted) fills its gaps; read both. Low ready
 here is competition style: the muzzle stays downrange and the gun is translated down, so there is no muzzle-angle
 check and Set downrange is not needed. There is no early-finger sound; the existing movement alarms apply. WQ-022
 provides the drill framework (`startDrill`, standby, `drillBeep`, `drillEnd`, `drillCancel`, seeded delays, the
@@ -314,10 +314,10 @@ screenshots in the completion entry. Touches `engine.js` and `index.html`: no pa
 ### WQ-024 — Box Drill: five positions, move cue after 2+ shots (D-87, D-90)
 
 - **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** drills · **Env:** any
-- **Added:** 2026-10-24 by drill-planning session
+- **Added:** 2026-10-24 by drill-planning session · **Updated:** 2026-10-24 by drill-planning session (Ricky accepted D-90)
 - **Depends on:** WQ-022, WQ-023 · **Blocks:** —
 
-**Context.** D-87 (Ricky) defines the Box Drill and D-90 (Claude, proposed) fills its gaps; read both. The student marks
+**Context.** D-87 (Ricky) defines the Box Drill and D-90 (Claude → Ricky accepted) fills its gaps; read both. The student marks
 four spots, starts at spot 1, goes round and finishes back at spot 1: five shooting positions. The student sets the
 movement pace; the phone cannot know where the student stands, so a position ends when the finger is back on the
 frame after at least two shots there. WQ-022 provides the framework and WQ-023 the three-beep cue `Snd.cue3()` and
