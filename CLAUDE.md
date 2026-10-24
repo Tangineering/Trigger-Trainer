@@ -228,3 +228,15 @@ blade face and the guard bar's inner edge.
 Movement alarm has the drop-down above the sliders (order: moveDps, moveAcc, offFrameDeg, graceMs, jerkMs); the
 three scaled outputs show the effective value, e.g. `25 °/s (→ 17.5 °/s)`. Recordings carry `sensitivity` in
 `settings`; recordings without the key replay unchanged.
+
+## WQ-026 — sensitivity presets with Custom (D-91, D-92)
+
+Supersedes the WQ-025 block (the orchestrator folds the two): there is no `sensitivity` setting and no engine
+multiplier any more (`DEFAULTS.sensitivity`, `TDT.SENSITIVITY`, `TDT.limitsFor` removed); `tick()` reads `S.moveDps`,
+`S.moveAcc`, `S.offFrameDeg` directly. The Settings → Movement alarm drop-down is a UI preset in `index.html`:
+Low / Default / High write `DEFAULTS` × 1.3 / 1 / 0.7 (rounded to the slider step: 32.5 / 1.95 / 6.5,
+25 / 1.5 / 5, 17.5 / 1.05 / 3.5) into the three sliders (`SENS_PRESETS`, `sensPreset`, `applySensitivity`), and
+`sensitivityFor(S)` shows the matching preset or the code-only, disabled **Custom** option while sliding. Only the
+changed slider keys are stored (D-64), never a preset key. Steps: `moveDps` 0.5, `moveAcc` 0.05, `offFrameDeg` 0.5;
+their outputs drop trailing zeros (`trim: true`). Slider order is unchanged (moveDps, moveAcc, offFrameDeg, graceMs,
+jerkMs).
