@@ -220,20 +220,10 @@ blade's front face and the label are placed in px from the zone's muzzle-side ed
 properties `--bladeOff`, `--gapMid` on `#trigZone`), not as percentages of the zone; the label is centred between the
 blade face and the guard bar's inner edge.
 
-## WQ-025 — overall sensitivity (D-89, D-90)
+## WQ-025 / WQ-026 — overall sensitivity presets (D-89, D-91, D-92)
 
-`S.sensitivity` (`'low' | 'default' | 'high'`, default `'default'`) scales three limits only — `moveDps`, `moveAcc` and
-`offFrameDeg` — by `TDT.SENSITIVITY` (1.3 / 1 / 0.7). The engine reads them through `TDT.limitsFor(S)` in `tick()`
-(live, like the other settings); `graceMs`, `jerkMs`, `steadyDeg`, `limit180Deg` and `pullPx` are unscaled. Settings →
-Movement alarm has the drop-down above the sliders (order: moveDps, moveAcc, offFrameDeg, graceMs, jerkMs); the
-three scaled outputs show the effective value, e.g. `25 °/s (→ 17.5 °/s)`. Recordings carry `sensitivity` in
-`settings`; recordings without the key replay unchanged.
-
-## WQ-026 — sensitivity presets with Custom (D-91, D-92)
-
-Supersedes the WQ-025 block (the orchestrator folds the two): there is no `sensitivity` setting and no engine
-multiplier any more (`DEFAULTS.sensitivity`, `TDT.SENSITIVITY`, `TDT.limitsFor` removed); `tick()` reads `S.moveDps`,
-`S.moveAcc`, `S.offFrameDeg` directly. The Settings → Movement alarm drop-down is a UI preset in `index.html`:
+There is no `sensitivity` setting and no engine multiplier (WQ-025's `limitsFor` factor was replaced by D-91 in
+WQ-026); `tick()` reads `S.moveDps`, `S.moveAcc`, `S.offFrameDeg` directly. The Settings → Movement alarm drop-down is a UI preset in `index.html`:
 Low / Default / High write `DEFAULTS` × 1.3 / 1 / 0.7 (rounded to the slider step: 32.5 / 1.95 / 6.5,
 25 / 1.5 / 5, 17.5 / 1.05 / 3.5) into the three sliders (`SENS_PRESETS`, `sensPreset`, `applySensitivity`), and
 `sensitivityFor(S)` shows the matching preset or the code-only, disabled **Custom** option while sliding. Only the
