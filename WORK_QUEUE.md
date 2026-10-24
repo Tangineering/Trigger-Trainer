@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-024
+next_id: WQ-025
 updated: 2026-10-24
 ```
 
@@ -31,6 +31,7 @@ updated: 2026-10-24
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
+| WQ-024 | Trigger zone to the guard front, blade 5 px forward, label centred (D-87) | P1 | M | queued | — | layout |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 
@@ -181,6 +182,74 @@ WQ-022.
 
 **Verification.** `npm test`; a Playwright run with `navigator.vibrate` stubbed to return `false` shows
 `vib: false` in the readout after a simulated shot (add it to `tests/smoke.js`).
+
+---
+
+### WQ-024 — Trigger zone to the guard front, blade 5 px forward, label centred (D-87)
+
+- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** layout · **Env:** any
+- **Added:** 2026-10-24 by orchestration session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Ricky (D-87, 2026-10-24) likes that the trigger can be pressed well behind the drawn blade and wants the
+same forward: the touch zone should reach the front of the trigger guard, the blade should sit 5 px further toward
+the muzzle, and the TRIGGER label should be centred in the gap between the blade and the guard's front bar.
+Geometry today (right-handed, muzzle at x = 1, `engine.js:39-47`, `engine.js:73-78`): `ZONES.trigger = {x .28, w .22}`
+and `ZONES.guard = {x .24, w .32}`, both shifted `K.TRIGGER_FWD_PX` = 40 px toward the muzzle by `zoneFor()`
+(the guard by widening). So the trigger zone's front edge is at `.50·W + 40` and the guard's at `.56·W + 40`: a
+`.06·W` strip (51 px at W = 852) inside the guard does not engage the trigger. The blade (`#blade`,
+`index.html:52-54`) is 16 px wide at `right: 14%` of the zone (`left: 14%` under `.lh`), so its front face is
+`0.14 × .22·W` = `.0308·W` behind the zone's front edge; the label (`index.html:55-57`) is vertical text 6 px in
+front of the blade (`left: calc(86% + 6px)`). The guard bar is `GUARD.bar` = 7 px wide, drawn inside the guard
+zone's front edge (`drawGuard()`, `index.html:443-458`). `layout()` (`index.html:415`) positions zones from
+`rectFor()`, and `sizeBlade()` (`index.html:434-437`) already sets the blade height in px from the trigger and guard
+rects. During a pull the blade is shifted rearward by `translateX` (`index.html:658`).
+
+**Scope.**
+- `engine.js`: `ZONES.trigger.w` `.22` → `.28` (x stays `.28`, so the front edge equals the guard zone's front edge
+  after the shared `TRIGGER_FWD_PX` offset; the guard, `ZONES.guard`, `K.TRIGGER_FWD_PX` and the rear edge do not
+  change). Update the ZONES comment. Bump `VERSION` (patch): the hit test changes for the same inputs.
+- `index.html`: the blade's front face must stay where it is today **minus 5 px toward the muzzle**, independent of
+  the new zone width, so stop positioning it with a percentage of the zone. Set it in px from `layout()`/`sizeBlade()`
+  via a CSS custom property on `#trigZone`, e.g. `--bladeOff` = distance from the zone's muzzle-side edge to the
+  blade's front face = `(0.06 + 0.14 × 0.22) × W − 5` px (= `.0908·W − 5`; 72.4 px at W = 852; 55.5 px at 667).
+  CSS: `#blade { right: var(--bladeOff) }`, `.lh #blade { right: auto; left: var(--bladeOff) }`. Keep the 16 px
+  width, the top at 2 %, `sizeBlade()`'s height rule (D-79) and the pull `translateX`.
+- Label: centre it horizontally in the gap between the blade's front face and the guard bar's inner edge (guard
+  front − `GUARD.bar`): set `--gapMid` = `(bladeOff + GUARD.bar) / 2` px from the zone's muzzle-side edge, and CSS
+  `.trigger .label { right: var(--gapMid); left: auto; transform: translate(50%, -50%) }`, mirrored under `.lh`
+  (`left: var(--gapMid); right: auto; transform: translate(-50%, -50%)`). Vertical centring stays at `top: 50%`.
+  Confirm the two-line vertical label (≈ 34 px wide) fits the gap (≈ 65 px at W = 852, ≈ 48 px at 667) without
+  touching the blade or the bar; if it does not at 667, reduce the label's font size there and say so.
+- Hand mirror: `rectFor()` mirrors x for the left hand; the custom properties are distances from the muzzle-side
+  edge, so the same numbers apply under `.lh`. Verify both hands in Playwright.
+- Tests: `tests/smoke.js` derives the trigger touch point from `zoneFor('trigger', W)` (`tests/smoke.js:10`), so it
+  moves with the zone; keep it passing. Add one smoke check that a touch 10 px behind the guard's front edge (inside
+  the new strip, 20 px below the zone top) emits `trigOn`, and one that the label's bounding box lies strictly
+  between the blade's front face and the guard bar's inner edge at 852 × 393 and 667 × 375, both hands.
+- Replays: run `npm run test:replay` before and after; list every recording whose events change (touches that now
+  engage the trigger in the front strip) and confirm every drill expectation still passes. If an expectation fails,
+  stop and report (do not edit a recording).
+- Docs: `CLAUDE.md` — update the `DEFAULTS, ZONES, K, zoneFor` table row and the "Trigger wins"/layout spec only if
+  they state a number that changed (append a WQ-024 block rather than rewriting prose); `docs/DECISIONS.md` — a
+  `Claude (proposed)` row with the measured px positions (blade face, label box, gap) at both viewports and both
+  hands, like D-83. Screenshots into `docs/screenshots/wq-024/` (both viewports, both hands).
+- Out of scope: the guard shape and position, `K.TRIGGER_FWD_PX`, the Set downrange button and `target` zone (D-74,
+  D-83), the frame strip, pull distance and grading, the start-screen text (WQ-022, done).
+
+**Acceptance.**
+- `TDT.zoneFor('trigger', W).x + .w === TDT.zoneFor('guard', W).x + .w` for any W; the trigger zone's rear edge is
+  unchanged (`x` still `.28`).
+- In Playwright at 852 × 393 and 667 × 375, both hands: the blade's front face is 5.0 px closer to the muzzle than
+  before this change (compute "before" from the old rule `.0308·W` behind `.50·W + 40`); the label's box is centred
+  (±1 px) between the blade face and the guard bar's inner edge and overlaps neither.
+- A touch 10 px behind the guard's front edge engages the trigger (`trigOn`); the new smoke checks pass.
+- `npm test` passes all three suites; `engine.js` `VERSION` bumped; the replay diff is listed in the report.
+- Owner-verifiable (any phone): the trigger engages anywhere from the old rear edge to the guard's front bar; the
+  blade sits a hair further forward; the TRIGGER text sits midway between blade and bar in both hands.
+
+**Verification.** `npm test`; `npm run test:replay` before/after diff; Playwright measurements and screenshots as
+above, quoted in the completion entry.
 
 ---
 
