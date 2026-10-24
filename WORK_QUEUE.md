@@ -31,7 +31,7 @@ updated: 2026-10-24
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-024 | Trigger zone to the guard front, blade 5 px forward, label centred (D-87) | P1 | M | queued | — | layout |
+| WQ-024 | Trigger zone to the guard front, blade 5 px forward, label centred (D-87) | P1 | M | claimed:round-20261024-2 | — | layout |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 
@@ -187,7 +187,7 @@ WQ-022.
 
 ### WQ-024 — Trigger zone to the guard front, blade 5 px forward, label centred (D-87)
 
-- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** layout · **Env:** any
+- **Status:** claimed:round-20261024-2 · **Priority:** P1 · **Size:** M · **Track:** layout · **Env:** any
 - **Added:** 2026-10-24 by orchestration session
 - **Depends on:** — · **Blocks:** —
 
