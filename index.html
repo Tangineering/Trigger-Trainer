@@ -392,7 +392,12 @@ const Snd = {
     this.alarm = null;
   },
 };
-const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+// WQ-023: keep the last navigator.vibrate result for the debug readout ('-' = not called yet).
+let vibLast = '-', vibPat = '';
+const buzz = p => {
+  vibPat = String(p);
+  try { vibLast = navigator.vibrate ? String(navigator.vibrate(p)) : 'n/a'; } catch (e) { vibLast = 'threw'; }
+};
 function flash() { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 
 /* ======================= geometry ======================= */
@@ -709,6 +714,7 @@ function renderDebug(s) {
     `180 ${s.refSet ? s.dev180.toFixed(1) + '°' : 'unset'} (limit ${S.limit180Deg}${S.rule180 ? '' : ', off'})  press ${s.inPress}\n` +
     `drift off frame ${s.devOff.toFixed(1)}° (limit ${S.offFrameDeg})\n` +
     `trigger ${s.trig ? 'pull ' + s.trig.pull.toFixed(0) + '/' + S.pullPx + 'px' + (s.trig.fired ? ' FIRED' : '') : '-'}\n` +
+    `vib: ${vibLast}${vibPat ? ` (pattern ${vibPat})` : ''}\n` +
     `touches:\n${tl || '  none'}`;
 }
 

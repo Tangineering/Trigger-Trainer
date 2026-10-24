@@ -44,3 +44,13 @@
   jerked figures and the movement figures cover only the shots fired with no alarm. Students can show it to you
   or screenshot it; nothing is saved.
 - **Keep training** goes back with the stats kept. **New session** clears them and returns to the start screen.
+
+## Checking the shot vibration (Android, WQ-023)
+Turn on Settings → "Show sensor readout on the trainer screen". The readout has a line
+`vib: <result> (pattern <ms>)` for the last time the page asked the phone to vibrate (a shot asks for
+pattern `45`; alarms and trigger reset ask for longer ones, so read it straight after a shot):
+- `vib: true` — Chrome accepted the request. If nothing was felt, the phone's own settings muted it
+  (touch/haptic vibration off, Do not disturb, battery saver).
+- `vib: false` — Chrome refused it (typically no user activation yet, fullscreen, or page not focused).
+- `vib: n/a` — the browser has no vibration (all iPhones; expected).
+- `vib: threw` — the call raised an error. `vib: -` — the page has not asked to vibrate yet.

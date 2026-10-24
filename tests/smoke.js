@@ -298,6 +298,35 @@ const check = (name, cond, state) => {
     !s.summaryOpen && !s.running && s.summary.shots === 0 && s.violations === 0 &&
     await page.evaluate(() => document.getElementById('startOv').classList.contains('show')), s);
 
+  // WQ-023: the debug readout shows the last navigator.vibrate result. Fresh page with vibrate stubbed to
+  // return false (what Chrome does without user activation) and the readout on.
+  {
+    const p2 = await ctx.newPage();
+    p2.on('pageerror', e => errors.push(e.message));
+    await p2.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'vibrate', { configurable: true, value: () => false });
+      try { localStorage.setItem('tdt.settings.v2', JSON.stringify({ debug: true })); } catch (e) {}
+    });
+    await p2.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await p2.click('#startBtn'); await p2.waitForTimeout(150);
+    const cdp2 = await ctx.newCDPSession(p2);
+    const touch2 = (type, pts) => cdp2.send('Input.dispatchTouchEvent', {
+      type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 25, radiusY: 25 })) });
+    const still = async n => { for (let i = 0; i < n; i++) {
+      await p2.evaluate(() => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+        rotationRate: { alpha: 0, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })));
+      await p2.waitForTimeout(16); } };
+    await touch2('touchStart', [REST]); await still(5);
+    await touch2('touchEnd', []); await still(25);
+    await touch2('touchStart', [TRG]); await still(5);
+    await touch2('touchMove', [[TRG[0] - 70, TRG[1], 2]]); await still(5);
+    const s2 = await p2.evaluate(() => window.__tdt());
+    const dbg = await p2.textContent('#debug');
+    check('debug readout shows vib: false (pattern 45) after a shot with vibrate refused',
+      s2.shots === 1 && /^vib: false \(pattern 45\)$/m.test(dbg), dbg);
+    await p2.close();
+  }
+
   check('no page errors', errors.length === 0, errors);
   await browser.close();
   console.log(failures ? `\n${failures} failed` : '\nall passed');
