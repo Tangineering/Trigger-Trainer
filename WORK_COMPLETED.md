@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-022 — Replace the start-screen text with Ricky's wording (D-85, D-86)
+
+- **Closed:** 2026-10-24 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff and re-ran the suites · **Round:** round-20261024-1
+- **Commits / PR:** 4b04ca5 "WQ-022: Replace the start-screen text with Ricky's wording (D-85, D-86)"; orchestrator follow-through on `docs/CLASS_USE.md` ("muzzle toward the end marked MUZZLE", was "the arrow")
+
+**What was done.** `index.html` `#startOv`: the warning sentence and the six-step list are replaced with the D-86 text — "**⚠ Loud alarms.** Hold **Test sound** and set the volume before you start. Keep the phone away from your ears." · 1. "Point the muzzle downrange and tap **Set downrange**. From then on, pointing more than 90° away triggers alarm." · 2. "Index finger flat on the frame strip = safe." · 3. "Finger off the strip or on trigger = hold still. Any movement sounds an alarm until the finger is back on the strip." · 4. "Pull the trigger straight back to fire. Return finger to frame before moving." · footnote `<p class="tip">` "Left-handed? Settings → Shooting hand." `<p id="platformNote">` and its text assignment are gone. `README.md:8` says "The shot is a click and a flash."; `docs/CLASS_USE.md` Student setup puts Set downrange (step 4, "under the muzzle") before the finger-on-frame step. Screenshots: `docs/screenshots/wq-022/start-852x393.png`, `start-667x375.png`.
+
+**Why.** D-85 and D-86 (Ricky, 2026-10-24): the trainer screen labels the muzzle, strip, trigger and button itself, so the start screen keeps only the rules a student cannot see; the platform note promised an Android vibration never observed (WQ-023).
+
+**Deviations.** `README.md:21` ("tap **Start**, and turn the phone sideways") stays: the acceptance line was written for start-screen text, and the README sentence is usage advice that remains true (the page asks for landscape after Start). `docs/CLASS_USE.md` steps 2–3 keep "Turn the phone sideways" for the same reason; the orchestrator replaced its "toward the arrow" with the MUZZLE tag.
+
+**Verification.** Agent and orchestrator: `npm test` all three suites pass (replay "all passed (41 recordings)", smoke "all passed", roundtrip "all passed"); `npm run test:replay` output byte-identical before and after, no `VERSION` bump. Agent, Playwright at 852 × 393 and 667 × 375: `getElementById('platformNote') === null`; `.loud` box bottom at 249 px with scrollTop 0, so the warning and **Test sound** are visible without scrolling (D-29). Not run on a phone (text only).
+
+**Follow-ups.** None.
+
+---
+
+---
+
 ### WQ-021 — Let the 180 limit slider go down to 30° (D-84)
 
 - **Closed:** 2026-10-22 · **Outcome:** done

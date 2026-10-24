@@ -32,8 +32,7 @@ updated: 2026-10-24
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-022 | Replace the start-screen text with Ricky's wording (D-85, D-86) | P2 | S | claimed:round-20261024-1 | — | ui |
-| WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | claimed:round-20261024-1 | WQ-022 | platform |
+| WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | claimed:round-20261024-1 | — | platform |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -147,51 +146,11 @@ entry. If a new recording fails an expectation, stop and report it (do not edit 
 
 ---
 
-### WQ-022 — Replace the start-screen text with Ricky's wording (D-85, D-86)
-
-- **Status:** claimed:round-20261024-1 · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
-- **Added:** 2026-10-24 by start-screen review session · **Updated:** 2026-10-24 by start-screen review session (Ricky: only what the trainer screen does not show; handedness as a footnote); 2026-10-24 by start-screen review session (Ricky supplied the final text, D-86; platform note removed; README vibration claim added to scope)
-- **Depends on:** — · **Blocks:** WQ-023
-
-**Context.** Ricky asked for steps 2 and 3 of the start-screen list to swap (D-85) and then wrote the final text
-himself (D-86, 2026-10-24): the trainer screen already labels the muzzle, the frame strip, the trigger and the
-**Set downrange** button and asks for landscape after Start (D-60), so the start screen keeps only the rules the
-student cannot see. The iPhone/Android note under the list (`#platformNote`, `index.html:204` and
-`index.html:990-992`) goes too: its Android text promises a shot vibration that has not been felt on any observed
-phone (`CLAUDE.md` "Vibration", WQ-023). Today's text (`index.html:190-203`) also names an arrow that does not exist
-and a button position ("bottom right") that is mirrored for left-handed students.
-
-**Scope.**
-- `index.html`, `#startOv` (`index.html:187-209`): replace the warning-box sentence and the `<ol>` with the D-86
-  text, exactly as given there, with the bold as marked; add the footnote as a `<p class="tip">` directly under the
-  list. Keep the markup, ids, classes, `#slidersStart`, `#testSoundStart` and the word "Loud" in `.loud`
-  (`tests/smoke.js:31` matches `/loud/i`).
-- Remove `<p id="platformNote"></p>` (`index.html:204`) and the assignment at `index.html:990-992`. The iPhone
-  motion-permission prompt needs no text: Start triggers it.
-- `README.md:8`: replace "Android vibrates; iPhone clicks and flashes." with "The shot is a click and a flash."
-  (WQ-023 restores a vibration claim if it ever works).
-- `docs/CLASS_USE.md` "Student setup": put the Set downrange step before the finger-on-frame step to match, and
-  replace "bottom right, next to the target" with "under the muzzle".
-- No new DECISIONS row: D-86 is the text. Out of scope: `engine.js`, layout/CSS, `buzz()` and the vibration
-  itself (WQ-023), the Ko-fi line, the Settings overlay, and `CLAUDE.md`'s behavior spec.
-
-**Acceptance.**
-- The start-screen list is the four D-86 items in that order, the footnote under it, no platform note in the DOM
-  (`document.getElementById('platformNote') === null`).
-- No start-screen or README text mentions an arrow, "bottom right", turning the phone sideways, or vibration.
-- In Playwright at 852 × 393 and 667 × 375 the warning box with **Test sound** is visible without scrolling (D-29).
-- `npm test` passes all three suites; `npm run test:replay` output is unchanged (no `VERSION` bump).
-
-**Verification.** Run `npm test`; take start-screen screenshots at both viewports into `docs/screenshots/wq-022/`;
-quote the final list text in the completion entry.
-
----
-
 ### WQ-023 — Find out why the shot vibration never fires on Android
 
 - **Status:** claimed:round-20261024-1 · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
 - **Added:** 2026-10-24 by start-screen review session
-- **Depends on:** WQ-022 · **Blocks:** —
+- **Depends on:** — · **Blocks:** —
 
 **Context.** Ricky (2026-10-24): the shot vibration has not worked on any phone observed so far, which includes
 the Pixel 11 and the Samsung S20+ (both Chrome 155). The page calls `navigator.vibrate` through
