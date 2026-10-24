@@ -219,3 +219,12 @@ The trigger touch zone (`ZONES.trigger.w` .28) now ends at the trigger guard's f
 blade's front face and the label are placed in px from the zone's muzzle-side edge by `sizeBlade()` (CSS custom
 properties `--bladeOff`, `--gapMid` on `#trigZone`), not as percentages of the zone; the label is centred between the
 blade face and the guard bar's inner edge.
+
+## WQ-025 — overall sensitivity (D-89, D-90)
+
+`S.sensitivity` (`'low' | 'default' | 'high'`, default `'default'`) scales three limits only — `moveDps`, `moveAcc` and
+`offFrameDeg` — by `TDT.SENSITIVITY` (1.3 / 1 / 0.7). The engine reads them through `TDT.limitsFor(S)` in `tick()`
+(live, like the other settings); `graceMs`, `jerkMs`, `steadyDeg`, `limit180Deg` and `pullPx` are unscaled. Settings →
+Movement alarm has the drop-down above the sliders (order: moveDps, moveAcc, offFrameDeg, graceMs, jerkMs); the
+three scaled outputs show the effective value, e.g. `25 °/s (→ 17.5 °/s)`. Recordings carry `sensitivity` in
+`settings`; recordings without the key replay unchanged.

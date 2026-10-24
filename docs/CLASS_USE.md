@@ -5,6 +5,7 @@
 - Check volume on a demo phone: hold **Test sound** on the start screen (also in Settings). iPhones: Silent mode off.
 - Have students hold **Test sound** and turn their volume down before starting; the alarms are loud.
 - Pick starting thresholds in Settings on your demo phone and tell students the same numbers if they need tuning.
+- For a quick looser or stricter class setting, use Settings → Movement alarm → **Overall sensitivity** (Low = limits +30 %, High = limits −30 %) instead of moving the individual sliders.
 - A phone keeps only the settings that were changed on it; every other setting follows the current version of the page.
   **Restore defaults** (Settings) removes all changes on that phone.
 
