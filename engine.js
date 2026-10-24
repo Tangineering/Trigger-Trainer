@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.12.4';
+  const VERSION = '0.12.5';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -21,6 +21,7 @@
     graceMs: 300,        // ignore motion this long after the finger leaves the frame
     offFrameDeg: 5,      // off the frame, muzzle drift (deg, roll ignored) past this from where it pointed
                          // when the finger left alarms, however slow; D-56, 5° (D-81)
+    sensitivity: 'default', // 'low' | 'default' | 'high': factor on moveDps, moveAcc, offFrameDeg (D-89)
     jerkMs: 300,         // during a press, total movement longer than this alarms (one short jerk doesn't); D-47
     rule180: true,       // alarm when the muzzle points more than limit180Deg from downrange
     limit180Deg: 90,
@@ -32,6 +33,15 @@
     flipH: false,
     flipV: false,
   });
+
+  // Overall sensitivity (D-89): factor on the three movement-alarm limits. Low = limits +30 %, High = −30 %.
+  const SENSITIVITY = Object.freeze({ low: 1.3, default: 1, high: 0.7 });
+
+  /** Effective movement-alarm limits: slider value × sensitivity factor (unknown value → 1). */
+  function limitsFor(S) {
+    const f = Object.prototype.hasOwnProperty.call(SENSITIVITY, S.sensitivity) ? SENSITIVITY[S.sensitivity] : 1;
+    return { moveDps: S.moveDps * f, moveAcc: S.moveAcc * f, offFrameDeg: S.offFrameDeg * f };
+  }
 
   // Fractions of the viewport for a RIGHT-handed layout (muzzle at x=1). Left-handed mirrors x.
   // Only 'rest' and 'trigger' are touch-sensitive; the rest are drawing only.
@@ -424,7 +434,8 @@
         if (t - st.restLostAt > K.REST_LOSS_DEBOUNCE_MS) { st.onRest = false; st.offSince = st.restLostAt; st.qOff = st.q.slice(); }
       }
 
-      const moving = st.rotEMA > S.moveDps || st.linEMA > S.moveAcc;
+      const lim = limitsFor(S);                    // read live: the page changes S in place (D-89)
+      const moving = st.rotEMA > lim.moveDps || st.linEMA > lim.moveAcc;
       if (!moving) st.movingSince = null;
       else if (st.movingSince == null) st.movingSince = t;
 
@@ -468,7 +479,7 @@
           if (st.inPress) alarm = st.trig.moveMs > S.jerkMs;
           else alarm = moving && t - st.offSince > S.graceMs && t - st.pressEndAt > S.graceMs && t - st.trigOffAt > S.graceMs
                        && (!st.trig || t - st.movingSince > K.ON_TRIGGER_CONFIRM_MS);
-          if (!alarm && st.qOff && st.devOff > S.offFrameDeg && t - st.offSince > S.graceMs) alarm = true;
+          if (!alarm && st.qOff && st.devOff > lim.offFrameDeg && t - st.offSince > S.graceMs) alarm = true;
           if (alarm) {
             st.alarmActive = true; st.alarmReason = 'move'; st.violations++;
             emit({ type: 'alarmStart', t, reason: 'move', rot: st.rotEMA, lin: st.linEMA, dev: st.dev180, devOff: st.devOff });
@@ -558,7 +569,7 @@
   }
 
   return {
-    VERSION, DEFAULTS, ZONES, K, zoneFor, inZone, gradeShot, createEngine, summarize,
+    VERSION, DEFAULTS, SENSITIVITY, limitsFor, ZONES, K, zoneFor, inZone, gradeShot, createEngine, summarize,
     rt, r2, r4, fromDeviceMotion, fromTouch, packMotion, unpackMotion, packTouches, unpackTouchList, packEvent, replay,
   };
 });

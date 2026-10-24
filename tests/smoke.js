@@ -359,6 +359,62 @@ const check = (name, cond, state) => {
     await p2.close();
   }
 
+  // WQ-025 (D-89): Overall sensitivity scales moveDps, moveAcc and offFrameDeg; drift slider moved up one place.
+  {
+    const p3 = await ctx.newPage();
+    p3.on('pageerror', e => errors.push(e.message));
+    await p3.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await p3.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await p3.reload();
+    const stored3 = () => p3.evaluate(() => localStorage.getItem('tdt.settings.v2'));
+    const setSens = v => p3.$eval('#sensitivity', (el, v) => { el.value = v; el.dispatchEvent(new Event('change')); }, v);
+    const out = k => p3.$eval(`#s_sliders1_${k}`, el => el.parentElement.querySelector('output').textContent);
+    const order = await p3.$$eval('#sliders1 input[type=range]', els => els.map(el => el.dataset.k).join(','));
+    check('WQ-025: Movement alarm slider order is moveDps, moveAcc, offFrameDeg, graceMs, jerkMs',
+      order === 'moveDps,moveAcc,offFrameDeg,graceMs,jerkMs', order);
+    check('WQ-025: Overall sensitivity drop-down sits above the Movement alarm sliders, on Default',
+      await p3.evaluate(() => { const sel = document.getElementById('sensitivity');
+        return sel.value === 'default' && !!(sel.compareDocumentPosition(document.getElementById('sliders1')) & Node.DOCUMENT_POSITION_FOLLOWING); }));
+    await setSens('low');
+    check('WQ-025: selecting Low stores {"sensitivity":"low"}', await stored3() === JSON.stringify({ sensitivity: 'low' }), await stored3());
+    check('WQ-025: under Low the outputs show the effective limits (+30%)',
+      await out('moveDps') === '25 °/s (→ 32.5 °/s)' && await out('moveAcc') === '1.5 m/s² (→ 1.95 m/s²)' &&
+      await out('offFrameDeg') === '5 ° (→ 6.5 °)' && await out('graceMs') === '300 ms', [await out('moveDps'), await out('moveAcc'), await out('offFrameDeg')]);
+    await setSens('default');
+    check('WQ-025: selecting Default drops the stored key (D-64)', await stored3() === null, await stored3());
+    check('WQ-025: under Default the outputs show the slider values only', await out('moveDps') === '25 °/s', await out('moveDps'));
+    await setSens('high');
+    check('WQ-025: under High the moveDps output reads 25 °/s (→ 17.5 °/s)', await out('moveDps') === '25 °/s (→ 17.5 °/s)', await out('moveDps'));
+    check('WQ-025: under High the drift output reads 5 ° (→ 3.5 °)', await out('offFrameDeg') === '5 ° (→ 3.5 °)', await out('offFrameDeg'));
+    await p3.$eval('#resetDefaults', el => el.click());
+    check('WQ-025: Restore defaults returns the drop-down to Default', await p3.$eval('#sensitivity', el => el.value) === 'default' &&
+      await out('moveDps') === '25 °/s' && await stored3() === null);
+    // A 20 °/s back-and-forth burst off the frame: between 0.7 × and 1 × moveDps (25), little net drift.
+    await p3.click('#startBtn'); await p3.waitForTimeout(150);
+    const cdp3 = await ctx.newCDPSession(p3);
+    const touch3 = (type, pts) => cdp3.send('Input.dispatchTouchEvent', {
+      type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 25, radiusY: 25 })) });
+    const rot3 = async (rate, n) => { for (let i = 0; i < n; i++) {
+      const r = i % 2 ? rate : -rate;
+      await p3.evaluate(r => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+        rotationRate: { alpha: r, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), r);
+      await p3.waitForTimeout(16); } };
+    const st3 = () => p3.evaluate(() => window.__tdt());
+    await touch3('touchStart', [REST]); await rot3(0, 5);
+    await touch3('touchEnd', []); await rot3(0, 30);
+    await rot3(20, 25);
+    let s3 = await st3();
+    check('WQ-025: Default: a 20 °/s burst off the frame does not alarm', s3.armed && !s3.onRest && !s3.alarmActive && s3.rotEMA > 17.5, s3);
+    await touch3('touchStart', [REST]); await rot3(0, 8);
+    await setSens('high');
+    await touch3('touchEnd', []); await rot3(0, 30);
+    s3 = await st3(); check('WQ-025: High: off the frame and still, no alarm before the burst', !s3.onRest && !s3.alarmActive, s3);
+    await rot3(20, 25);
+    s3 = await st3();
+    check('WQ-025: High: the same 20 °/s burst off the frame alarms', s3.alarmActive && s3.alarmReason === 'move' && s3.devOff < 3.5, s3);
+    await p3.close();
+  }
+
   check('no page errors', errors.length === 0, errors);
   await browser.close();
   console.log(failures ? `\n${failures} failed` : '\nall passed');
