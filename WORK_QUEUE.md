@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-023
+next_id: WQ-024
 updated: 2026-10-24
 ```
 
@@ -32,7 +32,8 @@ updated: 2026-10-24
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-022 | Reorder and tighten the start-screen text (D-85) | P2 | S | queued | — | ui |
+| WQ-022 | Replace the start-screen text with Ricky's wording (D-85, D-86) | P2 | S | queued | — | ui |
+| WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | queued | WQ-022 | platform |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -146,57 +147,81 @@ entry. If a new recording fails an expectation, stop and report it (do not edit 
 
 ---
 
-### WQ-022 — Reorder and tighten the start-screen text (D-85)
+### WQ-022 — Replace the start-screen text with Ricky's wording (D-85, D-86)
 
 - **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
-- **Added:** 2026-10-24 by start-screen review session · **Updated:** 2026-10-24 by start-screen review session (Ricky: the trainer screen is self-explanatory, so the text covers only what is not apparent there; handedness only as a footnote naming the setting)
-- **Depends on:** — · **Blocks:** —
+- **Added:** 2026-10-24 by start-screen review session · **Updated:** 2026-10-24 by start-screen review session (Ricky: only what the trainer screen does not show; handedness as a footnote); 2026-10-24 by start-screen review session (Ricky supplied the final text, D-86; platform note removed; README vibration claim added to scope)
+- **Depends on:** — · **Blocks:** WQ-023
 
-**Context.** Ricky asked for steps 2 and 3 of the start-screen list to swap, so **Set downrange** comes before
-laying the finger on the frame (D-85, 2026-10-24), and for the start screen to be cut down to what the trainer
-screen does not show by itself (Ricky, 2026-10-24). The trainer screen already labels the muzzle (`MUZZLE ▸`,
-`index.html:157`), the dashed frame strip, the trigger and the **Set downrange** button, and a **Rotate to
-landscape** overlay appears after Start (D-60), so the current six steps (`index.html:196-203`) mostly repeat
-what the student is about to see. What they cannot see: that the strip means "free to move" and anything else means
-"hold still" (resting on the trigger included, D-24; slow drift included, D-56), and what Set downrange switches on.
-Also wrong today: step 1 names an arrow that does not exist, and step 3's "bottom right" is bottom left for
-left-handed students (`.lh #shotPanel`, `index.html:70`).
+**Context.** Ricky asked for steps 2 and 3 of the start-screen list to swap (D-85) and then wrote the final text
+himself (D-86, 2026-10-24): the trainer screen already labels the muzzle, the frame strip, the trigger and the
+**Set downrange** button and asks for landscape after Start (D-60), so the start screen keeps only the rules the
+student cannot see. The iPhone/Android note under the list (`#platformNote`, `index.html:204` and
+`index.html:990-992`) goes too: its Android text promises a shot vibration that has not been felt on any observed
+phone (`CLAUDE.md` "Vibration", WQ-023). Today's text (`index.html:190-203`) also names an arrow that does not exist
+and a button position ("bottom right") that is mirrored for left-handed students.
 
 **Scope.**
-- `index.html`, `#startOv` (`index.html:187-209`): replace the warning-box sentence and the `<ol>` with the
-  text below (order per D-85) and add the footnote as a `<p class="tip">` directly under the list. Keep the markup,
-  ids, classes, `#slidersStart`, `#testSoundStart` and the word "Loud" in `.loud` (`tests/smoke.js:31` matches
-  `/loud/i`).
-  - Warning box: `<b>⚠ Loud alarms.</b> Hold <b>Test sound</b> and set the volume before you start. Keep the
-    phone away from your ears.`
-  - 1. `Point the muzzle downrange and tap <b>Set downrange</b>. From then on, pointing more than 90° away sounds
-    a wail, whatever your finger is doing. (Skip it and everything else still works.)`
-  - 2. `Index finger <b>flat on the frame strip</b> = safe. Move all you like.`
-  - 3. `Finger off the strip (resting on the trigger counts) = hold still. Any movement, or a slow drift past 5°,
-    sounds an <b>alarm</b> until the finger is back on the strip.`
-  - 4. `Pull the <b>trigger</b> straight back to fire.`
-  - Footnote: `Left-handed? Settings → Shooting hand.`
-- `index.html:990-992`, `#platformNote`: iPhone → `iPhone: allow motion access when asked. No sound? Turn off
-  Silent mode. Shots are a click and a flash (no vibration).`; Android → `Android: shots also vibrate.`
-- The "90°" and "5°" literals are the defaults (`limit180Deg`, `offFrameDeg`); read them from `S` only if that is
-  a one-line change, otherwise keep the literals and say so in the entry.
+- `index.html`, `#startOv` (`index.html:187-209`): replace the warning-box sentence and the `<ol>` with the D-86
+  text, exactly as given there, with the bold as marked; add the footnote as a `<p class="tip">` directly under the
+  list. Keep the markup, ids, classes, `#slidersStart`, `#testSoundStart` and the word "Loud" in `.loud`
+  (`tests/smoke.js:31` matches `/loud/i`).
+- Remove `<p id="platformNote"></p>` (`index.html:204`) and the assignment at `index.html:990-992`. The iPhone
+  motion-permission prompt needs no text: Start triggers it.
+- `README.md:8`: replace "Android vibrates; iPhone clicks and flashes." with "The shot is a click and a flash."
+  (WQ-023 restores a vibration claim if it ever works).
 - `docs/CLASS_USE.md` "Student setup": put the Set downrange step before the finger-on-frame step to match, and
   replace "bottom right, next to the target" with "under the muzzle".
-- Log a `Claude (proposed)` row in `docs/DECISIONS.md` for the wording (D-85 covers only the swap), unless Ricky
-  has approved or edited the text above by then; then use his text and attribution.
-- Out of scope: `engine.js`, layout/CSS, the Ko-fi line, the Settings overlay, and the "bottom right" wording in
-  `CLAUDE.md`'s behavior spec (it describes the right-handed layout).
+- No new DECISIONS row: D-86 is the text. Out of scope: `engine.js`, layout/CSS, `buzz()` and the vibration
+  itself (WQ-023), the Ko-fi line, the Settings overlay, and `CLAUDE.md`'s behavior spec.
 
 **Acceptance.**
-- The start-screen list has four items in the order above; Set downrange is item 1; handedness appears only in
-  the footnote.
-- No start-screen text mentions an arrow, "bottom right", or turning the phone sideways.
+- The start-screen list is the four D-86 items in that order, the footnote under it, no platform note in the DOM
+  (`document.getElementById('platformNote') === null`).
+- No start-screen or README text mentions an arrow, "bottom right", turning the phone sideways, or vibration.
 - In Playwright at 852 × 393 and 667 × 375 the warning box with **Test sound** is visible without scrolling (D-29).
-- `npm test` passes all three suites; `npm run test:replay` output is unchanged (text-only change, no `VERSION`
-  bump).
+- `npm test` passes all three suites; `npm run test:replay` output is unchanged (no `VERSION` bump).
 
 **Verification.** Run `npm test`; take start-screen screenshots at both viewports into `docs/screenshots/wq-022/`;
 quote the final list text in the completion entry.
+
+---
+
+### WQ-023 — Find out why the shot vibration never fires on Android
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
+- **Added:** 2026-10-24 by start-screen review session
+- **Depends on:** WQ-022 · **Blocks:** —
+
+**Context.** Ricky (2026-10-24): the shot vibration has not worked on any phone observed so far, which includes
+the Pixel 11 and the Samsung S20+ (both Chrome 155). The page calls `navigator.vibrate` through
+`buzz()` (`index.html:398`), inside a `try` that swallows the result, from the `shot` event handler. Chrome
+ignores `vibrate()` and returns `false` (no exception) when the frame lacks sticky user activation, and some
+builds ignore it inside a fullscreen session or while the page is not focused; the phone's own "touch vibration"
+and Do-not-disturb settings also mute it. Nothing in the page records whether the call returned `true`, so the
+cause is unknown. `CLAUDE.md` "Vibration" records the observation; `README.md` stops promising a vibration in
+WQ-022.
+
+**Scope.**
+- Agent half: make the result observable without changing behaviour: `buzz()` keeps the last `navigator.vibrate`
+  return value (or `'n/a'` when absent, `'threw'` on exception) and the debug readout shows it as `vib: true|false|…`
+  beside the existing lines. Add a short section to `docs/RECORDINGS.md` or `docs/CLASS_USE.md` telling the owner
+  how to read it. No engine change, no `VERSION` bump.
+- Owner half: on the Pixel 11 and the S20+, from the deployed page with the debug readout on, fire three shots
+  (a) straight after Start, (b) after opening and closing Settings, (c) with the phone's touch-vibration setting
+  confirmed on, and report `vib:` and whether a buzz was felt for each.
+- Then (agent, next round): from the readings, either fix the call (for example, move it out of the fullscreen
+  path, or issue it from a touch handler rather than the rAF tick) in a follow-up item, or record in `CLAUDE.md`
+  that Android Chrome does not vibrate here and close the question.
+- Out of scope: iPhone (no `navigator.vibrate`, constraint 4), the start-screen text (WQ-022), any audio change.
+
+**Acceptance.**
+- Agent-verifiable: the debug readout shows the `vib:` line; `npm test` passes; replays unchanged.
+- Owner-verifiable: the six readings above are recorded in this item's `Updated` line or in `OPEN_QUESTIONS.md`
+  as a new Q, and a follow-up item or a `CLAUDE.md` fact closes it.
+
+**Verification.** `npm test`; a Playwright run with `navigator.vibrate` stubbed to return `false` shows
+`vib: false` in the readout after a simulated shot (add it to `tests/smoke.js`).
 
 ---
 
