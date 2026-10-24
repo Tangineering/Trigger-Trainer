@@ -23,8 +23,8 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-022
-updated: 2026-10-22
+next_id: WQ-023
+updated: 2026-10-24
 ```
 
 ## Index
@@ -32,6 +32,7 @@ updated: 2026-10-22
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
+| WQ-022 | Reorder and tighten the start-screen text (D-85) | P2 | S | queued | — | ui |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -142,6 +143,69 @@ entry. If a new recording fails an expectation, stop and report it (do not edit 
   raised); Q1, Q11 and the contact-size note are updated with the measured facts.
 
 **Verification.** The "Axis verdict" lines for each phone quoted in the completion entry.
+
+---
+
+### WQ-022 — Reorder and tighten the start-screen text (D-85)
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
+- **Added:** 2026-10-24 by start-screen review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Ricky asked for steps 2 and 3 of the start-screen list to swap, so **Set downrange** comes before
+laying the finger on the frame (D-85, 2026-10-24), and for a review of the whole start screen for concision and
+clarity. The review (this session, reading `index.html:187-209` and `index.html:990-992`) found:
+- Step 1 says "the muzzle points toward the arrow", but there is no arrow; the slide carries the tag `MUZZLE ▸`
+  (`◂ MUZZLE` left-handed, `index.html:157`, `index.html:421`).
+- Step 3 says Set downrange is "bottom right, next to the target". For left-handed students the shot panel is
+  mirrored (`.lh #shotPanel { flex-direction: row-reverse; }`, `index.html:70`), so it is bottom left. "Under the
+  muzzle" is right for both hands. Step 3 also never says what the 180 check does.
+- Step 2's "With it there you can move freely" and step 6's OK tone describe the same moment; steps 5 and 6 are one
+  rule (alarm until the finger returns, which then plays OK).
+- Step 4 puts "sights are on target" in quotes and repeats "the phone must stay still", which step 5 covers.
+- Step 5 omits two rules students trip over: resting on the trigger counts as off the frame (D-24), and slow drift
+  alarms too (D-56).
+- Left-handed setup (Settings → Shooting hand) is not mentioned on the start screen.
+- The warning box says the same thing three ways ("loud alarm tones", "check your volume", "set the volume").
+
+**Scope.**
+- `index.html`, `#startOv` (`index.html:187-209`): replace the warning-box sentence and the `<ol>` with the
+  wording below (step order per D-85). Keep the markup, ids, classes, `#slidersStart`, `#testSoundStart` and the
+  word "Loud" in `.loud` (`tests/smoke.js:31` matches `/loud/i`).
+  - Warning box: `<b>⚠ Loud alarms.</b> Before you start, hold <b>Test sound</b> and set the volume here and on
+    the phone. Keep the phone away from your ears.`
+  - 1. `Turn the phone sideways. The screen is the side of the pistol; the end marked <b>MUZZLE</b> is the muzzle.
+    Left-handed: Settings → Shooting hand.`
+  - 2. `Point the muzzle downrange and tap <b>Set downrange</b> (under the muzzle). From then on, pointing more
+    than 90° away sounds a lower wail alarm, even with your finger on the frame. Skip it and everything else still
+    works.`
+  - 3. `Lay your index finger <b>flat on the frame</b> (the dashed strip). The OK tone plays; now you can move
+    freely.`
+  - 4. `Only with the sights on target and the phone still: move your fingertip to the <b>trigger</b> and pull it
+    back to fire.`
+  - 5. `With your finger off the frame (resting on the trigger counts), any movement or slow drift sounds an
+    <b>alarm</b>. Finger back on the frame stops it and plays the <b>OK</b> tone.`
+- `index.html:990-992`, `#platformNote`: iPhone → `iPhone: allow motion access when asked. No sound? Turn off
+  Silent mode. Shots are a click and a flash (no vibration).`; Android → `Android: shots also vibrate. If the
+  screen doesn't turn to landscape by itself, rotate the phone after Start.`
+- If the step-2 wording says "90°", read it from `S.limit180Deg` instead only if that is a one-line change;
+  otherwise keep the literal and note it in the entry (the slider goes 30–90°, D-84).
+- `docs/CLASS_USE.md` "Student setup": put the Set downrange step before the finger-on-frame step to match, and
+  replace "bottom right, next to the target" with "under the muzzle".
+- Log a `Claude (proposed)` row in `docs/DECISIONS.md` for the rewording (D-85 covers only the swap), unless Ricky
+  has already approved or edited the wording above, in which case use his text and attribution.
+- Out of scope: `engine.js`, layout/CSS, the Ko-fi line, the Settings overlay, and the "bottom right" wording in
+  `CLAUDE.md`'s behavior spec (it describes the right-handed layout).
+
+**Acceptance.**
+- The start-screen list has five items in the order above; Set downrange is item 2.
+- No start-screen text mentions an arrow or "bottom right".
+- In Playwright at 852 × 393 and 667 × 375 the warning box with **Test sound** is visible without scrolling (D-29).
+- `npm test` passes all three suites; `npm run test:replay` output is unchanged (text-only change, no `VERSION`
+  bump).
+
+**Verification.** Run `npm test`; take start-screen screenshots at both viewports into `docs/screenshots/wq-022/`;
+quote the final list text in the completion entry.
 
 ---
 
