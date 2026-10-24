@@ -101,12 +101,13 @@ const check = (name, cond, extra) => {
   await page.evaluate(() => { navigator.share = () => Promise.reject(new DOMException('x', 'AbortError')); });
   await page.click('#recSave'); await page.waitForTimeout(50);
   check('cancelled share says it was not saved', /Not saved/.test(await page.textContent('#recInfo')));
-  // WQ-025 (D-89): a second recording with Overall sensitivity High. The settings carry it, and the replay
-  // matches live; a 20 °/s burst off the frame (under moveDps 25, over 0.7 × 25) alarms only because of it.
+  // WQ-026 (D-91): a second recording with the High preset (17.5 °/s, 1.05 m/s², 3.5°). The settings carry the
+  // three slider values (no preset key), the replay matches live; a 20 °/s burst off the frame (under the default
+  // 25, over 17.5) alarms only because of them.
   await page.evaluate(() => { navigator.canShare = undefined; });   // back to the download path
   await page.$eval('#sensitivity', el => { el.value = 'high'; el.dispatchEvent(new Event('change')); });
   await page.selectOption('#recLabel', 'off-frame-move');
-  await page.fill('#recNotes', 'roundtrip test, sensitivity high');
+  await page.fill('#recNotes', 'roundtrip test, High preset');
   await touch('touchEnd', []);                              // lift the finger left on the frame above
   await page.click('#recStart'); await page.waitForTimeout(100);
   await touch('touchStart', [REST]); await motion(0, 0, 10);
@@ -116,12 +117,13 @@ const check = (name, cond, extra) => {
   const [dl3] = await Promise.all([page.waitForEvent('download'), page.click('#recPill')]);
   const recH = JSON.parse(fs.readFileSync(await dl3.path(), 'utf8'));
   const resH = TDT.replay(recH);
-  check('sensitivity High is recorded in the settings', recH.settings && recH.settings.sensitivity === 'high', recH.settings);
-  check('sensitivity High: the 20 °/s burst alarmed live', recH.observed.some(o => o[1] === 'alarmStart'), recH.observed);
-  check(`sensitivity High: replay reproduces the live events exactly (${recH.observed.length} events)`,
+  check('High preset: the settings carry 17.5 / 1.05 / 3.5 and no sensitivity key', recH.settings && recH.settings.moveDps === 17.5 &&
+    recH.settings.moveAcc === 1.05 && recH.settings.offFrameDeg === 3.5 && !('sensitivity' in recH.settings), recH.settings);
+  check('High preset: the 20 °/s burst alarmed live', recH.observed.some(o => o[1] === 'alarmStart'), recH.observed);
+  check(`High preset: replay reproduces the live events exactly (${recH.observed.length} events)`,
     JSON.stringify(recH.observed) === JSON.stringify(resH.packed), { live: recH.observed, replay: resH.packed });
-  check('sensitivity High: the same log under Default does not alarm',
-    !TDT.replay(recH, { sensitivity: 'default' }).events.some(e => e.type === 'alarmStart'));
+  check('High preset: the same log under the default limits does not alarm',
+    !TDT.replay(recH, { moveDps: 25, moveAcc: 1.5, offFrameDeg: 5 }).events.some(e => e.type === 'alarmStart'));
   check('no page errors', errors.length === 0, errors);
 
   await browser.close();

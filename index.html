@@ -224,9 +224,9 @@
 
     <h2>Movement alarm</h2>
     <div class="chk"><label for="sensitivity">Overall sensitivity</label>
-      <select id="sensitivity"><option value="low">Low (limits +30%)</option><option value="default">Default</option><option value="high">High (limits −30%)</option></select>
+      <select id="sensitivity"><option value="low">Low (limits +30%)</option><option value="default">Default</option><option value="high">High (limits −30%)</option><option value="custom" disabled>Custom</option></select>
     </div>
-    <div class="help">Scales the rotation, linear and max-drift limits below. Default uses them as set.</div>
+    <div class="help">Low, Default and High set the rotation, linear and max-drift limits below; slide any of them and this shows Custom.</div>
     <div id="sliders1"></div>
     <div class="live" id="liveSensors">waiting for sensors…</div>
 
@@ -717,16 +717,15 @@ function renderStats() {
 function renderDebug(s) {
   const tl = [...s.touches.entries()].map(([id, tc]) =>
     `  #${id} x${tc.x.toFixed(2)} y${tc.y.toFixed(2)} size ${tc.size ? tc.size.toFixed(0) + 'px' : 'n/a'}`).join('\n');
-  const lim = TDT.limitsFor(S);   // effective limits, sensitivity applied (D-89)
   $('debug').textContent =
-    `rot ${s.rotEMA.toFixed(1)}°/s (limit ${lim.moveDps.toFixed(1)})\n` +
-    `lin ${s.linEMA.toFixed(2)} m/s² (limit ${lim.moveAcc.toFixed(2)})\n` +
+    `rot ${s.rotEMA.toFixed(1)}°/s (limit ${S.moveDps})\n` +
+    `lin ${s.linEMA.toFixed(2)} m/s² (limit ${S.moveAcc})\n` +
     `aim h ${s.aimH.toFixed(2)}° v ${s.aimV.toFixed(2)}°\n` +
     `orient ${screenAngle()}  axes ${S.axisMode}${isIOS ? ' (iOS)' : ''}  evts ${s.motionEvents}\n` +
     `axis est ${s.axisEst ? `${s.axisEst.cand} ×${s.axisEst.margin > 999 ? '>999' : s.axisEst.margin.toFixed(1)} (${s.axisEst.motionS.toFixed(0)}s)` : '—'}\n` +
     `rest ${s.onRest} armed ${s.armed} alarm ${s.alarmActive ? s.alarmReason : '-'}${rec ? '  REC ' + rec.log.length : ''}\n` +
     `180 ${s.refSet ? s.dev180.toFixed(1) + '°' : 'unset'} (limit ${S.limit180Deg}${S.rule180 ? '' : ', off'})  press ${s.inPress}\n` +
-    `drift off frame ${s.devOff.toFixed(1)}° (limit ${lim.offFrameDeg.toFixed(1)})\n` +
+    `drift off frame ${s.devOff.toFixed(1)}° (limit ${S.offFrameDeg})\n` +
     `trigger ${s.trig ? 'pull ' + s.trig.pull.toFixed(0) + '/' + S.pullPx + 'px' + (s.trig.fired ? ' FIRED' : '') : '-'}\n` +
     `vib: ${vibLast}${vibPat ? ` (pattern ${vibPat})` : ''}\n` +
     `touches:\n${tl || '  none'}`;
@@ -778,9 +777,9 @@ const VOLUME = { k: 'volume', label: 'Volume', min: 0, max: 1, step: 0.05, fmt: 
                  help: 'App volume, on top of the phone\'s own volume. Hold Test sound while adjusting.' };
 const SLIDERS = {
   sliders1: [
-    { k: 'moveDps', label: 'Rotation limit', min: 5, max: 90, step: 1, unit: '°/s', help: 'Turning the phone faster than this with the finger off the frame trips the alarm.' },
-    { k: 'moveAcc', label: 'Linear limit', min: 0.3, max: 5, step: 0.1, unit: 'm/s²', help: 'Shoving the phone harder than this with the finger off the frame trips the alarm.' },
-    { k: 'offFrameDeg', label: 'Max muzzle drift off the frame', min: 1, max: 20, step: 1, unit: '°', help: 'Slow movement past this angle alarms even when the rate thresholds are not reached (D-56).' },
+    { k: 'moveDps', label: 'Rotation limit', min: 5, max: 90, step: 0.5, trim: true, unit: '°/s', help: 'Turning the phone faster than this with the finger off the frame trips the alarm.' },
+    { k: 'moveAcc', label: 'Linear limit', min: 0.3, max: 5, step: 0.05, trim: true, unit: 'm/s²', help: 'Shoving the phone harder than this with the finger off the frame trips the alarm.' },
+    { k: 'offFrameDeg', label: 'Max muzzle drift off the frame', min: 1, max: 20, step: 0.5, trim: true, unit: '°', help: 'Slow movement past this angle alarms even when the rate thresholds are not reached (D-56).' },
     { k: 'graceMs', label: 'Grace after leaving frame', min: 0, max: 1000, step: 25, unit: 'ms', help: 'Ignores the jolt of lifting the finger.' },
     { k: 'jerkMs', label: 'Jerk allowance during a press', min: 100, max: 1500, step: 50, unit: 'ms', help: 'While pressing the trigger, one short jerk is graded, not alarmed. If the phone moves for longer than this in total during the press (one long movement or several short ones), it alarms. Resting on the trigger without pulling alarms like being off the frame.' },
   ],
@@ -800,11 +799,33 @@ function syncSliders(k) {
     if (+inp.value !== +S[k]) { inp.value = S[k]; inp.dispatchEvent(new Event('input')); }
   });
 }
-// Sliders whose value the Overall sensitivity factor scales (D-89): their outputs also show the effective value.
-const SCALED = new Set(['moveDps', 'moveAcc', 'offFrameDeg']);
-const sliderShows = [];   // show() of every built slider, so a sensitivity change can refresh the outputs
+// Overall sensitivity presets (D-91): each writes DEFAULTS × factor into the three movement sliders, rounded to the
+// slider step (Low 32.5 / 1.95 / 6.5, Default 25 / 1.5 / 5, High 17.5 / 1.05 / 3.5). Nothing about the preset is
+// stored: the sliders are the state, and the drop-down shows the preset they match, else Custom.
+const SENS_PRESETS = { low: 1.3, default: 1, high: 0.7 };
+const SENS_KEYS = ['moveDps', 'moveAcc', 'offFrameDeg'];
+const sensStep = k => SLIDERS.sliders1.find(s => s.k === k).step;
+const roundStep = (v, step) => +(Math.round(v / step) * step).toFixed(String(step).split('.')[1]?.length || 0);
+function sensPreset(key) {
+  const out = {};
+  for (const k of SENS_KEYS) out[k] = roundStep(DEFAULTS[k] * SENS_PRESETS[key], sensStep(k));
+  return out;
+}
+/** The preset whose three values the current settings hold (within half a step), else 'custom'. */
+function sensitivityFor(S) {
+  for (const key of Object.keys(SENS_PRESETS)) {
+    const p = sensPreset(key);
+    if (SENS_KEYS.every(k => Math.abs(roundStep(+S[k], sensStep(k)) - p[k]) < sensStep(k) / 2)) return key;
+  }
+  return 'custom';
+}
+function applySensitivity(key) {
+  if (!Object.prototype.hasOwnProperty.call(SENS_PRESETS, key)) return;
+  Object.assign(S, sensPreset(key)); save();
+  SENS_KEYS.forEach(syncSliders);
+  $('sensitivity').value = sensitivityFor(S);
+}
 function buildSettings() {
-  sliderShows.length = 0;
   for (const [host, list] of Object.entries(SLIDERS)) {
     const el = $(host); el.innerHTML = '';
     for (const s of list) {
@@ -816,23 +837,19 @@ function buildSettings() {
       el.appendChild(wrap);
       const inp = wrap.querySelector('input'), out = wrap.querySelector('output');
       const dec = s.step < 1 ? (s.step < 0.1 ? 2 : 1) : 0;
-      const unit = s.unit ? ' ' + s.unit : '';
-      // Effective value under Overall sensitivity: one decimal more than the slider, trailing zeros dropped
-      // (25 °/s → 17.5 °/s under High, 5 ° → 3.5 °), so the number the alarm uses is visible (D-89).
-      const fmtEff = v => String(+v.toFixed(dec + 1)) + unit;
-      const show = () => {
-        let txt = s.fmt ? s.fmt(+S[s.k]) : (+S[s.k]).toFixed(dec) + unit;
-        if (SCALED.has(s.k) && (TDT.SENSITIVITY[S.sensitivity] || 1) !== 1) txt += ` (→ ${fmtEff(TDT.limitsFor(S)[s.k])})`;
-        out.textContent = txt;
-      };
-      sliderShows.push(show);
+      // trim: drop trailing zeros (25 °/s, 32.5 °/s, 1.95 m/s², 6.5 °) on the half-step preset sliders (D-91)
+      const num = v => s.trim ? String(+v.toFixed(dec)) : v.toFixed(dec);
+      const show = () => { out.textContent = s.fmt ? s.fmt(+S[s.k]) : num(+S[s.k]) + (s.unit ? ' ' + s.unit : ''); };
       inp.value = S[s.k]; show();
-      inp.addEventListener('input', () => { S[s.k] = +inp.value; show(); if (s.k === 'volume') Snd.setVolume(S.volume); save(); });
+      inp.addEventListener('input', () => {
+        S[s.k] = +inp.value; show(); if (s.k === 'volume') Snd.setVolume(S.volume); save();
+        if (SENS_KEYS.includes(s.k)) $('sensitivity').value = sensitivityFor(S);   // Custom while sliding (D-91)
+      });
       inp.addEventListener('change', () => syncSliders(s.k));
     }
   }
   $('hand').value = S.hand;
-  $('sensitivity').value = S.sensitivity;
+  $('sensitivity').value = sensitivityFor(S);
   $('axisMode').value = S.axisMode;
   ['flipH', 'flipV', 'rule180'].forEach(k => { $(k).checked = !!S[k]; });
   $('debugChk').checked = !!S.debug;
@@ -841,7 +858,7 @@ function buildSettings() {
 let axisZero = { h: 0, v: 0 };
 function bindSettings() {
   $('hand').addEventListener('change', e => { S.hand = e.target.value; save(); layout(); });
-  $('sensitivity').addEventListener('change', e => { S.sensitivity = e.target.value; save(); sliderShows.forEach(f => f()); });
+  $('sensitivity').addEventListener('change', e => applySensitivity(e.target.value));
   $('axisMode').addEventListener('change', e => { S.axisMode = e.target.value; save(); });
   ['flipH', 'flipV', 'rule180'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; save(); renderStats(); }));
   $('debugChk').addEventListener('change', e => { S.debug = e.target.checked; save(); layout(); });
