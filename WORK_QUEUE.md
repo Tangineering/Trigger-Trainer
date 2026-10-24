@@ -31,7 +31,7 @@ updated: 2026-10-24
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-025 | Overall sensitivity drop-down (Low / Default / High) and drift slider order (D-89) | P1 | M | queued | — | alarm |
+| WQ-025 | Overall sensitivity drop-down (Low / Default / High) and drift slider order (D-89) | P1 | M | claimed:round-20261024-3 | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 
@@ -187,7 +187,7 @@ WQ-022.
 
 ### WQ-025 — Overall sensitivity drop-down (Low / Default / High) and drift slider order (D-89)
 
-- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
+- **Status:** claimed:round-20261024-3 · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
 - **Added:** 2026-10-24 by orchestration session
 - **Depends on:** — · **Blocks:** —
 
