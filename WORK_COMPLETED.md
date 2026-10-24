@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-026 — Sensitivity drop-down as presets with Custom; remove the engine multiplier (D-91)
+
+- **Closed:** 2026-10-24 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff, folded the CLAUDE.md blocks and re-ran the suites · **Round:** round-20261024-4
+- **Commits / PR:** 45f926f "WQ-026: sensitivity drop-down sets slider presets, shows Custom; remove engine multiplier (D-91)"; a6c9930 "WQ-026: document sensitivity presets (D-92, CLAUDE.md, class use)"; orchestrator: "WQ-026: fold the superseded WQ-025 block into one CLAUDE.md section"
+
+**What was done.** `engine.js`: `DEFAULTS.sensitivity`, `SENSITIVITY`, `limitsFor` and their exports removed; `tick()` reads `S.moveDps`, `S.moveAcc`, `S.offFrameDeg` directly again; `VERSION` and `package.json` 0.12.5 → 0.12.6. `index.html`: `SENS_PRESETS` (1.3 / 1 / 0.7) and `sensPreset(key)` = `DEFAULTS` × factor rounded to the slider step (Low 32.5 / 1.95 / 6.5, Default 25 / 1.5 / 5, High 17.5 / 1.05 / 3.5); `applySensitivity(key)` writes the three values into `S`, saves and syncs the sliders; `sensitivityFor(S)` returns the matching preset (half-step tolerance) or `'custom'`, used by `buildSettings()` and by the three sliders' `input` handler, so the select flips to the disabled, code-only **Custom** option while sliding and back to a preset when the values match again. Slider steps 0.5 °/s, 0.05 m/s², 0.5° with `trim: true` outputs (`32.5 °/s`, `1.95 m/s²`, `6.5 °`). The effective-value suffix, `sliderShows` and the debug-readout scaling from WQ-025 are gone. Fifteen `WQ-026:` smoke checks replace the twelve `WQ-025:` ones (order, placement, Low/High/Default values and outputs, D-64 store/drop with no preset key, Custom on slide and back, Restore defaults, no engine setting, 20 °/s burst alarms under High and not under Default); the roundtrip High case records with the preset values. Docs: `CLAUDE.md` now has one "WQ-025 / WQ-026" section (orchestrator folded the two), `docs/CLASS_USE.md` Before-class sentence, D-92 (`Claude (proposed)`), screenshots `docs/screenshots/wq-026/movement-alarm-{default,low,custom}.png`.
+
+**Why.** D-91 (Ricky, 2026-10-24): the named sensitivities are specific values the user can slide on from, not a multiplier; a hand-moved slider shows Custom.
+
+**Deviations.** (1) The three sliders drop trailing zeros via a per-slider `trim` flag; other sliders keep the general format. (2) Option labels stay "Low (limits +30%)" / "High (limits −30%)", now meaning relative to the defaults. (3) A `sensitivity` key left in `localStorage` by WQ-025 (never deployed to `main`) is ignored at load and dropped at the next save; no migration. (4) The detail row is D-92, a new ID.
+
+**Verification.** Agent: `npm test` twice, exit 0 — replay 71 PASS / 0 FAIL ("all passed (41 recordings)"), smoke 89 PASS / 0 FAIL, roundtrip 19 PASS / 0 FAIL; `npm run test:replay` before/after differs only in the version string; direct event diff of all 41 recordings through the old and new engine: 0 differ. Orchestrator on the merged branch: `grep -n 'sensitivity\|SENSITIVITY\|limitsFor' engine.js` finds nothing; `npm test` twice, 108 PASS / 0 FAIL both times (replay "all passed (41 recordings)", smoke and roundtrip "all passed"). NOT verified (owner, any phone): pick High, a gentle off-frame movement that passed under Default alarms; nudge one slider → Custom; Restore defaults → Default.
+
+**Follow-ups.** None.
+
+---
+
+---
+
 ### WQ-025 — Overall sensitivity drop-down (Low / Default / High) and drift slider order (D-89)
 
 - **Closed:** 2026-10-24 · **Outcome:** done-with-deviations

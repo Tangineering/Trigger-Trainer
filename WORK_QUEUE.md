@@ -31,7 +31,6 @@ updated: 2026-10-24
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-026 | Sensitivity drop-down as presets with Custom; remove the engine multiplier (D-91) | P1 | M | claimed:round-20261024-4 | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 
@@ -182,73 +181,6 @@ WQ-022.
 
 **Verification.** `npm test`; a Playwright run with `navigator.vibrate` stubbed to return `false` shows
 `vib: false` in the readout after a simulated shot (add it to `tests/smoke.js`).
-
----
-
-### WQ-026 — Sensitivity drop-down as presets with Custom; remove the engine multiplier (D-91)
-
-- **Status:** claimed:round-20261024-4 · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
-- **Added:** 2026-10-24 by orchestration session
-- **Depends on:** — · **Blocks:** —
-
-**Context.** WQ-025 (engine 0.12.5, `WORK_COMPLETED.md`) implemented D-89 as a stored `sensitivity` setting that the
-engine applies as a factor on the three movement limits. Ricky overruled that reading (D-91, 2026-10-24): the
-drop-down must write **specific values** into the sliders, the user may slide on from there, and the drop-down must
-then show **Custom**. So the engine goes back to reading the sliders directly and the preset logic lives in the
-Settings UI only. Anchors (current tree): `engine.js` — `DEFAULTS.sensitivity`, `SENSITIVITY`, `limitsFor()` and
-their use in `tick()` (`grep -n 'sensitivity\|SENSITIVITY\|limitsFor' engine.js`), `VERSION` 0.12.5;
-`index.html` — `#sensitivity` `<select>` and help line under the Movement alarm `<h2>`, `buildSettings()` /
-`bindSettings()` wiring, the `sliderShows` list, the effective-value suffix in the slider `show()`, the effective
-limits in `renderDebug()`, `SLIDERS.sliders1` (moveDps step 1, moveAcc step 0.1, offFrameDeg step 1); `tests/smoke.js`
-twelve `WQ-025:` checks; `tests/roundtrip.js` the `high` case; `CLAUDE.md` WQ-025 block; `docs/CLASS_USE.md` Before
-class sentence.
-
-**Scope.**
-- `engine.js`: remove `DEFAULTS.sensitivity`, `SENSITIVITY`, `limitsFor` and their export; `tick()` reads
-  `S.moveDps`, `S.moveAcc`, `S.offFrameDeg` directly as before WQ-025. Bump `VERSION` to 0.12.6 (and `package.json`):
-  outputs change for recordings whose settings carry `sensitivity ≠ 'default'` (none in `tests/recordings/`; a stray
-  key in a recording is simply ignored by `Object.assign`).
-- `index.html`:
-  - Presets in the UI: `const SENS_PRESETS = { low: 1.3, default: 1, high: 0.7 }` applied to `DEFAULTS.moveDps`,
-    `DEFAULTS.moveAcc`, `DEFAULTS.offFrameDeg` → Low 32.5 / 1.95 / 6.5, Default 25 / 1.5 / 5, High 17.5 / 1.05 / 3.5
-    (compute from `DEFAULTS` so a changed default moves the presets; round to the slider step).
-  - Slider steps: `moveDps` 0.5, `moveAcc` 0.05, `offFrameDeg` 0.5 (ranges unchanged), so every preset value is on
-    the scale; keep the output precision rule working for these steps (`25 °/s`, `32.5 °/s`, `1.95 m/s²`, `6.5 °`).
-  - The `<select id="sensitivity">` keeps Low / Default / High and gains `<option value="custom" disabled>Custom</option>`
-    (selectable by code only). Choosing a preset sets the three `S` values, calls `save()`, updates the three
-    sliders and outputs (`syncSliders` or equivalent) — nothing else is stored. A helper `sensitivityFor(S)` returns
-    the preset key whose three values equal the current `S` values (compare after rounding to the step; tolerance
-    half a step) or `'custom'`; `buildSettings()` sets the select from it, and the `input` handler of the three
-    sliders re-evaluates it so the select flips to Custom (or back to a preset) while sliding. Help text: "Low, Default
-    and High set the rotation, linear and max-drift limits below; slide any of them and this shows Custom."
-  - Remove the effective-value suffix and `sliderShows`, and restore `renderDebug()` to the raw `S` limits (they are
-    the real limits again). Restore defaults already resets the sliders; confirm the select shows Default after it.
-  - Slider order stays moveDps, moveAcc, offFrameDeg, graceMs, jerkMs (D-89).
-- Tests: replace the twelve `WQ-025:` smoke checks with `WQ-026:` checks — (1) order unchanged; (2) selecting Low
-  sets the three sliders to 32.5 / 1.95 / 6.5 and `localStorage['tdt.settings.v2']` holds exactly those three keys;
-  (3) selecting Default drops them (D-64) and the outputs read `25 °/s`, `1.5 m/s²`, `5 °`; (4) selecting High then
-  sliding moveDps to 20 flips the select to `custom`, sliding it back to 17.5 flips it to `high`; (5) Restore defaults
-  → `default`; (6) under High (17.5 °/s) a 20 °/s off-frame burst alarms, under Default it does not (keep the existing
-  motion-burst mechanics); (7) `TDT.DEFAULTS.sensitivity === undefined` and `TDT.limitsFor === undefined`. Remove the
-  `high` roundtrip case or re-point it at a recording made with the High preset values (which must replay
-  identically). Run `npm run test:replay` before/after: all 41 recordings' events must be identical.
-- Docs: `CLAUDE.md` — append a WQ-026 block saying the WQ-025 block is superseded (the orchestrator will fold the two);
-  `docs/CLASS_USE.md` — adjust the Before-class sentence (presets, Custom); `docs/DECISIONS.md` — a `Claude (proposed)`
-  row for details (helper names, rounding/tolerance, the disabled Custom option); screenshots into
-  `docs/screenshots/wq-026/` (Default, Low, Custom).
-- Out of scope: other sliders and limits, the start screen, the summary, any stored key for the preset.
-
-**Acceptance.**
-- `grep -n 'sensitivity\|SENSITIVITY\|limitsFor' engine.js` finds nothing; `VERSION` 0.12.6; `package.json` 0.12.6.
-- In Settings → Movement alarm: Low / Default / High write 32.5 / 1.95 / 6.5, 25 / 1.5 / 5, 17.5 / 1.05 / 3.5 into the
-  three sliders; moving any of the three by hand shows Custom; returning them to a preset's values shows that preset;
-  Restore defaults shows Default; `localStorage` carries only the changed slider keys, never a preset key.
-- `npm test` passes all three suites with the new checks; replay events identical for all 41 recordings.
-- Owner-verifiable (any phone): pick High, a gentle off-frame movement that passed under Default alarms; nudge one
-  slider, the drop-down reads Custom; Restore defaults returns everything to Default.
-
-**Verification.** `npm test`; `npm run test:replay` before/after diff; Playwright screenshots; quote the new smoke
-check names in the completion entry.
 
 ---
 
