@@ -211,3 +211,11 @@ scripts/wq.py           queue invariant check, claim/unclaim/archive
 README.md               short public description + deploy steps
 LICENSE                 MIT (Tangineering)
 ```
+
+## WQ-024 — trigger zone to the guard front (D-87, D-88)
+
+The trigger touch zone (`ZONES.trigger.w` .28) now ends at the trigger guard's front edge (both carry
+`K.TRIGGER_FWD_PX`), so the trigger engages anywhere from its rear edge to the guard's front bar. In `index.html` the
+blade's front face and the label are placed in px from the zone's muzzle-side edge by `sizeBlade()` (CSS custom
+properties `--bladeOff`, `--gapMid` on `#trigZone`), not as percentages of the zone; the label is centred between the
+blade face and the guard bar's inner edge.
