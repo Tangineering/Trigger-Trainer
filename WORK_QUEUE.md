@@ -32,7 +32,7 @@ updated: 2026-10-24
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | claimed:round-20261024-1 | — | platform |
+| WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -148,8 +148,8 @@ entry. If a new recording fails an expectation, stop and report it (do not edit 
 
 ### WQ-023 — Find out why the shot vibration never fires on Android
 
-- **Status:** claimed:round-20261024-1 · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
-- **Added:** 2026-10-24 by start-screen review session
+- **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
+- **Added:** 2026-10-24 by start-screen review session · **Updated:** 2026-10-24 by orchestration session (round-20261024-1: agent half landed in 3588041 — `buzz()` keeps the last `navigator.vibrate` result, the debug readout shows `vib: <true|false|n/a|threw> (pattern <p>)`, `docs/CLASS_USE.md` "Checking the shot vibration" explains it, smoke test added. Call-path facts for the next step: the shot buzz runs synchronously inside the `touchmove` listener (`onTouch` → `feedTouches` → `engine.touches` → `shot` event), not the rAF tick, and always after `start()` has awaited `requestFullscreen` where it exists; nothing ever leaves fullscreen. **Owner next:** on the Pixel 11 and the S20+, debug readout on, fire three shots per case (a) straight after Start, (b) after opening and closing Settings, (c) with the phone's touch-vibration setting confirmed on; report the `vib:` line and whether a buzz was felt for each)
 - **Depends on:** — · **Blocks:** —
 
 **Context.** Ricky (2026-10-24): the shot vibration has not worked on any phone observed so far, which includes
@@ -189,6 +189,9 @@ WQ-022.
 Ideas noted but not yet turned into items (an exploratory session may
 promote one with `work-queue-add`):
 
+- **Timing-sensitive summary checks in `tests/smoke.js`** (WQ-023 agent, 2026-10-24): one `npm test` run under container load
+  reported "3 failed", two of them the summary grading checks (a shot Jerked instead of Moved); seven reruns passed. Worth a
+  look if it recurs: the simulated motion burst that should grade Moved may cross the Jerked limit when frames are slow.
 - **Auto-switch of the axis mapping with a confidence gate** (proposal 3.6 steps 2–3). The advisory
   readout is WQ-012 (D-57); the switch waits for a second phone's recordings (WQ-006) and a Ricky decision.
 - **Synthetic recordings that can identify an axis mapping** (from WQ-004). `tests/make-synthetic.js` emits
