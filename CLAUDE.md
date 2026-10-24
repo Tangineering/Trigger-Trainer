@@ -128,6 +128,8 @@ Opening settings or the summary, backgrounding the page, or a portrait orientati
 ## Known platform facts and unknowns
 
 - **Vibration:** `navigator.vibrate` doesn't exist on iOS Safari. Don't build hacks for it (not required).
+  On Android it exists but the shot vibration has not been felt on any phone observed so far (Pixel 11, S20+; Ricky,
+  2026-10-24). WQ-023 finds out why; until then nothing on the page promises a vibration.
 - **Gyro axis order:** the spec maps `rotationRate` alpha/beta/gamma to z/x/y. Some iOS builds have been
   reported to deliver x/y/z order instead, and so does Chrome 155 on a Pixel 11 (its axis recordings fit only x/y/z).
   `axisMode: 'auto'` therefore means x/y/z order (the `ios` value) on every platform, independent of `isIOS` (D-52);
