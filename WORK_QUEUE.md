@@ -32,8 +32,8 @@ updated: 2026-10-24
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-022 | Replace the start-screen text with Ricky's wording (D-85, D-86) | P2 | S | queued | — | ui |
-| WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | queued | WQ-022 | platform |
+| WQ-022 | Replace the start-screen text with Ricky's wording (D-85, D-86) | P2 | S | claimed:round-20261024-1 | — | ui |
+| WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | claimed:round-20261024-1 | WQ-022 | platform |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -149,7 +149,7 @@ entry. If a new recording fails an expectation, stop and report it (do not edit 
 
 ### WQ-022 — Replace the start-screen text with Ricky's wording (D-85, D-86)
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
+- **Status:** claimed:round-20261024-1 · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
 - **Added:** 2026-10-24 by start-screen review session · **Updated:** 2026-10-24 by start-screen review session (Ricky: only what the trainer screen does not show; handedness as a footnote); 2026-10-24 by start-screen review session (Ricky supplied the final text, D-86; platform note removed; README vibration claim added to scope)
 - **Depends on:** — · **Blocks:** WQ-023
 
@@ -189,7 +189,7 @@ quote the final list text in the completion entry.
 
 ### WQ-023 — Find out why the shot vibration never fires on Android
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
+- **Status:** claimed:round-20261024-1 · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
 - **Added:** 2026-10-24 by start-screen review session
 - **Depends on:** WQ-022 · **Blocks:** —
 
