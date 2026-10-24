@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-024 — Trigger zone to the guard front, blade 5 px forward, label centred (D-87)
+
+- **Closed:** 2026-10-24 · **Outcome:** done
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff, bumped `package.json` and re-ran the suites · **Round:** round-20261024-2
+- **Commits / PR:** b235466 "WQ-024: Extend the trigger zone to the guard front, blade 5 px forward, label centred (D-87)"; faa6d45 "WQ-024: Log D-88 blade and label placement, note it in CLAUDE.md"; f4166bb "WQ-024: Add trigger screenshots at 852x393 and 667x375, both hands"; cfeeef9 "WQ-024: bump package version to 0.12.4" (orchestrator)
+
+**What was done.** `engine.js`: `ZONES.trigger.w` .22 → .28 (x stays .28), so the trigger zone's front edge coincides with the guard zone's front edge after the shared `K.TRIGGER_FWD_PX`; `VERSION` 0.12.3 → 0.12.4. `index.html`: `sizeBlade()` sets `--bladeOff` = `(0.06 + 0.14·0.22)·W − BLADE_FWD_PX` (5 px) and `--gapMid` = `(bladeOff + GUARD.bar)/2` on `#trigZone`; the blade (`right: var(--bladeOff)`) and the label (`right: var(--gapMid); transform: translate(50%,-50%)`) use them, mirrored under `.lh`; blade width, top, height rule (D-79) and pull `translateX` unchanged. `tests/smoke.js`: per hand, a touch 10 px behind the guard's front edge (in the new strip) emits `trigOn`; the label box lies strictly between the blade face and the guard bar's inner edge, centred ±1 px, at 852 × 393 and 667 × 375 in both hands. D-88 (`Claude (proposed)`) holds the measurements; `CLAUDE.md` gained a WQ-024 block; screenshots in `docs/screenshots/wq-024/`.
+
+**Why.** D-87 (Ricky, 2026-10-24): the rearward over-reach of the trigger zone is wanted, and the same should hold forward to the guard; blade a little further forward; label centred in the gap.
+
+**Deviations.** None in behaviour. `package.json` `version` was outside the agent's files; the orchestrator bumped it to 0.12.4. The `CLAUDE.md` ZONES row stated no changed number, so the agent appended a block instead of editing it.
+
+**Verification.** Agent, Playwright: blade face moved 4.98–5.01 px toward the muzzle at both viewports and hands; gap 65.4 px (852) / 48.6 px (667); label 28.6 px wide, 18.4 / 10.0 px clear on each side, centre error ≤ 0.01 px; `zoneFor('trigger')` and `zoneFor('guard')` share their front edge for every W from 300 to 3000. Replay: event lists of all 41 recordings identical before and after (JSON diff); every expectation passes. Orchestrator on the merged branch: `npm test` three times, 89 PASS / 0 FAIL each (replay "all passed (41 recordings)", smoke, roundtrip "all passed"). NOT verified (owner, any phone, both hands): trigger engages from its rear edge to the guard's front bar; blade slightly forward; TRIGGER text midway between blade and bar.
+
+**Follow-ups.** None; the owner check joins the WQ-006 list by reference.
+
+---
+
+---
+
 ### WQ-022 — Replace the start-screen text with Ricky's wording (D-85, D-86)
 
 - **Closed:** 2026-10-24 · **Outcome:** done-with-deviations
