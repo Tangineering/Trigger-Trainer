@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-025 — Overall sensitivity drop-down (Low / Default / High) and drift slider order (D-89)
+
+- **Closed:** 2026-10-24 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff and re-ran the suites · **Round:** round-20261024-3
+- **Commits / PR:** eb88797 "WQ-025: overall sensitivity drop-down scales the three movement limits (D-89)"; 42117e8 "WQ-025: document overall sensitivity (D-90, CLAUDE.md, class use)"
+
+**What was done.** `engine.js`: `DEFAULTS.sensitivity = 'default'`, frozen `SENSITIVITY = {low: 1.3, default: 1, high: 0.7}`, helper `limitsFor(S)` → `{moveDps, moveAcc, offFrameDeg}` × factor (unknown value → 1), both exported; `tick()` calls it once per tick (live `S`, since the page mutates `S` in place) and uses it at the rate/acceleration test and the off-frame drift test; `graceMs`, `jerkMs`, `steadyDeg`, `limit180Deg`, `pullPx` untouched. `VERSION` and `package.json` 0.12.4 → 0.12.5. `index.html`: `#sensitivity` `<select>` in a `.chk` row with a help line under the Movement alarm `<h2>`, above `#sliders1`; `buildSettings()`/`bindSettings()` wire it (save on change, slider outputs refreshed via a `sliderShows` list); under Low/High the `moveDps`, `moveAcc`, `offFrameDeg` outputs append the effective value (`25 °/s (→ 17.5 °/s)`); `renderDebug()` shows the effective limits; `SLIDERS.sliders1` reordered to moveDps, moveAcc, offFrameDeg, graceMs, jerkMs; Restore defaults returns the select to Default. Tests: twelve `WQ-025:` smoke checks (order, placement, D-64 store/drop, outputs under Low/High/Default, Restore defaults, a 20 °/s off-frame burst alarms under High and not under Default) and a roundtrip case recorded under High. Docs: `CLAUDE.md` WQ-025 block, one sentence in `docs/CLASS_USE.md` Before class, D-90 (`Claude (proposed)`), screenshots `docs/screenshots/wq-025/movement-alarm-{default,high,low}.png`.
+
+**Why.** D-89 (Ricky, 2026-10-24): one control to make the whole movement alarm looser or stricter per student without touching the sliders; the drift slider belongs with the two rate limits it is scaled with.
+
+**Deviations.** (1) Effective values are shown with one more decimal than the slider step, trailing zeros dropped (`→ 17.5 °/s`, `→ 1.05 m/s²`, `→ 3.5 °`), not rounded to the step as the item's example suggested, so the number shown is the limit the alarm uses. (2) The debug readout's three limit figures now show the effective limits (not asked, but the raw values would have been wrong under Low/High). (3) The item's owner-verifiable line said 7° under Low; the correct figure is 6.5° (5 × 1.3). The agent reported a duplicate D-89 row in `docs/DECISIONS.md`; the merged file has one row per ID (D-85…D-90), so nothing was changed.
+
+**Verification.** Agent: `npm test` exit 0 — replay 71 PASS / 0 FAIL ("all passed (41 recordings)"), smoke 86 PASS / 0 FAIL, roundtrip 19 PASS / 0 FAIL; `npm run test:replay` before/after differs only in the version string; a direct event diff of all 41 recordings through the old and new engine: 0 differ, 0 carry `sensitivity`; mutation check (factor removed from `moveDps`) fails 3 smoke checks. Orchestrator on the merged branch: `npm test` twice, 105 PASS / 0 FAIL both times (replay "all passed (41 recordings)", smoke and roundtrip "all passed"). NOT verified (owner, any phone): under High a gentle off-frame movement that passes under Default alarms; under Low one that alarms under Default passes; drift limit 6.5° under Low, 3.5° under High at the 5° default.
+
+**Follow-ups.** `docs/RECORDINGS.md` could list `sensitivity` among the recorded settings keys (the file documents the row format, not every key; left as is).
+
+---
+
+---
+
 ### WQ-024 — Trigger zone to the guard front, blade 5 px forward, label centred (D-87)
 
 - **Closed:** 2026-10-24 · **Outcome:** done

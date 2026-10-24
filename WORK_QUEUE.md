@@ -31,7 +31,6 @@ updated: 2026-10-24
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-025 | Overall sensitivity drop-down (Low / Default / High) and drift slider order (D-89) | P1 | M | claimed:round-20261024-3 | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 
@@ -182,77 +181,6 @@ WQ-022.
 
 **Verification.** `npm test`; a Playwright run with `navigator.vibrate` stubbed to return `false` shows
 `vib: false` in the readout after a simulated shot (add it to `tests/smoke.js`).
-
----
-
-### WQ-025 — Overall sensitivity drop-down (Low / Default / High) and drift slider order (D-89)
-
-- **Status:** claimed:round-20261024-3 · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
-- **Added:** 2026-10-24 by orchestration session
-- **Depends on:** — · **Blocks:** —
-
-**Context.** Ricky (D-89, 2026-10-24) wants one control in Settings → Movement alarm that makes the whole alarm
-looser or stricter without touching individual sliders: **Overall sensitivity** = Low (limits × 1.3), Default (× 1),
-High (× 0.7), acting on the rotation-rate limit `moveDps`, the linear-acceleration limit `moveAcc` and the off-frame
-drift limit `offFrameDeg` only. Also the "Max muzzle drift off the frame" slider moves up one place. Orchestrator's
-reading (D-89 note): the selection is a stored setting the engine applies as a factor on top of the slider values.
-Anchors: `engine.js:17-34` `DEFAULTS`; the three limits are read at `engine.js:427` (`st.rotEMA > S.moveDps ||
-st.linEMA > S.moveAcc`) and `engine.js:471` (`st.devOff > S.offFrameDeg`); `replay()` at `engine.js:544` builds `S`
-from `DEFAULTS`, `rec.settings` and overrides. `index.html:773-779` `SLIDERS.sliders1` (order: moveDps, moveAcc,
-graceMs, offFrameDeg, jerkMs); `index.html:225-227` the Movement alarm section (`<h2>`, `#sliders1`, `#liveSensors`);
-`index.html:221-223` the Shooting hand `<select>` inside `.chk` is the pattern for a drop-down; `buildSettings()`
-(`index.html:796`) sets select values, `bindSettings()` (`index.html:822`) wires them; `save()` stores only keys that
-differ from `DEFAULTS` (D-64), so a new key needs no migration; **Restore defaults** (`index.html:829`) resets `S`.
-
-**Scope.**
-- `engine.js`: add `sensitivity: 'default'` to `DEFAULTS` (values `'low' | 'default' | 'high'`) and a frozen map
-  `SENSITIVITY = { low: 1.3, default: 1, high: 0.7 }` exported beside `DEFAULTS`. Add one helper (e.g.
-  `limitsFor(S)` returning `{ moveDps, moveAcc, offFrameDeg }` = slider value × factor, unknown value → 1) and use
-  it at the two read sites (`engine.js:427`, `:471`) — nowhere else; `graceMs`, `jerkMs`, `steadyDeg`, `limit180Deg`
-  and `pullPx` are untouched. Compute it once per engine creation or settings object, not per sample, unless the
-  engine already reads `S` live (check how `S` reaches the engine from `index.html` `newEngine()` — if the page passes
-  the live `S` object and sliders change it in place, read the factor live too, the same way the limits are read
-  today). Bump `VERSION` (patch): outputs change for the same inputs when `sensitivity` ≠ default; recordings
-  without the key replay identically.
-- `index.html`: in the Movement alarm section, directly under the `<h2>` and above `#sliders1`, a `.chk` row
-  `<label for="sensitivity">Overall sensitivity</label><select id="sensitivity">` with options
-  `low` "Low (limits +30%)", `default` "Default", `high` "High (limits −30%)", plus a `.help` line: "Scales the
-  rotation, linear and max-drift limits below. Default uses them as set." Wire it in `buildSettings()` (value from
-  `S.sensitivity`) and `bindSettings()` (`S.sensitivity = value; save();` and refresh the slider outputs). In the
-  slider `show()` for `moveDps`, `moveAcc` and `offFrameDeg`, when the factor ≠ 1 append the effective value, e.g.
-  `25 °/s (→ 33 °/s)`, using the engine helper (rounded to the slider's step precision), so the student-facing
-  number is visible. Reorder `SLIDERS.sliders1` to moveDps, moveAcc, offFrameDeg, graceMs, jerkMs. **Restore
-  defaults** already rebuilds from `DEFAULTS`; confirm the select follows.
-- Recorder/replay: the recording's `settings` already captures `S` whole (`docs/RECORDINGS.md:81`), so
-  `sensitivity` is recorded automatically; confirm `tests/roundtrip.js` still finds live == replay with the select
-  set to `high` in one run (add that case if the harness makes it cheap; otherwise say so).
-- Tests: `tests/smoke.js` — (1) with sensitivity `high`, a rotation burst between 0.7 × and 1 × `moveDps` (e.g. 20 °/s
-  at the default 25) off the frame alarms, and with `default` the same burst does not; (2) selecting `low` stores
-  `{"sensitivity":"low"}` in `localStorage['tdt.settings.v2']` and selecting `default` drops the key (D-64); (3) the
-  slider order in `#sliders1` is moveDps, moveAcc, offFrameDeg, graceMs, jerkMs; (4) the moveDps output reads
-  `25 °/s (→ 18 °/s)` under `high` (or the exact format you choose; state it). Replay: run `npm run test:replay`
-  before/after and confirm all recordings' events are identical (none carries `sensitivity`).
-- Docs: `CLAUDE.md` — append a WQ-025 block (what `sensitivity` does, which three limits, that recordings without
-  the key replay unchanged); `docs/CLASS_USE.md` "Before class" — one sentence: Settings → Movement alarm → Overall
-  sensitivity for a quick looser/stricter class setting; `docs/DECISIONS.md` — a `Claude (proposed)` row for the
-  implementation details (helper name, display format, where the factor is applied), like D-83/D-88.
-- Out of scope: any other slider or limit (`graceMs`, `jerkMs`, `steadyDeg`, `limit180Deg`, `pullPx`), the start
-  screen, the summary, presets that overwrite slider values, a fourth "Custom" option.
-
-**Acceptance.**
-- `TDT.DEFAULTS.sensitivity === 'default'`; `TDT.SENSITIVITY` = `{low: 1.3, default: 1, high: 0.7}`; the three
-  limits are multiplied by the factor at the two read sites and nowhere else (grep shows no other `S.moveDps`,
-  `S.moveAcc`, `S.offFrameDeg` reads besides the helper and the Settings display).
-- Settings → Movement alarm shows the drop-down above the sliders; the slider order is moveDps, moveAcc,
-  offFrameDeg, graceMs, jerkMs; choosing Low/High changes the three outputs' effective values; Restore defaults
-  returns the select to Default.
-- `npm test` passes all three suites with the new smoke checks; replay events identical for all 41 recordings;
-  `engine.js` `VERSION` bumped (and `package.json` `version` to match).
-- Owner-verifiable (any phone): with High, a gentle off-frame movement that passes under Default alarms; with Low,
-  one that alarms under Default passes; the drift limit follows (7° under Low, 3.5° under High at the 5° default).
-
-**Verification.** `npm test`; `npm run test:replay` before/after diff; Playwright screenshot of the Movement alarm
-section with the drop-down into `docs/screenshots/wq-025/`; quote the new smoke check names in the completion entry.
 
 ---
 
