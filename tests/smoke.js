@@ -259,7 +259,39 @@ const check = (name, cond, state) => {
     await touch('touchEnd', []); await motion(0, 0, 3);
     await touch('touchStart', [[rc[0], rc[1], 1]]); await motion(0, 0, 8);
     s = await st(); check(`${hand}-handed: touch at the drawn rest centre is on the frame`, s.armed && s.onRest && !s.trig, s);
+    // D-87 (WQ-024): the trigger zone reaches the guard's front edge. A touch 10 px behind it, 20 px below the zone
+    // top (inside the strip the old .22·W zone left out) engages the trigger (s.trig is set exactly when the
+    // engine emits trigOn).
+    const gr = await page.$eval('.z.guard', el => { const r = el.getBoundingClientRect(); return [r.left, r.right]; });
+    const zt = await page.$eval('#trigZone', el => el.getBoundingClientRect().top);
+    const sx = hand === 'left' ? gr[0] + 10 : gr[1] - 10;
+    const oldFront = (0.50 * W + require('../engine.js').K.TRIGGER_FWD_PX), oldX = hand === 'left' ? W - oldFront : oldFront;
+    await offFrame();
+    await touch('touchStart', [[sx, zt + 20, 3]]); await motion(0, 0, 3);
+    s = await st(); check(`${hand}-handed: touch 10 px behind the guard's front edge engages the trigger (trigOn)`,
+      !!s.trig && !s.alarmActive && (hand === 'left' ? sx < oldX : sx > oldX), { s, sx, oldX });
+    await touch('touchEnd', []); await motion(0, 0, 3);
+    await touch('touchStart', [[rc[0], rc[1], 1]]); await motion(0, 0, 8);
   }
+  // D-87 (WQ-024): the TRIGGER label sits strictly between the blade's front face and the guard bar's inner edge,
+  // centred (±1 px), at 852 × 393 and 667 × 375 in both hands.
+  for (const [vw, vh] of [[852, 393], [667, 375]]) {
+    await page.setViewportSize({ width: vw, height: vh }); await page.waitForTimeout(50);
+    for (const hand of ['right', 'left']) {
+      await page.$eval('#hand', (el, h) => { el.value = h; el.dispatchEvent(new Event('change')); }, hand);
+      const m = await page.evaluate(() => {
+        const r = q => { const b = document.querySelector(q).getBoundingClientRect(); return [b.left, b.right]; };
+        return { bl: r('#blade'), lb: r('#trigZone .label'), g: r('.z.guard') };
+      });
+      const bar = 7, lh = hand === 'left';
+      const face = lh ? m.bl[0] : m.bl[1], inner = lh ? m.g[0] + bar : m.g[1] - bar;
+      const lo = Math.min(face, inner), hi = Math.max(face, inner);
+      const mid = (m.lb[0] + m.lb[1]) / 2;
+      check(`${vw}×${vh} ${hand}-handed: TRIGGER label centred between the blade face and the guard bar, touching neither`,
+        m.lb[0] > lo && m.lb[1] < hi && Math.abs(mid - (lo + hi) / 2) <= 1, { m, face, inner });
+    }
+  }
+  await page.setViewportSize({ width: W, height: H }); await page.waitForTimeout(50);
   await page.$eval('#hand', el => { el.value = 'right'; el.dispatchEvent(new Event('change')); });
 
   // D-75: a touch that engaged the trigger stays on the trigger until it lifts, wherever it slides;

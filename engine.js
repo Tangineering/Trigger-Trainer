@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.12.3';
+  const VERSION = '0.12.4';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -42,7 +42,7 @@
     grip:    { x: .00, y: .26, w: .24, h: .74 },
     guard:   { x: .24, y: .554, w: .32, h: .38 },   // rear end joins the grip's front edge; front edge + TRIGGER_FWD_PX
     rest:    { x: .31, y: .28, w: .65, h: .264 },
-    trigger: { x: .28, y: .574, w: .22, h: .30 },  // + TRIGGER_FWD_PX toward the muzzle
+    trigger: { x: .28, y: .574, w: .28, h: .30 },  // + TRIGGER_FWD_PX; front edge = guard's front edge (D-87)
     target:  { x: .60, y: .55, w: .38, h: .43 },   // shot movement indicator, under the muzzle; clear of the guard (D-74)
     debug:   { x: .01, y: .30, w: .22, h: .66 },   // drawn over the grip (grip ignores touches)
   });
