@@ -5,7 +5,7 @@ pistol: keep the index finger flat on the frame while moving; go to the trigger 
 
 - **Finger flat on the frame strip** → safe; move freely.
 - **Finger off the frame and the phone moves** → alarm until the finger is back on the frame.
-- **Trigger** (rear of the screen): press and pull back to fire. Android vibrates; iPhone clicks and flashes.
+- **Trigger** (rear of the screen): press and pull back to fire. The shot is a click and a flash.
   The mini target shows how much the muzzle drifted during the press.
 - **Finger back on the frame** → OK tone.
 - **180 rule:** point downrange and tap **Set downrange**; pointing the muzzle more than 90° from it then sounds a

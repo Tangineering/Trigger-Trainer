@@ -188,20 +188,17 @@
   <div class="inner">
     <h1>Trigger Discipline Trainer</h1>
     <div class="loud" role="alert">
-      <b>⚠ Loud sounds.</b> This trainer plays loud alarm tones. Check your volume before you start:
-      hold <b>Test sound</b> and set the volume here and on the phone. Keep the phone away from your ears.
+      <b>⚠ Loud alarms.</b> Hold <b>Test sound</b> and set the volume before you start. Keep the phone away from your ears.
       <div id="slidersStart"></div>
       <div class="row"><button class="btn hold" id="testSoundStart">Test sound (hold)</button></div>
     </div>
     <ol>
-      <li>Turn the phone sideways. The screen is the side of the pistol; the muzzle points toward the arrow.</li>
-      <li>Lay your index finger <b>flat along the frame</b> (the dashed strip). With it there you can move freely.</li>
-      <li>For the 180 check: point the muzzle downrange and tap <b>Set downrange</b> (bottom right, next to the target). Until then the 180 check is off; everything else works.</li>
-      <li>Only when the "sights are on target": move your fingertip to the <b>trigger</b> and pull it back to fire. The phone must stay still.</li>
-      <li>Moving the phone while your finger is off the frame sounds an <b>alarm</b> until your finger is back on the frame.</li>
-      <li>Returning your finger to the frame plays the <b>OK</b> tone.</li>
+      <li>Point the muzzle downrange and tap <b>Set downrange</b>. From then on, pointing more than 90° away triggers alarm.</li>
+      <li>Index finger flat on the frame strip = safe.</li>
+      <li>Finger off the strip or on trigger = hold still. Any movement sounds an alarm until the finger is back on the strip.</li>
+      <li>Pull the trigger straight back to fire. Return finger to frame before moving.</li>
     </ol>
-    <p id="platformNote"></p>
+    <p class="tip">Left-handed? Settings → Shooting hand.</p>
     <div class="row">
       <button class="btn primary" id="startBtn">Start</button>
       <button class="btn" id="startSettingsBtn">Settings</button>
@@ -987,9 +984,6 @@ $('sumNew').addEventListener('click', () => {
   buildSettings(); $('startOv').classList.add('show');
 });
 
-$('platformNote').textContent = !('vibrate' in navigator)
-  ? 'iPhone: allow motion access when asked. If you hear nothing, turn off Silent mode. The shot is a click and a flash (no vibration).'
-  : 'Android: the shot also vibrates. Rotate to landscape after starting if the screen does not lock automatically.';
 $('versionLine').textContent = `Engine ${TDT.VERSION}`;
 
 newEngine(); bindSettings(); buildSettings(); layout(); renderStats();
