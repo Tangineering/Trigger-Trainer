@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-030
+next_id: WQ-031
 updated: 2026-10-25
 ```
 
@@ -33,6 +33,7 @@ updated: 2026-10-25
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
+| WQ-030 | Transitions drill: ten shots, movement on the trigger allowed (D-111, D-112) | P2 | L | queued | — | drills |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -181,6 +182,89 @@ WQ-022.
 
 **Verification.** `npm test`; a Playwright run with `navigator.vibrate` stubbed to return `false` shows
 `vib: false` in the readout after a simulated shot (add it to `tests/smoke.js`).
+
+---
+
+### WQ-030 — Transitions drill: ten shots, movement on the trigger allowed (D-111, D-112)
+
+- **Status:** queued · **Priority:** P2 · **Size:** L · **Track:** drills · **Env:** any
+- **Added:** 2026-10-25 by exploratory session (Transitions mockup)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Ricky (D-111, 2026-10-25) wants a fifth drill, **Transitions**: a low-ready start with one start beep,
+then five sets of two shots, two at one target and then a transition to another target in view. It is the first drill
+that changes the alarm rules: from the first shot to the tenth, movement with the finger on the trigger does not alarm
+(the student swings between targets with the finger prepped); before the first shot and after the tenth the alarms are
+the normal ones. D-112 (Claude, proposed) fills in the details below. The picker diagram is ready:
+`transitions` in `docs/mockups/drills/diagrams.js`, rendered in `docs/mockups/drills/picker-landscape-5-transitions.png`,
+`picker-landscape-5-transitions-scrolled.png` and `picker-portrait-5-transitions.png`. The drill framework is WQ-027
+(Bill), WQ-028 (Low Ready), WQ-029 (Box); see `CLAUDE.md` sections WQ-027 to WQ-029 for the run model.
+
+**Scope.**
+- `engine.js` (0.15.0 → 0.16.0, `package.json` too):
+  - `DRILL_DEFS.transitions = {delayMs: [2000, 5000], shots: 10, pairShots: 2, onTriggerFree: true, ready: true}`
+    next to `bill` (engine.js:121-127). No `reps`: it takes Bill's single-string path in `drillShot` (engine.js:461)
+    and `tickDrill` (engine.js:488), generalised from Bill's six to `def.shots` where it is still hard-coded (comments
+    say "sixth"; check every use). The result keeps Bill's fields (`first`, `splits` (nine), `total`, `shots`, `early`,
+    `alarms`, `withAlarm`, `endT`) and adds, for a def with `pairShots`, `pairSplits` (splits 1→2, 3→4, … : five) and
+    `transitions` (2→3, 4→5, … : four) and `avgTransition`.
+  - The window (D-112 d): a helper `freeOnTrigger()` true when `st.drill` is a def with `onTriggerFree`, phase `live`,
+    and at least one run shot (`d.shots.length > 0`), and `st.trig` is set. In `tick()` the off-frame alarm block
+    (engine.js:679-691, `if (!st.onRest && !st.alarmActive)`) starts no `move` alarm while it is true: the rate test,
+    the press `jerkMs` test and the `offFrameDeg` drift test are all skipped. The 180 block above it (engine.js:658)
+    is unchanged (D-112 e).
+  - Re-taking the drift reference (D-112 f, g): inside the window, when the trigger touch ends with the finger off the
+    frame (`endTrigger`, engine.js:435), set `st.qOff = st.q.slice()`; at the tenth shot (where `drillShot` moves to
+    `finishing`) set `st.qOff = st.q.slice()` if the finger is off the frame and `st.trig.moveMs = 0`, so movement
+    after shot 10 is judged from there. Grace periods are as today.
+  - Grading (D-112 i): while a Transitions run is live, a press re-origins the trace when the pull first reaches
+    `S.pullPx * K.PULL_START_FRACTION` (engine.js:57) on an unfired trigger: `tr.oh = st.aimH; tr.ov = st.aimV;
+    tr.trace = []` (in `updateTrigger`, engine.js:409; mark the press so it happens once per press). No change in
+    Freestyle or the other drills.
+  - Packed events are unchanged (`drillBeep`, `drillEnd`, `drillCancel`). With `st.drill === null` or another drill,
+    every existing recording must replay to identical events.
+- `index.html`:
+  - `DRILL_SVG.transitions` (port the string from `docs/mockups/drills/diagrams.js` verbatim, as the other four) and a
+    fifth `DRILL_MODES` entry after `bill` (index.html:598): name "Transitions", sub "Five pairs, target to target",
+    how "Low ready, finger on the frame. On the beep raise and fire two at a target, then swing to the next with the
+    finger on the trigger. Five pairs; finger back on the frame to finish."
+  - `drillBeep` → `Snd.timerBeep()` as Bill; `drillEnd` → `Snd.complete(0.35)` + `showDrillResult()`.
+  - `showDrillResult` (index.html:640): a `transitionsRows(r)` branch: First shot, Pairs (five splits), Transitions
+    (four), Average transition, Total, Shots (grades, "alarm" for unsafe shots), then the shared Early shots / With
+    alarm rows and "Best clean total this session".
+  - `drillLineText` (index.html:693): the D-112 k texts. Pair n = `floor(shots / 2) + 1`.
+  - Recorder label `drill-transitions` after `drill-box` (index.html:579), hint "Select Transitions first. Finger on
+    the frame, wait for the beep, fire two at each target with the finger on the trigger between pairs, ten shots,
+    finger back on the frame. Expect: one beep, no alarm during the transitions, one drill end."
+  - The picker now has five entries: in landscape (844×390) the list scrolls (see the `-scrolled` mockup); keep
+    **Choose** / **Cancel** reachable, no layout change needed unless a screenshot shows clipping.
+  - `window.__tdt().drill` exposes `freeOnTrigger` (bool) for the tests.
+- Tests: `tests/make-synthetic.js` gains a live-generated `drill-transitions` recording (fixed seed, as `drill-box`):
+  beep, two presses, a fast yaw swing (> `moveDps`, total > `offFrameDeg`) with the finger kept on the trigger, two
+  presses, … ten shots, finger on the frame; `tests/expectations.js`: one `drillBeep`, no `alarmStart` between the
+  first and the tenth shot, one `drillEnd`. `tests/smoke.js`: the picker lists five; a run where the same swing
+  happens before the first shot alarms, one inside the window does not, one after the tenth shot (finger still on the
+  trigger) alarms; a finger lifted off the trigger mid-window (not onto the frame) and moved alarms; the 180 alarm
+  still fires inside the window when downrange is set.
+- Docs: `CLAUDE.md` behavior spec (drills bullet) and a `## WQ-030` block (append-only); `docs/CLASS_USE.md` drill
+  steps; any decision made on the way as `Claude (proposed)` in `docs/DECISIONS.md`; D-112 stays `proposed` until
+  Ricky accepts it.
+- Out of scope: changing the alarm rules of Freestyle or the other drills; per-target detection (the phone does not
+  know where the targets are); a par time; the smoke flake noted in the parking lot.
+
+**Acceptance.**
+- Agent-verifiable: `npm test` passes (three suites); every recording other than the new `drill-transitions` replays to
+  the same events as before (VERSION aside); the picker lists five drills in D-112 a order; the smoke checks above
+  pass; landscape and portrait screenshots of the picker on Transitions and of a results overlay are committed in
+  `docs/mockups/drills/` or `tests/` output as WQ-029 did.
+- Owner-verifiable (a real iPhone and a real Android phone): a full Transitions run swinging between two or three
+  targets with the finger on the trigger raises no alarm between shot 1 and shot 10; raising from low ready with the
+  finger on the trigger still alarms; moving after shot 10 without the finger on the frame alarms; the result shows
+  five pair splits and four transitions.
+
+**Verification.** Run through `orchestrated-feature`. `npm test` (twice, report PASS counts); `npm run test:replay`
+before and after with the list of recordings whose outcome changed (expected: none but the new one); screenshots as
+above. Record in the completion entry the VERSION, the new test counts, and any D-112 point that changed.
 
 ---
 
