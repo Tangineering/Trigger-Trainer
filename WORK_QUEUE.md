@@ -33,8 +33,7 @@ updated: 2026-10-25
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-028 | Low Ready drill with the three-beep cue | P2 | M | claimed:round-20261025-1 | — | drills |
-| WQ-029 | Box Drill: five positions, move cue after 2+ shots | P2 | M | queued | WQ-028 | drills |
+| WQ-029 | Box Drill: five positions, move cue after 2+ shots | P2 | M | queued | — | drills |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -186,63 +185,11 @@ WQ-022.
 
 ---
 
-### WQ-028 — Low Ready drill with the three-beep cue (D-96, D-98)
-
-- **Status:** claimed:round-20261025-1 · **Priority:** P2 · **Size:** M · **Track:** drills · **Env:** any
-- **Added:** 2026-10-24 by drill-planning session · **Updated:** 2026-10-24 by drill-planning session (Ricky accepted D-98) · **Updated:** 2026-10-24 by orchestration session (merged from the drill-planning branch: the planning session numbered this item WQ-023 and its decisions D-85–D-90, IDs that rounds 1–4 of 2026-10-24 had already used on `main`, so it is WQ-028 and the decisions are D-93–D-98 (D-85 → D-93, D-86 → D-94, D-87 → D-95, D-88 → D-96, D-89 → D-97, D-90 → D-98); code anchors refreshed to engine 0.12.6. The `docs/mockups/drills/picker-*.png` mockups the item cites were never committed (`.gitignore` has `*.png`): the SVG strings in `docs/mockups/drills/diagrams.js` are the approved source; render them yourself if a picture helps)
-- **Depends on:** — · **Blocks:** WQ-029
-
-**Context.** D-96 (Ricky) defines the Low Ready drill and D-98 (Claude → Ricky accepted) fills its gaps; read both. Low ready
-here is competition style: the muzzle stays downrange and the gun is translated down, so there is no muzzle-angle
-check and Set downrange is not needed. There is no early-finger sound; the existing movement alarms apply. WQ-027
-provides the drill framework (`startDrill`, standby, `drillBeep`, `drillEnd`, `drillCancel`, seeded delays, the
-picker, results overlay, `timerBeep()` and `complete()`). The approved diagram is `lr` in
-`docs/mockups/drills/diagrams.js`; the picker mockups are `docs/mockups/drills/picker-*-2-low-ready.png`. Low Ready is
-second in the picker, after Freestyle.
-
-**Scope.**
-- Engine, drill id `'lowready'` (accept it in `startDrill`), five reps:
-  1. Rep 1: standby as in WQ-027, delay uniform 2000–5000 ms (D-98 a), then `drillBeep {rep: 1}`.
-  2. Live: count the rep's shots (a shot before the rep's beep counts as early, D-98 d).
-  3. When `st.onRest` is true after at least two shots in the rep (D-98 b), start a 750 ms timer; it restarts if the
-     finger leaves the frame before it ends (D-98 c).
-  4. When it ends: for reps 1–4 emit `drillCue {t, drill, cue: 'lowready', rep}` and set the next beep due 2000–5000 ms
-     after the cue (from the generator); the beep plays only with the finger on the frame (D-98 a). For rep 5 emit
-     `drillEnd` instead of the cue.
-  - Per rep result: `reaction` (beep → first shot), `split` (shot 1 → shot 2), shot count and grades, early shots,
-    with alarm. Run result: total (rep 1 beep → end), average and best reaction over reps without alarm.
-  - `packEvent`: `drillCue` → `[t, 'drillCue', cue, rep]`. Bump `VERSION` (minor).
-- Sound: `Snd.cue3()` — three 70 ms beeps at 1.76 kHz, 120 ms apart (D-98 g); `onEvent` `drillCue` → `cue3()` +
-  `buzz([50, 50, 50, 50, 50])`. Low Ready's cue comes 750 ms after the OK tone, so no extra delay is needed.
-- Page: Low Ready `ready: true` in `DRILL_MODES` with the `lr` diagram; drill line texts such as "Rep 2 of 5 · wait for
-  the beep", "Go", "Finger back on the frame", "Back to low ready"; results overlay rows per rep plus the run totals.
-- Recorder: label `drill-low-ready` with a hint. Tests: expectations (`drill-low-ready`: five beeps, four cues, one
-  end), synthetic recording, `tests/smoke.js` (cue 750 ms after the finger returns, within one frame; lifting at
-  500 ms restarts the 750 ms; next beep 2–5 s after the cue; one shot then frame gives no cue), roundtrip.
-- Docs: `CLAUDE.md` behavior spec and state-machine paragraph, `docs/RECORDINGS.md`, `docs/CLASS_USE.md`.
-- Out of scope: the Box Drill (WQ-029); muzzle-angle checks and an early-finger sound (both removed by D-96); rep
-  count as a setting (fixed at five).
-
-**Acceptance.**
-- `npm test` passes; no pre-existing recording changes events (`npm run test:replay` before/after).
-- The synthetic `drill-low-ready` recording gives 5 `drillBeep`, 4 `drillCue`, 1 `drillEnd`, each cue 750 ms (± one
-  frame) after the finger came back on the frame, each later beep 2000–5000 ms after its cue.
-- Picker shows Freestyle, Low Ready, Bill Drill in that order (Box still hidden); screenshots under
-  `docs/screenshots/wq-023/`.
-- *Owner-verifiable* (an iPhone and an Android phone): five reps run without touching the screen except the frame and
-  trigger; the three beeps are clearly different from the start beep, the OK tone and the downrange double beep; the
-  completion tone follows rep 5.
-
-**Verification.** As WQ-027: commands, Playwright with the mouse fallback; record the synthetic event times and the
-screenshots in the completion entry. Touches `engine.js` and `index.html`: no parallel run with WQ-027 or WQ-029.
-
----
-
 ### WQ-029 — Box Drill: five positions, move cue after 2+ shots (D-95, D-98)
 
 - **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** drills · **Env:** any
 - **Added:** 2026-10-24 by drill-planning session · **Updated:** 2026-10-24 by drill-planning session (Ricky accepted D-98) · **Updated:** 2026-10-24 by orchestration session (merged from the drill-planning branch: the planning session numbered this item WQ-024 and its decisions D-85–D-90, IDs that rounds 1–4 of 2026-10-24 had already used on `main`, so it is WQ-029 and the decisions are D-93–D-98 (D-85 → D-93, D-86 → D-94, D-87 → D-95, D-88 → D-96, D-89 → D-97, D-90 → D-98); code anchors refreshed to engine 0.12.6. The `docs/mockups/drills/picker-*.png` mockups the item cites were never committed (`.gitignore` has `*.png`): the SVG strings in `docs/mockups/drills/diagrams.js` are the approved source; render them yourself if a picture helps)
-- **Depends on:** WQ-028 · **Blocks:** —
+- **Depends on:** — · **Blocks:** —
 
 **Context.** D-95 (Ricky) defines the Box Drill and D-98 (Claude → Ricky accepted) fills its gaps; read both. The student marks
 four spots, starts at spot 1, goes round and finishes back at spot 1: five shooting positions. The student sets the
