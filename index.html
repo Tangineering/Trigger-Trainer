@@ -414,15 +414,15 @@ const Snd = {
     o.start(t); o.stop(t + dur + 0.05);
   },
   ok() { this.tone(660, 0, 0.12); this.tone(990, 0.11, 0.22); },
-  // Drill sounds (D-94, D-98 g), through the master gain, never the alarm node. Start beep (D-109): one sustained
-  // 1750 Hz tone, 300 ms at full level (10 ms attack, 20 ms release), like a shot timer; tone()'s decaying envelope
-  // is not used for it. Completion: a rising C5-E5-G5-C6 arpeggio, about 0.9 s.
+  // Drill sounds (D-94, D-98 g), through the master gain, never the alarm node. Start beep (D-109, D-110): one
+  // sustained tone at S.beepHz (1650 Hz) for S.beepMs (350 ms) at full level (10 ms attack, 20 ms release), like a
+  // shot timer; tone()'s decaying envelope is not used for it. Completion: a rising C5-E5-G5-C6 arpeggio, about 0.9 s.
   // Cue (Low Ready: back to low ready; Box Drill: move to the next spot): three 70 ms beeps at 1.76 kHz, 120 ms apart.
   timerBeep(delay = 0) {
     if (!this.ctx) return;
-    const t = this.ctx.currentTime + delay, dur = 0.3, peak = 0.6;
+    const t = this.ctx.currentTime + delay, dur = Math.max(0.05, S.beepMs / 1000), peak = 0.6;
     const o = this.ctx.createOscillator(), g = this.ctx.createGain();
-    o.type = 'square'; o.frequency.value = 1750;
+    o.type = 'square'; o.frequency.value = S.beepHz;
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(peak, t + 0.01);
     g.gain.setValueAtTime(peak, t + dur - 0.02);
@@ -1017,7 +1017,10 @@ const SLIDERS = {
   sliders180: [
     { k: 'limit180Deg', label: 'Limit from downrange', min: 30, max: 90, step: 5, unit: '°', help: '90° is the 180 rule. Lower it for a tighter safe zone, down to 30°.' },
   ],
-  sliders4: [VOLUME],
+  sliders4: [VOLUME,
+    { k: 'beepHz', label: 'Drill start beep pitch', min: 500, max: 3000, step: 50, unit: 'Hz', help: 'Pitch of the shot-timer style start beep of a drill (D-110).' },
+    { k: 'beepMs', label: 'Drill start beep length', min: 100, max: 1000, step: 25, unit: 'ms', help: 'How long the start beep sounds.' },
+  ],
   slidersStart: [VOLUME],   // same control on the start screen
 };
 // Keep copies of the same setting (e.g. Volume on the start screen and in Settings) in step.

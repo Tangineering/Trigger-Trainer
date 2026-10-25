@@ -31,6 +31,8 @@
     axisMode: 'auto',    // 'auto' (= 'ios', x/y/z order) | 'spec' | 'ios'
     flipH: false,
     flipV: false,
+    beepHz: 1650,        // drill start beep pitch, Hz (page only, D-110)
+    beepMs: 350,         // drill start beep length, ms (page only, D-110)
   });
 
   // Fractions of the viewport for a RIGHT-handed layout (muzzle at x=1). Left-handed mirrors x.

@@ -61,6 +61,13 @@ const check = (name, cond, state) => {
   await page.reload();
   check('after Restore defaults a reload keeps the default volume', await page.$eval('#s_slidersStart_volume', el => el.value) === defVol);
   await setVol('0.35');                       // leave the page as before these checks
+  // D-110: drill start beep pitch and length are settings, the last two sliders of the Other section.
+  check('D-110: Other section ends with the start-beep pitch and length sliders at 1650 Hz / 350 ms',
+    await page.$$eval('#sliders4 input[type=range]', els => els.map(e => e.dataset.k + (e.dataset.k === 'volume' ? '' : '=' + e.value)).join(',')) === 'volume,beepHz=1650,beepMs=350');
+  await page.$eval('#s_sliders4_beepHz', el => { el.value = '1500'; el.dispatchEvent(new Event('input')); });
+  check('D-110: a moved beep slider is stored under its own key only (D-64)', await stored() === JSON.stringify({ volume: 0.35, beepHz: 1500 }));
+  await page.$eval('#s_sliders4_beepHz', el => { el.value = '1650'; el.dispatchEvent(new Event('input')); });
+  check('D-110: back to the default drops the key', await stored() === JSON.stringify({ volume: 0.35 }));
 
   await page.click('#startBtn');
   await page.waitForTimeout(150);
