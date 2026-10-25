@@ -400,5 +400,5 @@ finger on the frame, wait for the beep", "Go — two at the first target", "Targ
 `showDrillResult` → `transitionsRows(r)`: First shot, Pairs, Transitions, Average transition, Total, Shots; then the
 shared Early shots / With alarm rows and "Best clean total this session". `window.__tdt().drill.freeOnTrigger` reads
 `st.drillFree`. Recorder label `drill-transitions`.
-Open: Q18 (OPEN_QUESTIONS.md) asks whether anything besides the 180 rule should guard the muzzle inside the window,
-and whether a finger lifted off the trigger mid-swing should get a grace on the drift test.
+Q18 (whether anything besides the 180 rule should guard the muzzle inside the window, and whether a mid-swing lift
+should get a grace) is resolved by D-119: leave as built.
