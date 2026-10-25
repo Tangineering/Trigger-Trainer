@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-032
+next_id: WQ-037
 updated: 2026-10-25
 ```
 
@@ -33,7 +33,12 @@ updated: 2026-10-25
 |----|-------|-----|------|--------|------------|-------|
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
+| WQ-032 | Add a one-line disclaimer to the start screen and the README | P1 | S | queued | — | docs |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
+| WQ-033 | Run the replay suite in GitHub Actions and pin Playwright | P2 | S | queued | — | hygiene |
+| WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | queued | — | docs |
+| WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | queued | — | hygiene |
+| WQ-035 | Regenerate the stale synthetic recordings | P3 | S | queued | — | recordings |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -43,7 +48,7 @@ has — the item says exactly what to run).
 Mechanical edits (claim, un-claim, archive, invariant check) go through
 `python scripts/wq.py …` (any Python 3, stdlib only); see `work-queue-run`.
 
-Tracks: axis · platform · recordings · grading · alarm · layout · decisions · docs · ui · drills
+Tracks: axis · platform · recordings · grading · alarm · layout · decisions · docs · ui · drills · hygiene
 
 ---
 
@@ -257,22 +262,204 @@ WQ-022.
 
 ---
 
+### WQ-032 — Add a one-line disclaimer to the start screen and the README
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** docs · **Env:** any
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Ricky is sending the public link (`https://tangineering.github.io/Trigger-Trainer/`) to people outside
+his classes. Nothing on the page, in `README.md` or in `docs/CLASS_USE.md` says what the tool is not: a dry,
+phone-only teaching aid, not firearms training and not a substitute for a qualified instructor, offered as is with no
+warranty (the MIT `LICENSE` says the last part, but nobody opens it from a phone). The start screen already carries a
+warning box about loud alarms (`index.html:226`), and the Ko-fi line sits at `index.html:242`; the README's
+corresponding paragraph is `README.md:23`. CLAUDE.md hard constraint 5 ("Not a firearm product") is the project's own
+statement of the same thing, but it is only in the operating manual.
+
+**Scope.**
+- Add one short sentence to the start screen, under the Ko-fi `p.tip` at `index.html:242` in the same `tip` style,
+  along these lines: "A dry, phone-only teaching aid for trigger-finger discipline. Not firearms training; use it with
+  a qualified instructor and never with a real firearm. Provided as is, no warranty (MIT)." Keep it to two lines at
+  667×375 CSS px (check the compact start-screen layout; the start screen is `#startOv`, `index.html:222`).
+- Add the same sentence to `README.md` directly after the "No install, no accounts, no data collection" paragraph
+  (`README.md:21`), and one line at the top of `docs/CLASS_USE.md` "Before class".
+- Log the wording as a `Claude (proposed)` row in `docs/DECISIONS.md` (number from `python scripts/wq.py next`) so
+  Ricky can ratify or reword it.
+- Out of scope: any engine change; the source-code link on the page (WQ-034); the CI workflow (WQ-033). `README.md` is
+  appended to, not rewritten, so this item may run in parallel with WQ-034 if the orchestrator merges the README edits.
+
+**Acceptance.**
+- The start screen shows the disclaimer at 852×393 and 667×375 CSS px landscape and in portrait without pushing
+  **Start** off screen (screenshots in `docs/screenshots/wq-032/`).
+- `README.md` and `docs/CLASS_USE.md` carry the sentence; `docs/DECISIONS.md` has the proposed row.
+- `npm test` passes unchanged (46 recordings; `tests/smoke.js` and `tests/roundtrip.js` all passed), engine `VERSION`
+  unchanged.
+
+**Verification.** `npm test`; Playwright screenshots of `#startOv` at the two landscape sizes and one portrait size;
+record the decision number in the completion entry.
+
+---
+
+### WQ-033 — Run the replay suite in GitHub Actions and pin Playwright
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** The repo is public and about to get outside readers, but the only workflow that runs on GitHub is the
+Pages build (`pages build and deployment`, 49 runs, all on `main`). `tests/replay.js` needs no browser and takes a few
+seconds for the 46 recordings, so it is the natural pull-request gate. The browser suites (`tests/smoke.js`,
+`tests/roundtrip.js`) are not CI material yet: `tests/smoke.js` has a timing-sensitive block that fails in 2 of 6
+unloaded runs (WQ-036). Separately, `package.json:13` asks for `"playwright": "^1.47.0"`; on 2026-10-25 a fresh
+`npm install` resolved a release that looks for Chromium build 1248 while a machine that ran `npx playwright install
+chromium` for an earlier release holds 1243, so the browser tests fail with "Executable doesn't exist" until the
+browsers are reinstalled. An exact pin keeps `npm install` and `npx playwright install chromium` in step for
+contributors.
+
+**Scope.**
+- Add `.github/workflows/test.yml`: on `push` to `main` and on `pull_request`, check out, `actions/setup-node` with
+  Node 22 (the version the tests run under locally: `node --version` printed v22.22.0 on 2026-10-25) and run
+  `node tests/replay.js` directly (no `npm install`: the replay suite has no dependencies). Name the job `replay`.
+- Pin `playwright` in `package.json` to the exact version `npm ls playwright` reports after a fresh install in the
+  executing session (write the number in the completion entry), and add an `engines.node` of `>=20` so the
+  requirement is visible.
+- Add two sentences to `README.md` "Develop" (`README.md:40`): the replay suite runs on every pull request, and the
+  browser suites are run locally before a merge.
+- Out of scope: running `tests/smoke.js` or `tests/roundtrip.js` in CI (wait for WQ-036); any change to the tests
+  themselves; a lockfile (the repo tracks none; do not add `package-lock.json`).
+
+**Acceptance.**
+- The workflow file exists and a run on the pushed branch shows the `replay` job green with `all passed (46
+  recordings)` in its log (46 at the time of writing; use the current count).
+- `package.json` has an exact Playwright version and `engines.node`; `npm install && npx playwright install chromium
+  && npm test` passes from a clean clone.
+- `README.md` "Develop" mentions the CI gate.
+
+**Verification.** Push the branch and read the Actions run (GitHub MCP `actions_list` / `get_job_logs` from a cloud
+session); run `npm test` locally; record the pinned version and the run URL in the completion entry.
+
+---
+
+### WQ-034 — Link the page to its source and add contributing notes to the README
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** The repo (`Tangineering/Trigger-Trainer`, MIT) is public with issues enabled, but the page never names
+it: `index.html` contains no `github.com` link, so a user who wants to report a problem or read the license has no
+way in from the phone. `README.md` explains what the tool does and how to deploy it, but not how the project is run:
+the planning files that sit in the root (`WORK_QUEUE.md`, `WORK_COMPLETED.md`, `OPEN_QUESTIONS.md`, `CLAUDE.md`,
+`.claude/skills/`) look like clutter to a stranger, and nothing says that real-phone recordings in `tests/recordings/`
+are the ground truth or that Ricky owns scope. There is no `CONTRIBUTING.md`, no issue template and no release tag.
+
+**Scope.**
+- Add a "Source on GitHub" anchor (`https://github.com/Tangineering/Trigger-Trainer`, `target="_blank"
+  rel="noopener noreferrer"`, plain anchor like the Ko-fi link, D-63 style) to the start screen's tip line at
+  `index.html:242`, after the Ko-fi sentence.
+- Add `CONTRIBUTING.md` (about ten lines): report problems as GitHub issues naming phone, OS and browser; a
+  recording from Settings → **Record test data** is the most useful attachment (`docs/RECORDINGS.md`); run `npm test`
+  before a pull request; thresholds and logic change only with the replay suite's say-so; Ricky decides scope
+  (`docs/DECISIONS.md`); planning lives in `WORK_QUEUE.md`, finished work in `WORK_COMPLETED.md`.
+- Add a short "Project files" paragraph to `README.md` (after "Develop", `README.md:40`–50) naming the planning
+  documents and `CONTRIBUTING.md`, and a "Report a problem" line pointing at the issues page. Append; do not rewrite
+  the README.
+- Add `.github/ISSUE_TEMPLATE/bug_report.md` asking for phone model, OS version, browser, engine version (the
+  `Engine x.y.z` line in Settings, `index.html:1332`), what happened, and a recording if possible.
+- Out of scope: the disclaimer sentence (WQ-032); the CI workflow (WQ-033); a release tag (owner's call: suggest
+  `v0.17.0` in the completion entry, do not push tags); moving the planning files out of the root.
+
+**Acceptance.**
+- The start screen shows the source link next to the Ko-fi line at 852×393 and 667×375 CSS px without layout change
+  elsewhere (screenshots in `docs/screenshots/wq-034/`).
+- `CONTRIBUTING.md`, the README paragraph and the issue template exist and name only files that exist.
+- `npm test` passes unchanged; engine `VERSION` unchanged.
+
+**Verification.** `npm test`; Playwright screenshots; `git ls-files` shows the new files; completion entry lists them.
+
+---
+
+### WQ-035 — Regenerate the stale synthetic recordings
+
+- **Status:** queued · **Priority:** P3 · **Size:** S · **Track:** recordings · **Env:** any
+- **Added:** 2026-10-25 by public-release review session (promoted from the parking lot, noted by the WQ-027 test
+  writer on 2026-10-25)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** `tests/recordings/synthetic/` is generated by `tests/make-synthetic.js`, but the eleven non-drill files
+(`180-break`, `180-safe`, `axis-right`, `axis-up`, `clean-press`, `jerked-press`, `off-frame-move`, `off-frame-still`,
+`press-wobble`, `safe-move`, `trigger-sweep`) still carry `"app":"0.12.3"`, while the drill files carry 0.13.0–0.16.0
+and `two-finger` 0.17.0 (checked 2026-10-25). Running the generator today rewrites all of them: the `app` field
+everywhere, and the touch logs of `clean-press`, `jerked-press`, `press-wobble` and `trigger-sweep` because the
+trigger geometry moved (D-72, D-87). The committed files still pass, so this is hygiene: a contributor who runs
+`npm run synthetic` sees a large unexplained diff.
+
+**Scope.**
+- Run `npm run synthetic` once with the current engine (0.17.0) and commit the regenerated folder in a commit of its
+  own (`tests: regenerate synthetic recordings with engine 0.17.0`).
+- Before committing, run `npm run test:replay` and list in the completion entry which recordings changed their
+  observed events, if any; the expectation of every synthetic label (`tests/expectations.js`) must still hold.
+- If the generator's own output is not stable across two runs (seeded randomness or timestamps), fix that in
+  `tests/make-synthetic.js` first and say so.
+- Out of scope: the real-phone folders (never regenerated, CLAUDE.md working rules); any engine change; the
+  parking-lot idea of synthetic drills that can identify an axis mapping.
+
+**Acceptance.**
+- Every file in `tests/recordings/synthetic/` carries `"app":"0.17.0"` (or the current `VERSION`).
+- `npm run synthetic` immediately after the commit produces no diff.
+- `npm test` passes; `tests/replay.js` reports the same recording count and all expectations met.
+
+**Verification.** `npm run synthetic && git status --short` (empty) and `npm test`; completion entry names the
+changed logs.
+
+---
+
+### WQ-036 — Make the trigger-reset smoke block deterministic
+
+- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** hygiene · **Env:** browser
+- **Added:** 2026-10-25 by public-release review session (promoted from the parking lot: WQ-023 agent 2026-10-24,
+  WQ-029 2026-10-25)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** `tests/smoke.js` fails intermittently in three checks: "trigger reset allows follow-up; drift graded as
+moved" (`tests/smoke.js:129`) and the two session-summary grading checks that depend on it (`tests/smoke.js:322`–326).
+Measured 2 failures in 6 sequential unloaded runs on 2026-10-25 (WQ-029 round) and once under container load on
+2026-10-24. The failing state shows `lastGrade "Jerked"` with `rotEMA` about 12: the `motion(-15, 0, 6)` burst at
+`tests/smoke.js:126` is meant to dip the muzzle about 1.4° during the press and grade Moved, but each
+`DeviceMotionEvent` is dispatched from `page.evaluate` with a `waitForTimeout(16)` between them (`motion` helper,
+`tests/smoke.js:78`–85), so the engine's `dt` per sample is whatever the event loop gives, and a slow frame turns the
+same six samples into a jerk. The engine is not suspect (every recording replays identically); the harness timing is.
+This block is also why WQ-033 keeps the browser suites out of CI.
+
+**Scope.**
+- Make the motion fed in that block independent of wall-clock timing. Preferred: have the page's test hook accept a
+  motion sample with an explicit timestamp, or drive the burst through the recorder's replay path, so that the six
+  samples always integrate to the same angle; alternatively measure from requestAnimationFrame timestamps and assert
+  on the integrated `aimV` rather than on a fixed sample count. Read `window.__tdt()` (CLAUDE.md "`window.__tdt()`
+  Read-only snapshot used by the browser tests. Keep it.") and `onMotion` in `index.html` before choosing; any new hook
+  must be read-only for production behaviour and must not touch the engine.
+- Apply the same fix to the `wobble` helper (`tests/smoke.js:87`–94) if it shares the weakness.
+- Out of scope: engine or `index.html` behaviour changes visible to a user; the drill sections' press helpers (they
+  passed in every run); adding the suite to CI (WQ-033 follow-up once this lands).
+
+**Acceptance.**
+- `for i in $(seq 10); do node tests/smoke.js | tail -1; done` prints `all passed` ten times in a row on the
+  executing machine, and the same loop with `node tests/roundtrip.js`.
+- `npm run test:replay` unchanged (46 recordings); engine `VERSION` unchanged.
+- The completion entry says which mechanism was chosen and why.
+
+**Verification.** The ten-run loops above; `npm test`; diff of `tests/smoke.js` reviewed for timing-dependent waits
+left in the block.
+
+---
+
 ## Parking lot
 
 Ideas noted but not yet turned into items (an exploratory session may
 promote one with `work-queue-add`):
 
-- **Stale synthetic recordings** (WQ-027 test writer, 2026-10-25): the committed `tests/recordings/synthetic/` set other than
-  `drill-bill` was generated with engine 0.12.3; `node tests/make-synthetic.js` today changes all 11 files (`app` field) and the
-  logs of `clean-press`, `jerked-press`, `press-wobble`, `trigger-sweep` (D-72/D-87 trigger geometry). Regenerate in a commit of
-  its own and confirm every expectation still passes; routine, no decision needed.
-- **Timing-sensitive summary checks in `tests/smoke.js`** (WQ-023 agent, 2026-10-24): one `npm test` run under container load
-  reported "3 failed", two of them the summary grading checks (a shot Jerked instead of Moved); seven reruns passed. Worth a
-  look if it recurs: the simulated motion burst that should grade Moved may cross the Jerked limit when frames are slow.
-  Update (WQ-029, 2026-10-25): it recurs — the same three checks ("trigger reset allows follow-up; drift graded as moved" and the
-  two summary checks) failed in 2 of 6 sequential unloaded smoke runs now that the suite runs over 360 checks; the failing state
-  shows `lastGrade "Jerked"` with `rotEMA` ≈ 12, so the suspect is the CDP motion timing in that old block, not the engine.
-  Promote to an item: make that block measure from rAF frames or drive the motion deterministically.
+- **Stale synthetic recordings** → promoted to WQ-035 (2026-10-25).
+- **Timing-sensitive summary checks in `tests/smoke.js`** → promoted to WQ-036 (2026-10-25).
 - **Auto-switch of the axis mapping with a confidence gate** (proposal 3.6 steps 2–3). The advisory
   readout is WQ-012 (D-57); the switch waits for a second phone's recordings (WQ-006) and a Ricky decision.
 - **Synthetic recordings that can identify an axis mapping** (from WQ-004). `tests/make-synthetic.js` emits
