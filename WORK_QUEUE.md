@@ -33,21 +33,21 @@ updated: 2026-10-25
 |----|-------|-----|------|--------|------------|-------|
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-032 | Add a one-line disclaimer and privacy line to the start screen and the README | P1 | S | queued | — | docs |
-| WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | queued | — | platform |
+| WQ-032 | Add a one-line disclaimer and privacy line to the start screen and the README | P1 | S | claimed:round-20261025-5 | — | docs |
+| WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | claimed:round-20261025-5 | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-033 | Run the replay suite in GitHub Actions and pin Playwright | P2 | S | queued | — | hygiene |
+| WQ-033 | Run the replay suite in GitHub Actions and pin Playwright | P2 | S | claimed:round-20261025-5 | — | hygiene |
 | WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | queued | — | docs |
 | WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | queued | — | hygiene |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | queued | — | ui |
-| WQ-038 | Start a user-facing CHANGELOG and a version-tag convention | P2 | S | queued | — | docs |
+| WQ-038 | Start a user-facing CHANGELOG and a version-tag convention | P2 | S | claimed:round-20261025-5 | — | docs |
 | WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | queued | — | docs |
 | WQ-040 | Add a browser-support and known-issues section to the README | P2 | S | queued | — | docs |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | queued | WQ-037 | platform |
 | WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | WQ-033 | hygiene |
-| WQ-035 | Regenerate the stale synthetic recordings | P3 | S | queued | — | recordings |
+| WQ-035 | Regenerate the stale synthetic recordings | P3 | S | claimed:round-20261025-5 | — | recordings |
 | WQ-041 | Put two screenshots in the README | P3 | S | queued | — | docs |
 | WQ-044 | Accessibility pass on the page (D-121) | P3 | S | queued | — | ui |
 
@@ -275,7 +275,7 @@ WQ-022.
 
 ### WQ-032 — Add a one-line disclaimer and privacy line to the start screen and the README
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** docs · **Env:** any
+- **Status:** claimed:round-20261025-5 · **Priority:** P1 · **Size:** S · **Track:** docs · **Env:** any
 - **Added:** 2026-10-25 by public-release review session · **Updated:** 2026-10-25 by the same session (privacy line folded in at Ricky's request)
 - **Depends on:** — · **Blocks:** —
 
@@ -316,7 +316,7 @@ record the decision number in the completion entry.
 
 ### WQ-033 — Run the replay suite in GitHub Actions and pin Playwright
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
+- **Status:** claimed:round-20261025-5 · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
 - **Added:** 2026-10-25 by public-release review session
 - **Depends on:** — · **Blocks:** WQ-047
 
@@ -404,7 +404,7 @@ are the ground truth or that Ricky owns scope. There is no `CONTRIBUTING.md`, no
 
 ### WQ-035 — Regenerate the stale synthetic recordings
 
-- **Status:** queued · **Priority:** P3 · **Size:** S · **Track:** recordings · **Env:** any
+- **Status:** claimed:round-20261025-5 · **Priority:** P3 · **Size:** S · **Track:** recordings · **Env:** any
 - **Added:** 2026-10-25 by public-release review session (promoted from the parking lot, noted by the WQ-027 test
   writer on 2026-10-25)
 - **Depends on:** — · **Blocks:** —
@@ -513,7 +513,7 @@ completion entry.
 
 ### WQ-038 — Start a user-facing CHANGELOG and a version-tag convention
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
+- **Status:** claimed:round-20261025-5 · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
 - **Added:** 2026-10-25 by public-release review session
 - **Depends on:** — · **Blocks:** —
 
@@ -749,7 +749,7 @@ and physical, so this is a bounded pass, not a WCAG programme.
 
 ### WQ-045 — Tell the user when no motion data arrives after Start
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** platform · **Env:** any
+- **Status:** claimed:round-20261025-5 · **Priority:** P1 · **Size:** S · **Track:** platform · **Env:** any
 - **Added:** 2026-10-25 by public-release review session
 - **Depends on:** — · **Blocks:** —
 
