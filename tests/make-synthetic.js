@@ -62,10 +62,12 @@ const S = {
   // Bill Drill (WQ-027): drillAt 0 logs an 'r' row (fixed seed) right after the opening 'p' row. Finger on the frame from
   // 0 s, the beep falls 1-4 s after arming, so six presses start at 5.2 s (touch the trigger, slide 70 px rearward over
   // 0.25 s, lift at +0.35 s, next press 0.5 s after the last one started), then the finger goes back on the frame.
+  // The finger is also off the frame from 1.2 s to 1.9 s: with this seed the beep is due 1.43 s after arming, inside that window,
+  // so it is deferred until the finger has been back DRILL_BEEP_HOLD_MS (350 ms): 2.25 s <= beep < 2.3 s + one frame after arming.
   'drill-bill': {
     dur: 9.6, drillAt: 0, drillSeed: 20261025,
     touches: t => {
-      if (t < 5.2) return [REST];
+      if (t < 5.2) return t >= 1.2 && t < 1.9 ? [] : [REST];
       const i = Math.floor((t - 5.2) / 0.5), u = (t - 5.2) - i * 0.5;
       if (i >= 6) return t >= 8.2 ? [REST] : [];
       return u < 0.35 ? [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (u - 0.05) / 0.25)) * 70 })] : [];

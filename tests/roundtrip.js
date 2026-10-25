@@ -175,10 +175,19 @@ const check = (name, cond, extra) => {
   const endB = recB.observed.find(o => o[1] === 'drillEnd');
   check('WQ-027: Bill recording: the replayed result total matches the live drillEnd total',
     resB.state.drillRuns.length === 1 && Math.abs(resB.state.drillRuns[0].total - endB[3]) < 0.001 && endB[2] === 'bill', [resB.state.drillRuns, endB]);
-  check('WQ-027: Bill recording: a different seed changes the beep time',
-    (() => { const r2 = JSON.parse(JSON.stringify(recB)); const i = r2.log.findIndex(r => r[0] === 'r'); r2.log[i][3] = (r2.log[i][3] + 777) >>> 0;
-      const b1 = resB.events.find(e => e.type === 'drillBeep'), b2 = TDT.replay(r2).events.find(e => e.type === 'drillBeep');
-      return b1 && (!b2 || b2.t !== b1.t); })());
+  check('WQ-027: Bill recording: the results overlay paused the engine and no drillCancel was observed (0 events)',
+    liveB.paused === true && recB.observed.filter(o => o[1] === 'drillCancel').length === 0, [liveB.paused, recB.observed.filter(o => /drill/.test(o[1]))]);
+  {
+    // Another seed must give a beep too (the delay fits the log), at a different time than the recorded one.
+    const b1 = resB.events.find(e => e.type === 'drillBeep'), i = recB.log.findIndex(r => r[0] === 'r');
+    let b2 = null, used = null;
+    for (const add of [777, 1001, 2003, 3001, 5003, 8009]) {
+      const r2 = JSON.parse(JSON.stringify(recB)); r2.log[i][3] = (r2.log[i][3] + add) >>> 0;
+      const e = TDT.replay(r2).events.find(x => x.type === 'drillBeep');
+      if (e && e.t !== b1.t) { b2 = e; used = add; break; }
+    }
+    check(`WQ-027: Bill recording: another seed gives a beep too, at a different time (${b1 && b1.t} vs ${b2 && b2.t}, seed + ${used})`, !!b1 && !!b2 && b2.t !== b1.t);
+  }
   check('no page errors', errors.length === 0, errors);
 
   await browser.close();
