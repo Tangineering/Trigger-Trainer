@@ -55,7 +55,7 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 - **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
 - **Added:** 2026-10-25 by queue-add session (Ricky's request) · **Updated:** 2026-10-25 by the same session (D-115: a
   finger that lands while another controls is ignored for its whole life, not only when it reaches the other zone;
-  title, scope and acceptance rewritten); 2026-10-25 by the same session (renumbered from WQ-030 and D-111–D-113: the Transitions drill took WQ-030, D-111 and D-112 on `ccr-8fe231fe-xlcpfb`)
+  title, scope and acceptance rewritten); 2026-10-25 by the same session (renumbered from WQ-030 and D-111–D-113: the Transitions drill took WQ-030, D-111 and D-112 on `ccr-8fe231fe-xlcpfb`); 2026-10-25 by the orchestration session at the merge of WQ-030 (Transitions): `engine.js` is now 0.16.0, so this item bumps 0.16.0 → 0.17.0; `restTouch()` is at engine.js:397 still, `updateTrigger()` at engine.js:415 and the state object at engine.js:281ff; the engine now also has `st.drillFree` / `freeOnTrigger()` (a trigger touch keeps the Transitions window open, D-112 d) and `retakeOrigin()` on the trigger object (`minPull`), which an ignored touch must never reach; the 45th recording `synthetic/drill-transitions.json` is single-touch
 - **Depends on:** — · **Blocks:** —
 
 **Context.** Ricky (2026-10-25, D-113, D-115): the engine must not accept two fingers at once. Today a student can
@@ -92,7 +92,7 @@ fix the remaining details; D-114 (a) is superseded by D-115. Real recordings con
     across a pause keep their status, so the decision never depends on tick timing; replays must stay deterministic.
   - Mouse fallback (`onMouse`) is single-pointer; nothing to change there. `index.html` needs no change unless a
     test hook in `window.__tdt()` helps (e.g. `ignored` count) — keep `__tdt` read-only.
-- Bump `VERSION` (outputs change for the same inputs; 0.15.0 → 0.16.0).
+- Bump `VERSION` (outputs change for the same inputs; 0.16.0 → 0.17.0, see the Updated line).
 - Run `npm run test:replay` before and after; report which recordings change outcome (expected: the three `free`
   recordings above, possibly only in events, not in drill expectations). Do not edit recordings (CLAUDE.md working
   rules); if a drill expectation fails, stop and report instead of loosening it.
@@ -112,7 +112,7 @@ fix the remaining details; D-114 (a) is superseded by D-115. Real recordings con
   any page layout; the stale synthetic set in the parking lot (regenerate only the new file).
 
 **Acceptance.**
-- Agent-verifiable: `npm test` passes (all three suites); the five smoke scenarios above pass; `VERSION` is 0.16.0;
+- Agent-verifiable: `npm test` passes (all three suites); the five smoke scenarios above pass; `VERSION` is 0.17.0;
   the completion entry lists every recording whose replayed events change and says no drill expectation changed.
 - Owner-verifiable: on a real iPhone and a real Android phone, with one finger flat on the frame a second finger
   cannot fire the trigger, not even after the first finger lifts; with the trigger held, a second finger on the strip
