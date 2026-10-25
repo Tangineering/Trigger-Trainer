@@ -41,8 +41,7 @@ Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 has — the item says exactly what to run).
 
 Mechanical edits (claim, un-claim, archive, invariant check) go through
-`python scripts/wq.py …`; see `work-queue-run`. On Ricky's PC the interpreter is
-`C:\Users\ricky\.local\bin\python.exe` (the `python` alias on PATH is the Microsoft Store stub).
+`python scripts/wq.py …` (any Python 3, stdlib only); see `work-queue-run`.
 
 Tracks: axis · platform · recordings · grading · alarm · layout · decisions · docs · ui · drills
 
