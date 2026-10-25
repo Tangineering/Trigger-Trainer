@@ -145,6 +145,9 @@ const check = (name, cond, extra) => {
     const t = window.__tdt(); return t.recording && t.drill && t.drill.id === 'bill' && t.drill.phase === 'standby'; }));
   await page.waitForTimeout(150);
   const press = async () => {
+    // WQ-031 (D-115): CDP keeps a point down until a touchEnd lists it, so touchStart [TRG] alone would add a second
+    // finger beside the frame finger (ignored now); lift every point first (throws if none is down).
+    await touch('touchEnd', []).catch(() => {});
     await touch('touchStart', [TRG]); await motion(0, 0, 3);
     for (let dx = 20; dx <= 70; dx += 25) { await touch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await motion(0, 0, 1); }
     await motion(0, 0, 2); await touch('touchEnd', []); await motion(0, 0, 3);
