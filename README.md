@@ -56,3 +56,8 @@ automatically. Format and drills: `docs/RECORDINGS.md`.
 
 For on-phone testing before deploying, push to a branch Pages serves, or use any HTTPS tunnel to a local
 static server.
+
+Versions: every `VERSION` bump in `engine.js` adds a section to `CHANGELOG.md` in the same commit, and the owner
+tags `vX.Y.Z` on `main` after the merge. Agents never push tags.
+
+What changed in each version: see [CHANGELOG.md](CHANGELOG.md).

@@ -211,6 +211,9 @@ Bill's single string with ten shots; while it is live with at least one shot and
 - When you notice something worth exploring that's out of scope for the current task, add it to
   `docs/IDEAS.md` instead of building it or leaving it in chat.
 - Commit messages: imperative, short; one logical change per commit.
+- Every `engine.js` `VERSION` bump adds a section to `CHANGELOG.md` (user-facing lines, in the words of
+  `docs/CLASS_USE.md`, no WQ numbers) in the same commit. The owner tags `vX.Y.Z` on `main` after the merge; agents
+  never push tags.
 
 ## Layout of this repo
 
