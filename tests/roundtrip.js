@@ -180,11 +180,12 @@ const check = (name, cond, extra) => {
   {
     // Another seed must give a beep too (the delay fits the log), at a different time than the recorded one.
     const b1 = resB.events.find(e => e.type === 'drillBeep'), i = recB.log.findIndex(r => r[0] === 'r');
+    // Scan seeds in Node (replay is cheap) until one yields a beep inside the recorded log at a different time.
     let b2 = null, used = null;
-    for (const add of [777, 1001, 2003, 3001, 5003, 8009]) {
+    for (let add = 1; add <= 5000 && !b2; add++) {
       const r2 = JSON.parse(JSON.stringify(recB)); r2.log[i][3] = (r2.log[i][3] + add) >>> 0;
       const e = TDT.replay(r2).events.find(x => x.type === 'drillBeep');
-      if (e && e.t !== b1.t) { b2 = e; used = add; break; }
+      if (e && e.t !== b1.t) { b2 = e; used = add; }
     }
     check(`WQ-027: Bill recording: another seed gives a beep too, at a different time (${b1 && b1.t} vs ${b2 && b2.t}, seed + ${used})`, !!b1 && !!b2 && b2.t !== b1.t);
   }
@@ -203,7 +204,10 @@ const check = (name, cond, extra) => {
   check('WQ-028: Low Ready recording started with the drill in standby at rep 0', await page.evaluate(() => {
     const t = window.__tdt(); return t.recording && t.drill && t.drill.id === 'lowready' && t.drill.phase === 'standby' && t.drill.rep === 0; }));
   await page.waitForTimeout(150);
-  await touch('touchStart', [REST]);
+  const lineLR = () => page.textContent('#drillLine');
+  check('WQ-028: before any touch the drill line says "Rep 1 of 5 · finger on the frame"', await lineLR() === 'Rep 1 of 5 · finger on the frame', await lineLR());
+  await touch('touchStart', [REST]); await motion(0, 0, 4);
+  check('WQ-028: with the finger on the frame the line says "Rep 1 of 5 · wait for the beep"', await lineLR() === 'Rep 1 of 5 · wait for the beep', await lineLR());
   const stLR = () => page.evaluate(() => window.__tdt());
   const waitLR = async (cond, maxMs) => { const t1 = Date.now(); let x; while (Date.now() - t1 < maxMs) { await motion(0, 0, 1); x = await stLR(); if (cond(x)) return x; } return x; };
   let lrOk = true, lrLast = null;
@@ -216,7 +220,7 @@ const check = (name, cond, extra) => {
     lrLast = await waitLR(x => rp === 5 ? x.drillResOpen : x.drill.repsDone >= rp, 2500);
     if (!(rp === 5 ? lrLast.drillResOpen : lrLast.drill.repsDone >= rp)) { lrOk = false; break; }
   }
-  await motion(0, 0, 4); lrLast = await stLR();   // one frame later the page has paused the engine for the results overlay
+  lrLast = await waitLR(x => x.drillResOpen && x.paused, 3000);   // the page pauses the engine on the frame after the results open
   check('WQ-028: Low Ready recording: all five reps ran live and the results opened', lrOk && lrLast.drillResOpen && lrLast.drillRuns === 1 && lrLast.paused === true, lrLast);
   await touch('touchEnd', []);
   await page.click('#drillChange');

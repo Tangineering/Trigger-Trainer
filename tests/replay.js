@@ -243,6 +243,37 @@ if (lrFile) {
     t('pausing a live Low Ready run emits one drillCancel and restarts at rep 0 in standby with no reps (D-105)',
       evs.filter(e => e.type === 'drillCancel').length === 1 && eng.state.drill.phase === 'standby' && eng.state.drill.rep === 0 && eng.state.drill.reps.length === 0 && eng.state.drill.cur === null);
   }
+  // An alarm that spans two beeps counts once (D-105): a 180 alarm (muzzle swung 97 deg off downrange before the finger
+  // touches the frame) sounds through rep 1's beep, rep 1's shots, the cue and rep 2's beep; the run counts one alarm,
+  // and both reps are marked with it.
+  {
+    const W = 844, H = 390, mid = z => [(z.x + z.w / 2) * W, (z.y + z.h / 2) * H];
+    const REST = [{ id: 1, cx: mid(TDT.ZONES.rest)[0], cy: mid(TDT.ZONES.rest)[1], rx: 0, ry: 0 }], TR = mid(TDT.zoneFor('trigger', W));
+    const evs = [], eng = TDT.createEngine(Object.assign({}, TDT.DEFAULTS), { onEvent: e => evs.push(e) });
+    let T = 0; const step = (a = 0) => { T += 1000 / 60; eng.motion({ t: T, a, b: 0, g: 0, angle: 90 }); eng.tick(T); };
+    const run = ms => { const e = T + ms; while (T < e) step(); };
+    const press = () => {
+      eng.touches(T, [{ id: 2, cx: TR[0], cy: TR[1], rx: 0, ry: 0 }], W, H); run(60);
+      for (const dx of [20, 45, 70]) { eng.touches(T, [{ id: 2, cx: TR[0] - dx, cy: TR[1], rx: 0, ry: 0 }], W, H); run(40); }
+      run(30); eng.touches(T, [], W, H); run(50);
+    };
+    const until = (cond, maxMs) => { const e = T + maxMs; while (!cond() && T < e) run(17); return cond(); };
+    const d = () => eng.state.drill;
+    eng.setPaused(false, 0); eng.startDrill(0, 'lowready', 3);
+    run(100); eng.setDownrange(T); run(100);
+    for (let n = 0; eng.state.dev180 < 95 && n < 400; n++) step(-120);   // finger off the frame: unarmed, no alarm yet
+    t(`180 setup: muzzle ${eng.state.dev180.toFixed(0)} deg off downrange, no alarm yet`, eng.state.dev180 > 95 && !eng.state.alarmActive);
+    eng.touches(T, REST, W, H);
+    t('rep 1 beep with the 180 alarm sounding: run alarms 1, rep 1 marked', until(() => d().rep === 1, 7000) && eng.state.alarmActive && d().alarms === 1 && d().cur.alarms === 1);
+    press(); press(); eng.touches(T, REST, W, H);
+    t('cue 1 with the alarm still sounding: run alarms still 1', until(() => d().reps.length === 1, 3000) && eng.state.alarmActive && d().alarms === 1 && d().reps[0].alarms === 1);
+    t('rep 2 beep with the same alarm still sounding: run alarms still 1 (once per episode), rep 2 marked', until(() => d().rep === 2, 7000) && eng.state.alarmActive && d().alarms === 1 && d().cur.alarms === 1);
+    press(); press(); eng.touches(T, REST, W, H);
+    t('cue 2: both reps marked with one alarm each; the run counts one alarm episode; only one alarmStart event',
+      until(() => d().reps.length === 2, 3000) && d().alarms === 1 && d().reps.every(r => r.alarms === 1 && r.withAlarm) && evs.filter(e => e.type === 'alarmStart').length === 1,
+      d().reps.map(r => r.alarms));
+    t('shots fired in the alarm are not graded (unsafe)', d().reps.every(r => r.shots.every(x => x.unsafe)));
+  }
 }
 
 for (const [ua, list] of Object.entries(byDevice)) {

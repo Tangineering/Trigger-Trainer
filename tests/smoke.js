@@ -943,8 +943,11 @@ const check = (name, cond, state) => {
     let d = await lst();
     check('WQ-028: after Start the Low Ready run is in standby: rep 0, nothing done, no shots, no cue pending',
       d.drill && d.drill.id === 'lowready' && d.drill.phase === 'standby' && d.drill.rep === 0 && d.drill.repsDone === 0 && d.drill.curShots === 0 && d.drill.cuePending === false && d.drillRuns === 0, d);
-    check('WQ-028: standby line: "Rep 1 of 5 · wait for the beep"', await lline() === 'Rep 1 of 5 · wait for the beep', await lline());
-    await ltouch('touchStart', [REST]);
+    check('WQ-028: before any touch the line says "Rep 1 of 5 · finger on the frame" and the delay has not started (dueSet false)',
+      await lline() === 'Rep 1 of 5 · finger on the frame' && d.drill.dueSet === false, [await lline(), d.drill]);
+    await ltouch('touchStart', [REST]); await lmotion(4); d = await lst();
+    check('WQ-028: finger on the frame starts the delay: dueSet true, line "Rep 1 of 5 · wait for the beep"',
+      d.drill.dueSet === true && d.drill.phase === 'standby' && await lline() === 'Rep 1 of 5 · wait for the beep', [await lline(), d.drill]);
     d = await waitBeep(1);
     let lo = await LO();
     const arm = await lp.evaluate(() => performance.now());   // upper bound only; the observer's first 'rest' frame is the arming frame
@@ -986,6 +989,13 @@ const check = (name, cond, state) => {
     check(`WQ-028: rep 2: no cue between the first return and the lift; the cue is >= 750 ms (- one frame) after the SECOND return frame (${cue2 && secondRest2 ? (cue2.n - secondRest2.n).toFixed(0) : '?'} ms), which is >= 400 ms after the first (${secondRest2 && firstRest2 ? (secondRest2.n - firstRest2.n).toFixed(0) : '?'} ms)`,
       !!cue2 && !!firstRest2 && !!secondRest2 && secondRest2.n - firstRest2.n >= 400 && cue2.n - secondRest2.n >= 750 - FRM &&
       !lo.ev.some(e => e.k === 'cue' && e.rep === 2 && e.n < secondRest2.n), [firstRest2, secondRest2, cue2]);
+    // alarm BETWEEN reps (after cue 2, before beep 3): lift the finger and wobble; it clears when the finger returns
+    await ltouch('touchEnd', []); await lmotion(18);
+    await lwobble(80, 15); d = await lst();
+    check('WQ-028: between reps: moving off the frame after cue 2 alarms (standby, rep 2 played, delay running)',
+      d.alarmActive && d.alarmReason === 'move' && d.drill.phase === 'standby' && d.drill.rep === 2 && d.drill.dueSet === true, d);
+    await fingerBack(); await lmotion(4); d = await lst();
+    check('WQ-028: between reps: the alarm clears when the finger returns, before beep 3', !d.alarmActive && d.drill.phase === 'standby' && d.drill.rep === 2, d);
     // rep 3: finger back after only one shot
     d = await waitBeep(3);
     await lsleep(1500);
@@ -1018,7 +1028,7 @@ const check = (name, cond, state) => {
     check('WQ-028: after rep 5: results open, one run, the engine is paused, phase ended, five reps done, no drillCancel path taken',
       d.drillResOpen && d.drillRuns === 1 && d.paused === true && d.drill.phase === 'ended' && d.drill.repsDone === 5 && d.drill.result && d.drill.result.reps.length === 5, d);
     const texts = lo.lines.map(x => x.l);
-    for (const [name, re] of [['standby, rep 1', /^Rep 1 of 5 · wait for the beep$/], ['standby, rep 2', /^Rep 2 of 5 · wait for the beep$/], ['standby, rep 5', /^Rep 5 of 5 · wait for the beep$/],
+    for (const [name, re] of [['standby before the touch', /^Rep 1 of 5 · finger on the frame$/], ['standby, rep 1', /^Rep 1 of 5 · wait for the beep$/], ['standby, rep 2', /^Rep 2 of 5 · wait for the beep$/], ['standby, rep 5', /^Rep 5 of 5 · wait for the beep$/],
       ['live, no shot', /^Go — raise and fire two$/], ['live, one shot', /^Shot 1 of 2 — fire again$/], ['finishing', /^Finger back on the frame$/], ['hold', /^Hold…$/]]) {
       check(`WQ-028: the drill line showed ${name}`, texts.some(x => re.test(x)), texts);
     }
@@ -1030,8 +1040,8 @@ const check = (name, cond, state) => {
     const endEv = pick(lo.ev, 'res'), b1 = pick(lo.ev, 'beep', e => e.rep === 1);
     const rows = await lrows(), res = d.drill.result;
     const rowOf = k => (rows.find(r => r[0] === k) || [])[1];
-    check('WQ-028: results table: rows Rep 1..Rep 5, Total, Average reaction, Best reaction, With alarm, Best clean total (in that order)',
-      JSON.stringify(rows.map(r => r[0])) === JSON.stringify(['Rep 1', 'Rep 2', 'Rep 3', 'Rep 4', 'Rep 5', 'Total', 'Average reaction (reps with no alarm)', 'Best reaction (reps with no alarm)', 'With alarm', 'Best clean total this session']), rows);
+    check('WQ-028: results table: rows Rep 1..Rep 5, Total, Average reaction, Best reaction, With alarm, Best average reaction (in that order)',
+      JSON.stringify(rows.map(r => r[0])) === JSON.stringify(['Rep 1', 'Rep 2', 'Rep 3', 'Rep 4', 'Rep 5', 'Total', 'Average reaction (reps with no alarm)', 'Best reaction (reps with no alarm)', 'With alarm', 'Best average reaction this session (runs with no alarm)']), rows);
     check('WQ-028: results title says Low Ready', /Low Ready/.test(await lp.textContent('#drillResTitle')));
     const parse = v => { const m = /^reaction (\d+\.\d\d) s · split (\d*\.\d\d) s · (.*)$/.exec(v || ''); return m && { reaction: +m[1], split: +m[2], grades: m[3] }; };
     for (let i = 0; i < 5; i++) {
@@ -1039,20 +1049,21 @@ const check = (name, cond, state) => {
       check(`WQ-028: Rep ${i + 1} row: reaction ${p && p.reaction} s / split ${p && p.split} s match the observed frames (${per[i].reaction.toFixed(3)} / ${per[i].split.toFixed(3)}) within 40 ms`,
         !!p && Math.abs(p.reaction - per[i].reaction) <= 0.04 && Math.abs(p.split - per[i].split) <= 0.04, [rows[i], per[i]]);
     }
-    check('WQ-028: Rep 4 row ends with "alarm" and lists alarm for both shots; the other rows have grades and no alarm mark',
-      /alarm, alarm · alarm$/.test(rowOf('Rep 4')) && [1, 2, 3, 5].every(n => !/alarm/.test(rowOf(`Rep ${n}`)) && /(Clean|Moved|Jerked)/.test(rowOf(`Rep ${n}`))), rows);
+    check('WQ-028: Rep 4 row ends with "alarm" and lists alarm for both shots; Rep 3 (alarm between the reps) ends with "alarm" but its shots are graded; reps 1, 2, 5 have no alarm mark',
+      /alarm, alarm · alarm$/.test(rowOf('Rep 4')) && /Clean, Clean · alarm$/.test(rowOf('Rep 3')) && [1, 2, 5].every(n => !/alarm/.test(rowOf(`Rep ${n}`)) && /(Clean|Moved|Jerked)/.test(rowOf(`Rep ${n}`))), rows);
     check(`WQ-028: Total is rep 1's beep to the end, from the observed frames (${endEv && b1 ? ((endEv.n - b1.n) / 1000).toFixed(3) : '?'} s), within 40 ms`,
       /^\d+\.\d\d s$/.test(rowOf('Total') || '') && !!endEv && !!b1 && Math.abs(parseFloat(rowOf('Total')) - (endEv.n - b1.n) / 1000) <= 0.04, [rowOf('Total'), endEv, b1]);
-    const cleanR = [0, 1, 2, 4].map(i => per[i].reaction);
-    check(`WQ-028: Average / Best reaction cover the four reps with no alarm (observed mean ${(cleanR.reduce((x, y) => x + y, 0) / 4).toFixed(3)}, min ${Math.min(...cleanR).toFixed(3)}; alarm rep ${per[3].reaction.toFixed(3)} s is faster and excluded)`,
+    const cleanR = [0, 1, 4].map(i => per[i].reaction);
+    check(`WQ-028: Average / Best reaction cover the three reps with no alarm (1, 2, 5; observed mean ${(cleanR.reduce((x, y) => x + y, 0) / 3).toFixed(3)}, min ${Math.min(...cleanR).toFixed(3)}; alarm rep ${per[3].reaction.toFixed(3)} s is faster and excluded)`,
       /^\d+\.\d\d s$/.test(rowOf('Average reaction (reps with no alarm)') || '') && /^\d+\.\d\d s$/.test(rowOf('Best reaction (reps with no alarm)') || '') &&
       per[3].reaction < Math.min(...cleanR) - 0.2 &&
-      Math.abs(parseFloat(rowOf('Average reaction (reps with no alarm)')) - cleanR.reduce((x, y) => x + y, 0) / 4) <= 0.04 &&
+      Math.abs(parseFloat(rowOf('Average reaction (reps with no alarm)')) - cleanR.reduce((x, y) => x + y, 0) / 3) <= 0.04 &&
       Math.abs(parseFloat(rowOf('Best reaction (reps with no alarm)')) - Math.min(...cleanR)) <= 0.04, [rows, per]);
-    check('WQ-028: result: rep 4 is the only rep with an alarm; run withAlarm; the figures exclude rep 4',
-      res.reps.map(p => p.withAlarm).join() === 'false,false,false,true,false' && res.withAlarm === true && res.alarms === 1 && res.bestReaction > res.reps[3].reaction && res.avgReaction > res.reps[3].reaction, res);
-    check('WQ-028: With alarm row names one alarm; Best clean total is a dash (the only run had an alarm)',
-      /^1 alarm/.test(rowOf('With alarm') || '') && rowOf('Best clean total this session') === '—', rows);
+    check('WQ-028: result: reps 3 (alarm between reps) and 4 (alarm in the rep) are marked; the run counts two alarms; the figures exclude both',
+      res.reps.map(p => p.withAlarm).join() === 'false,false,true,true,false' && res.withAlarm === true && res.alarms === 2 && res.reps[2].alarms === 1 && res.reps[3].alarms === 1 &&
+      res.bestReaction > res.reps[3].reaction && res.avgReaction > res.reps[3].reaction, res);
+    check('WQ-028: With alarm row appears and names two alarms; Best average reaction is a dash (the only run had an alarm)',
+      /^2 alarms/.test(rowOf('With alarm') || '') && rowOf('Best average reaction this session (runs with no alarm)') === '—', rows);
     check('WQ-028: shots per rep 2, 2, 2, 2, 2 (the one-shot rep got its second shot) and no early shots', res.reps.map(p => p.shots.length).join() === '2,2,2,2,2' && res.early === 0, res.reps);
     await shoot(path.join(shotDir, 'results-landscape.png'));
     for (const sel of ['#drillAgain', '#drillChange']) { const r = await inView(sel, W, H); check(`WQ-028: ${sel} is inside the 844x390 viewport on the Low Ready results`, r === true, r); }
@@ -1069,10 +1080,20 @@ const check = (name, cond, state) => {
     await ltouch('touchEnd', []);
     await lp.click('#drillAgain'); await lp.waitForTimeout(100);
     d = await lst();
-    check('WQ-028: Again: results closed, new run in standby at rep 0, run count stays 1, line "Rep 1 of 5 · wait for the beep"',
-      !d.drillResOpen && d.drill.phase === 'standby' && d.drill.rep === 0 && d.drill.repsDone === 0 && d.drillRuns === 1 && d.running && await lline() === 'Rep 1 of 5 · wait for the beep', [d, await lline()]);
+    check('WQ-028: Again: results closed, new run in standby at rep 0, run count stays 1, line "Rep 1 of 5 · finger on the frame"',
+      !d.drillResOpen && d.drill.phase === 'standby' && d.drill.rep === 0 && d.drill.repsDone === 0 && d.drillRuns === 1 && d.running && await lline() === 'Rep 1 of 5 · finger on the frame', [d, await lline()]);
     await observeL();
     await ltouch('touchStart', [REST]);
+    d = await waitBeep(1); await fireTwo(0); await fingerBack(); await lmotion(5); d = await lst();
+    check('WQ-028: run 2: two shots fired, finger back, the cue timer runs (finishing, cuePending)', d.drill.phase === 'finishing' && d.drill.cuePending === true && d.drill.repsDone === 0, d.drill);
+    await lp.click('#gear'); await lp.waitForTimeout(120);
+    d = await lst();
+    check('WQ-028: gear while the cue timer runs cancels: paused, cuePending false, rep 0, repsDone 0, standby, no cue played',
+      d.paused && d.drill.phase === 'standby' && d.drill.cuePending === false && d.drill.rep === 0 && d.drill.repsDone === 0 && d.drill.curShots === 0 &&
+      !pick((await LO()).ev, 'cue'), d);
+    await lp.click('#doneBtn'); await lp.waitForTimeout(100);
+    check('WQ-028: after Resume the cue timer is gone (cuePending false) and the line says Cancelled', (await lst()).drill.cuePending === false && /^Cancelled/.test(await lline()), [await lline(), (await lst()).drill]);
+    await ltouch('touchEnd', []); await lmotion(2); await ltouch('touchStart', [REST]);
     d = await waitBeep(1); await fireTwo(0); back = await fingerBack(); await checkCue(1, back, 'run 2, rep 1');
     d = await lst();
     check('WQ-028: run 2: between reps (cue 1 played, standby, delay running)', d.drill.phase === 'standby' && d.drill.rep === 1 && d.drill.repsDone === 1 && d.armed && d.onRest, d);
@@ -1083,6 +1104,11 @@ const check = (name, cond, state) => {
     await lp.click('#doneBtn'); await lp.waitForTimeout(100);
     check('WQ-028: after Resume the line says Cancelled and to restart', /^Cancelled/.test(await lline()) && /restart/i.test(await lline()), await lline());
     await ltouch('touchEnd', []); await lmotion(2);
+    await ltouch('touchStart', [REST]); await lmotion(5);
+    await ltouch('touchEnd', []); await lmotion(2);
+    await lpress();                                              // a shot before rep 1's beep (the delay is >= 2 s): early
+    d = await lst();
+    check('WQ-028: a shot before rep 1\'s beep is early: run early 1, standby, rep 0', d.drill.phase === 'standby' && d.drill.early === 1 && d.drill.rep === 0 && d.drill.curShots === 0, d.drill);
     await ltouch('touchStart', [REST]);
     d = await waitBeep(1);
     check('WQ-028: after the cancel the run restarts at rep 1: a fresh beep, 0 reps done, line "Go — raise and fire two" (no Cancelled)',
@@ -1091,20 +1117,27 @@ const check = (name, cond, state) => {
     await lmotion(2); await ltouch('touchEnd', []); await lmotion(2);
     await lpress();                                              // a shot before rep 2's beep (the delay is >= 2 s): early
     d = await lst();
-    check('WQ-028: a shot between the cue and the next beep is early: run early 1, still standby, no rep shot', d.drill.phase === 'standby' && d.drill.early === 1 && d.drill.curShots === 0 && d.drill.rep === 1, d.drill);
+    check('WQ-028: a shot between the cue and the next beep is early: run early 2 (with the one before rep 1), still standby, no rep shot', d.drill.phase === 'standby' && d.drill.early === 2 && d.drill.curShots === 0 && d.drill.rep === 1, d.drill);
     await ltouch('touchStart', [REST]);
     d = await waitBeep(2); await fireTwo(0); back = await fingerBack(); await checkCue(2, back, 'run 2, rep 2');
-    for (const rp of [3, 4, 5]) { d = await waitBeep(rp); await fireTwo(0); back = await fingerBack(); await checkCue(rp, back, `run 2, rep ${rp}`); }
+    for (const rp of [3, 4, 5]) { d = await waitBeep(rp); await fireTwo(0); if (rp === 3) { await lpress(); d = await lst(); check('WQ-028: run 2 rep 3: a third shot joins the rep (finishing, 3 shots, no cue yet)', d.drill.phase === 'finishing' && d.drill.curShots === 3 && d.drill.repsDone === 2, d.drill); } back = await fingerBack(); await checkCue(rp, back, `run 2, rep ${rp}`); }
     d = await lst();
     const rows2 = await lrows(), r2 = d.drill.result;
     check('WQ-028: run 2 ends with the results open and 2 runs; clean run: no With alarm row', d.drillResOpen && d.drillRuns === 2 && !rows2.some(r => r[0] === 'With alarm') && r2.withAlarm === false, [d.drillRuns, rows2]);
-    check('WQ-028: the early shot shows on rep 2 ("early 1") and as an Early shots row of 1; rep 1 carries none',
-      / · early 1$/.test((rows2.find(r => r[0] === 'Rep 2') || [])[1] || '') && !/early/.test((rows2.find(r => r[0] === 'Rep 1') || [])[1]) &&
-      rows2.some(r => /^Early shots/.test(r[0]) && r[1] === '1') && r2.reps[1].early === 1 && r2.early === 1, [rows2, r2.reps.map(p => p.early)]);
+    check('WQ-028: the early shots show on Rep 1 and Rep 2 ("early 1") and as an Early shots row of 2; the other reps carry none',
+      / · early 1$/.test((rows2.find(r => r[0] === 'Rep 2') || [])[1] || '') && / · early 1$/.test((rows2.find(r => r[0] === 'Rep 1') || [])[1] || '') &&
+      [3, 4, 5].every(n => !/early/.test((rows2.find(r => r[0] === `Rep ${n}`) || [])[1])) &&
+      rows2.some(r => /^Early shots/.test(r[0]) && r[1] === '2') && r2.reps.map(p => p.early).join() === '1,1,0,0,0' && r2.early === 2, [rows2, r2.reps.map(p => p.early)]);
+    check('WQ-028: three shots in rep 3 list three grades (and the other reps two), with no extra cue',
+      /Clean, Clean, Clean$/.test((rows2.find(r => r[0] === 'Rep 3') || [])[1] || '') && r2.reps.map(p => p.shots.length).join() === '2,2,3,2,2' && !rows2.some(r => /^Rep 6/.test(r[0])), [rows2, r2.reps.map(p => p.shots.length)]);
     const lo2 = await LO(), b1b = pickLast(lo2.ev, 'beep', e => e.rep === 1), endB = pickLast(lo2.ev, 'res');
-    check(`WQ-028: run 2 Best clean total is this run's total (the alarm run is excluded) = observed ${b1b && endB ? ((endB.n - b1b.n) / 1000).toFixed(2) : '?'} s`,
+    const avg2 = [1, 2, 3, 4, 5].map(rp => { const b = pickLast(lo2.ev, 'beep', e => e.rep === rp), s1 = pickLast(lo2.ev, 'shot', e => e.rep === rp && e.i === 1); return b && s1 ? (s1.n - b.n) / 1000 : NaN; });
+    const avg2v = avg2.reduce((x, y) => x + y, 0) / 5;
+    check(`WQ-028: run 2 Total matches the observed frames, and its Average reaction (${avg2v.toFixed(3)} s from the observer) is the session's Best average reaction (run 1 had an alarm and is excluded)`,
       b1b && endB && Math.abs(parseFloat((rows2.find(r => r[0] === 'Total') || [])[1]) - (endB.n - b1b.n) / 1000) <= 0.04 &&
-      (rows2.find(r => /^Best clean/.test(r[0])) || [])[1] === (rows2.find(r => r[0] === 'Total') || [])[1], rows2);
+      Math.abs(parseFloat((rows2.find(r => /^Average reaction/.test(r[0])) || [])[1]) - avg2v) <= 0.04 &&
+      Math.abs(parseFloat((rows2.find(r => /^Best average reaction/.test(r[0])) || [])[1]) - avg2v) <= 0.04 &&
+      (rows2.find(r => /^Best average reaction/.test(r[0])) || [])[1] === (rows2.find(r => /^Average reaction/.test(r[0])) || [])[1], [rows2, avg2]);
 
     // --- 4. Change drill
     await ltouch('touchEnd', []);
