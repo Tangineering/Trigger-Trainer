@@ -880,6 +880,9 @@ promote one with `work-queue-add`):
 - **Dial cap derived from the guard's front edge** (from WQ-020): `layout()` reserves a fixed 160 px beside the dial
   so Set downrange clears the guard; computing it from the measured guard rectangle would survive future
   `TRIGGER_FWD_PX` changes. Needs a Ricky decision.
+- **Custom domain for the public page** (public-release review, 2026-10-25): waiting on Q21 (`OPEN_QUESTIONS.md`) for
+  the hostname; then one owner-machine item (DNS CNAME, Pages setting, `CNAME` file on the served branch), sequenced
+  before WQ-037 and WQ-043 and after Q19.
 - **Move the planning files (`WORK_QUEUE.md`, `WORK_COMPLETED.md`, `OPEN_QUESTIONS.md`, `CLAUDE.md`, `.claude/`) out of
   the repository root** so a GitHub visitor sees the product files first. Waiting on Q20 (`OPEN_QUESTIONS.md`): every
   skill, `scripts/wq.py` and the manuals cite the root paths, so it is one careful commit once Ricky decides.
