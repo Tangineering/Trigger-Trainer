@@ -44,9 +44,9 @@ Settings. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   session only.
 - Opening Settings or the summary during a drill cancels the run.
 
-## [0.12.3 and before]
+## [0.12.6 and before]
 
-Everything before the drill work, collapsed. In the order it was built:
+Everything before the drill work (0.12.6 and earlier), collapsed. In the order it was built:
 - The base trainer: finger on the frame is safe, off the frame plus movement sounds the alarm, the trigger gives a
   shot click and flash, and the 180 rule alarms when the muzzle points more than 90 degrees from downrange.
 - Settings panel, shot grading on a mini target, session summary, handedness mirror, and the test-data recorder.
