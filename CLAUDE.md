@@ -70,7 +70,8 @@ How the queue and the other documents fit together:
 - Layout (D-21): wide grip at the rear, thin slide, frame strip and trigger high; the shot movement
   indicator sits in the empty area under the muzzle.
 - **Drills** (D-93, D-94, D-97, D-98, WQ-027): the start screen's **Drill** picker chooses **Freestyle** (the trainer as
-  above, no timer, the default) or a timed drill; all Freestyle rules stay on during a drill. **Bill Drill**: finger on
+  above, no timer, the default) or a timed drill; all Freestyle rules stay on during a drill, except the Transitions window (D-111: from the first
+  shot to the tenth, movement with the finger on the trigger does not alarm). **Bill Drill**: finger on
   the frame → a random 1–4 s later the start beep → six shots (timer stops at the sixth) → finger back on the frame →
   completion tone and results (first shot, splits, total). **Low Ready** (D-96): five reps from low ready, each a
   start beep → two shots → finger back on the frame → 750 ms later a three-beep cue (back to low ready), the next beep
@@ -141,7 +142,7 @@ a motion gap > `ORIENT_GAP_MS` clears downrange (`downrangeLost`).
 Opening settings or the summary, backgrounding the page, or a portrait orientation that persists for 3 s (D-60) disarms and silences.
 Drills (`st.drill`, only after `startDrill`): `standby` (delay drawn at the first armed tick on the frame; the beep waits
 for the due time and for the finger on the frame ≥ `DRILL_BEEP_HOLD_MS` 350 ms) → `live` (beep; shots counted) →
-`finishing` (sixth shot; timer stopped) → `ended` (finger on the frame: `drillEnd`); a pause in live, finishing or a
+`finishing` (the last shot (`def.shots`; six for Bill, ten for Transitions); timer stopped) → `ended` (finger on the frame: `drillEnd`); a pause in live, finishing or a
 started standby emits `drillCancel` and returns to a fresh standby. Low Ready loops `standby → live → finishing` once per
 rep (finishing: two shots, then 750 ms with the finger on the frame → `drillCue` and the next beep due 2–5 s later, or
 `drillEnd` after rep 5); Box Drill uses the same loop with no hold and no new beep (two or more shots, the first tick on
@@ -267,7 +268,7 @@ per-rep drills, Low Ready WQ-028 and Box Drill WQ-029; `alarmInPending` too). Ph
 `tick()` and by `drillShot()` from `fire()`: standby draws the delay (one `rng()` call) at the first tick armed with
 the finger on the frame, and emits `drillBeep {drill, rep: 1}` at the first tick at or after the due time with the
 finger on the frame for at least `K.DRILL_BEEP_HOLD_MS` (350 ms, clear of the OK tone; `st.restSinceT` is when the
-finger last came onto the frame; D-104); live collects the run's shots (a shot in standby is `early`); the sixth shot computes `result`
+finger last came onto the frame; D-104); live collects the run's shots (a shot in standby is `early`); the last shot (`def.shots`; six for Bill, ten for Transitions) computes `result`
 (`first`, five `splits`, `total`, per-shot `{grade, dev, unsafe}`, `early`) and moves to finishing; the first tick
 with the finger on the frame then fills `alarms`/`withAlarm` (alarm episodes from the beep to the end, a move alarm escalating to 180 counted
 once, plus an alarm already sounding at the beep), pushes the result
@@ -372,21 +373,30 @@ onTriggerFree: true, ready: true}`: no `reps`, so it takes Bill's single-string 
   construction; an alarm latched before the window stays (D-112 h).
 - **Drift reference re-takes** (D-112 f, g; idiom `if (st.qOff) st.qOff = st.q.slice()`, `qOff` is non-null exactly
   while off the frame): in `endTrigger` when the touch ends inside the window (evaluated before `st.trig = null`); in
-  `drillShot` at the last shot, which also sets `st.trig.moveMs = 0`, so movement after shot 10 is judged from there.
-- **Grading** (D-112 i): in `updateTrigger`, while a run of an `onTriggerFree` def is live, the first time a press
-  reaches `S.pullPx * K.PULL_START_FRACTION` on an unfired trigger (`tr.pressOrig`, once per press; both trigger-object
-  literals start it `false`) re-origins `tr.oh`, `tr.ov` and clears `tr.trace`. Freestyle and the other drills: the
-  condition is false, nothing changes.
+  `drillShot` at the last shot, which also sets `st.trig.moveMs = 0`, so movement after shot 10 is judged from there;
+  and in `startDrill` / `cancelDrill` (`closeWindow()`) when they replace or drop a run inside the window, so the swing
+  already made does not alarm at the next tick. `closeWindow()` and `setPaused(true)` also set `st.drillFree = false`.
+- **Grading** (D-112 i): each trigger object carries `minPull`, the lowest pull of this press attempt (0 at
+  engagement, the pull at the moment of a trigger reset, lowered whenever the pull drops below it). While a run of an
+  `onTriggerFree` def is live and the trigger is unfired, `retakeOrigin(tr)` sets `tr.oh`, `tr.ov` to the current aim
+  and clears `tr.trace` as long as `tr.pull < tr.minPull + S.pullPx * K.PULL_START_FRACTION`, on every touch update
+  (`updateTrigger`) and every tick (a finger held still on the trigger sends no touch events while the phone swings).
+  Once the pull has risen 15 % above its lowest point the origin freezes; dropping back resumes the re-take. So a
+  reset ridden between targets or an aborted partial press does not put the swing into the grade. Freestyle and the
+  other drills: the condition is false, nothing changes.
 - **Result**: Bill's keys (`first`, nine `splits`, `total` beep → shot 10, `shots`, `early`, `alarms`, `withAlarm`,
   `endT`) plus, only for a def with `pairShots`, `pairSplits` (splits at even indices: 1→2, 3→4, …; five),
   `transitions` (odd indices: 2→3, 4→5, …; four) and `avgTransition` (r4 mean). Bill's result object is unchanged.
   Packed events unchanged. With `st.drill` null or another drill every recording replays to identical events.
 
 **Page** (`index.html`). `DRILL_SVG.transitions` (verbatim from `docs/mockups/drills/diagrams.js`), fifth `DRILL_MODES`
-entry (`Transitions`, "Five pairs, target to target"); the picker overlay scrolls at 844×390 (no CSS change).
+entry (`Transitions`, "Five pairs, target to target"); a compact picker rule under `@media (orientation: landscape) and (max-height: 430px)` fits the five entries, the
+diagram and **Choose** / **Cancel** at 844×390 without scrolling (portrait unchanged).
 `drillBeep` / `drillEnd` sounds as Bill (`timerBeep`, `complete(0.35)`). `drillLineText` (D-112 k): "Transitions ·
 finger on the frame, wait for the beep", "Go — two at the first target", "Target n · fire again" (n =
 `floor(shots / 2) + 1`), "Next target · finger may stay on the trigger", "Finger back on the frame", "Done".
 `showDrillResult` → `transitionsRows(r)`: First shot, Pairs, Transitions, Average transition, Total, Shots; then the
 shared Early shots / With alarm rows and "Best clean total this session". `window.__tdt().drill.freeOnTrigger` reads
 `st.drillFree`. Recorder label `drill-transitions`.
+Open: Q18 (OPEN_QUESTIONS.md) asks whether anything besides the 180 rule should guard the muzzle inside the window,
+and whether a finger lifted off the trigger mid-swing should get a grace on the drift test.

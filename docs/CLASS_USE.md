@@ -36,7 +36,8 @@
 ## Timed drills (Bill Drill, Low Ready, Box Drill, Transitions)
 The **Drill** button on the start screen (above **Start**) opens the drill picker. **Freestyle** is the trainer
 described above, with no timer. Pick a drill, check the diagram, tap **Choose**; the phone remembers the choice.
-All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 rule.
+All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 rule, except the Transitions window
+(D-111: from the first shot to the tenth, movement with the finger on the trigger does not alarm).
 - **Bill Drill:** tap **Start**, finger flat on the frame. After a random 1–4 s the start beep sounds (a high
   shot-timer beep; it only plays with the finger on the frame). Fire six shots as fast as the phone stays still,
   with a full trigger reset each time, then put the finger back on the frame: the completion tone plays and the
