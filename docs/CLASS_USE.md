@@ -47,7 +47,7 @@ All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 
   **Again** starts a new run with a new random delay; **Change drill** goes back to the start screen.
 - Opening Settings, the summary, switching away from the page or holding the phone in portrait cancels the run
   (no tone); the line under the status says so, and the next run starts once the finger is back on the frame.
-- Results last until the page is closed; nothing is saved.
+- Results last for this session (**New session** or **Reset stats** clears them); nothing is saved.
 
 ## Reading the target
 - Dot in the green ring: clean press.
