@@ -40,7 +40,6 @@ updated: 2026-10-25
 | WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | queued | — | docs |
 | WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | queued | — | hygiene |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | queued | — | ui |
-| WQ-038 | Start a user-facing CHANGELOG and a version-tag convention | P2 | S | claimed:round-20261025-5 | — | docs |
 | WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | queued | — | docs |
 | WQ-040 | Add a browser-support and known-issues section to the README | P2 | S | queued | — | docs |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
@@ -508,39 +507,6 @@ the launcher. Hard constraint 1 (CLAUDE.md line 40) names the static companions;
 
 **Verification.** `npm test`; the icon fetch check; owner screenshots of the two home screens recorded in the
 completion entry.
-
----
-
-### WQ-038 — Start a user-facing CHANGELOG and a version-tag convention
-
-- **Status:** claimed:round-20261025-5 · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
-- **Added:** 2026-10-25 by public-release review session
-- **Depends on:** — · **Blocks:** —
-
-**Context.** The only history is `WORK_COMPLETED.md` (98 KB, 28 archived items, written for the project's own
-bookkeeping) and the engine `VERSION` constant (`engine.js:15`, 0.17.0 today), which bumps whenever outputs change.
-The repo has no tags (`git tag` is empty) and no releases. A user who reports "it alarms during Transitions" cannot
-say which version they had beyond the `Engine x.y.z` line in Settings, and nobody can see from GitHub what changed
-when.
-
-**Scope.**
-- Add `CHANGELOG.md` in Keep-a-Changelog form, one section per engine version from 0.13.0 (drill framework) to the
-  current one, two to five user-facing lines each, written from `WORK_COMPLETED.md` and the `VERSION` bump commits
-  (`git log -S"const VERSION" -- engine.js`); earlier versions collapsed into one "0.12.3 and before" section. Each
-  section names the drills or rules it added in the words of `docs/CLASS_USE.md`, not WQ numbers.
-- Add the convention to CLAUDE.md "Working rules" (append one bullet) and to `CONTRIBUTING.md` if WQ-034 has landed
-  (else to the README "Develop" section): every `VERSION` bump adds a CHANGELOG section in the same commit, and the
-  owner tags `vX.Y.Z` on `main` after the merge. Agents never push tags.
-- Link the CHANGELOG from the README (append one line).
-- Out of scope: pushing any tag (owner's action: suggest `v0.17.0` on the current `main` in the completion entry);
-  rewriting `WORK_COMPLETED.md`; GitHub Releases.
-
-**Acceptance.**
-- `CHANGELOG.md` exists with a section per version 0.13.0 → current, each line checkable against `WORK_COMPLETED.md`.
-- CLAUDE.md working rules and the README name the convention.
-- `npm test` unchanged.
-
-**Verification.** Cross-read each section against the archive; completion entry lists the versions covered.
 
 ---
 

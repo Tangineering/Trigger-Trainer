@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-038 — Start a user-facing CHANGELOG and a version-tag convention
+
+- **Closed:** 2026-10-25 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on sonnet (docs S item); orchestration session (Fable 5.1) reviewed the diff against the `VERSION` history and archived · **Round:** round-20261025-5
+- **Commits / PR:** f1f60d4 "WQ-038: add CHANGELOG and the version-tag convention"; merge f8e9101; aa92ca4 "WQ-038: name the collapsed section 0.12.6 and before" (orchestrator)
+
+**What was done.** `CHANGELOG.md` (new, Keep-a-Changelog form, newest first): sections 0.17.0 (one finger controls the trainer), 0.16.0 (Transitions), 0.15.0 (Box Drill), 0.14.0 (Low Ready), 0.13.0 (drill picker, Freestyle, Bill Drill), two to five user-facing lines each in `docs/CLASS_USE.md` wording with no WQ numbers, and one collapsed "0.12.6 and before" section (base trainer, settings and summary, axis order default, drift alarm and portrait hold, layout rework; a note that 0.12.4–0.12.6 were the trigger-zone and sensitivity-preset steps). `CLAUDE.md` "Working rules": one appended bullet (every `VERSION` bump adds a CHANGELOG section in the same commit; the owner tags `vX.Y.Z` on `main` after the merge; agents never push tags). `README.md` "Develop": the same convention sentence (CONTRIBUTING.md does not exist yet, WQ-034) and a link line to the changelog.
+
+**Why.** Public-release review (2026-10-25): the only history was `WORK_COMPLETED.md` and the engine `VERSION` constant; no tags, no releases, so neither a user nor a GitHub visitor could see what changed when.
+
+**Deviations.** (1) The item's premise that 0.12.3 was the last pre-drill version was wrong: the `VERSION` history (`git log -G"VERSION = '" -- engine.js`) shows 0.12.4 (WQ-024), 0.12.5 (WQ-025) and 0.12.6 (WQ-026) between 0.12.3 and 0.13.0; the agent folded them into the collapsed section with a note, and the orchestrator renamed that section's heading from "0.12.3 and before" to "0.12.6 and before". (2) The 0.17.0 section was written from the CLAUDE.md WQ-031 block, since WQ-031 is still in the queue (owner half). (3) All five dated sections carry 2026-10-25, the commit dates of the bumps. (4) The convention sentence sits in README "Develop", not in CONTRIBUTING.md (not yet created); WQ-034 may move it. (5) No tag pushed; the owner's suggested first tag is `v0.17.0` on `main` after this round merges.
+
+**Verification.** Orchestrator: each section cross-read against the bump commits 568483a (0.13.0), beb7423 (0.14.0), 130efb3 (0.15.0), 873d709 (0.16.0), 2527dea (0.17.0) and the WQ-027–WQ-031 archive entries / CLAUDE.md blocks; `git diff --stat` shows only the three files, appends only. Agent: `node tests/replay.js` "all passed (46 recordings)". NOT run: the browser suites (docs-only change, no code touched).
+
+**Follow-ups.** Owner: tag `v0.17.0` on `main` once this round is merged. No new queue item.
+
+---
+
+---
+
 ### WQ-030 — Transitions drill: ten shots, movement on the trigger allowed (D-111, D-112)
 
 - **Closed:** 2026-10-25 · **Outcome:** done-with-deviations
