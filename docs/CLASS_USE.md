@@ -18,6 +18,9 @@
    check is off. Tap it again to reset; if the page goes to the background, set it again.
 5. Lay the index finger flat on the dashed strip. It turns green and plays the OK tone.
 
+WQ-045: if a **No motion data** banner appears over the slide on an iPhone, the alarms cannot work: close the tab, reopen
+the link and tap **Allow** (or turn on Settings → Safari → Motion & Orientation Access).
+
 ## Drills
 - **Ready and move:** finger on the frame, move between "targets" around the room. No alarm should sound.
 - **Finger off = freeze:** lift the finger to the trigger only when the phone is still. Any movement → alarm.
