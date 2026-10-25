@@ -86,3 +86,17 @@ Versions: every `VERSION` bump in `engine.js` adds a section to `CHANGELOG.md` i
 tags `vX.Y.Z` on `main` after the merge. Agents never push tags.
 
 What changed in each version: see [CHANGELOG.md](CHANGELOG.md).
+
+## Project files
+
+How the project is run (WQ-034): [CONTRIBUTING.md](CONTRIBUTING.md) says how to report a problem, contribute a phone
+recording and open a pull request; [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and [SECURITY.md](SECURITY.md) sit beside
+it. The other files in the root are the planning documents: [WORK_QUEUE.md](WORK_QUEUE.md) (outstanding work),
+[WORK_COMPLETED.md](WORK_COMPLETED.md) (finished work), [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) (questions for the
+owner), [docs/DECISIONS.md](docs/DECISIONS.md) (every decision, attributed; Ricky decides scope),
+[docs/IDEAS.md](docs/IDEAS.md) (ideas not yet committed to) and [CLAUDE.md](CLAUDE.md) (the operating manual for the
+coding agents that do most of the work, with the skills in `.claude/skills/`). Real-phone recordings in
+`tests/recordings/` are the ground truth for every threshold.
+
+**Report a problem:** open an issue at https://github.com/Tangineering/Trigger-Trainer/issues (name the phone, OS and
+browser; a recording from Settings → **Record test data** helps most).
