@@ -428,7 +428,7 @@ multi-touch rows in the three `free` recordings are grip fingers while the frame
 
 **Page / tests.** `window.__tdt()` adds `ignored` (`st.ignored.size`) and `restContact`. CDP's
 `Input.dispatchTouchEvent` keeps a point down until a `touchEnd` lists it (`touchEnd []` lifts all), so the drill
-sections' smoke press helpers, whose `touchStart [TRG]` used to add a second finger beside the frame finger, now lift
+sections' smoke press helpers and the roundtrip Bill / Low Ready / Box `press()`, whose `touchStart [TRG]` used to add a second finger beside the frame finger, now lift
 every point first; the `WQ-031` smoke section covers
 the five scenarios of the item.
 
