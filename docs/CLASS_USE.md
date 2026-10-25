@@ -1,6 +1,7 @@
 # Using the Trainer in Class
 
 ## Before class
+- Tell students what it is: A dry, phone-only teaching aid for trigger-finger discipline. Not firearms training; use it with a qualified instructor and never with a real firearm. Provided as is, no warranty (MIT).
 - Scan-to-open QR code for the site URL on a slide or handout.
 - Check volume on a demo phone: hold **Test sound** on the start screen (also in Settings). iPhones: Silent mode off.
 - Have students hold **Test sound** and turn their volume down before starting; the alarms are loud.
