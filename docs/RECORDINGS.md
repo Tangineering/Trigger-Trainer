@@ -97,7 +97,8 @@ A recording is edited only on a logged Ricky decision, and then its `notes` fiel
 ```
 
 A recording made with a drill selected starts its `log` with an `r` row: the engine draws the random start-beep
-delay from that seed, so the replay beeps at the same moment as the live run. Freestyle recordings have no `r` row.
+delay from that seed, so the replay beeps at the same moment as the live run. Each **Again** on the drill results adds another `r` row
+mid-log (a new seed), and **Change drill** adds an `x` row. Freestyle recordings have neither.
 
 Values are rounded where they're captured (time 1 µs, sensors 1e-4, touches 0.01 px), and the live engine
 uses the rounded values, so a replay with the same engine version reproduces `observed` exactly. When
