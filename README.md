@@ -48,6 +48,9 @@ npm test              # replays + browser state-machine test + record/replay rou
 npm run test:replay   # replays only (no browser needed)
 ```
 
+The replay suite runs in GitHub Actions on every push and pull request (`.github/workflows/test.yml`). The browser
+suites (`tests/smoke.js`, `tests/roundtrip.js`) are not in CI yet; run `npm test` locally before a merge.
+
 ### Test data from real phones
 
 Settings → **Record test data** records one labeled drill (motion, touches, timing) and hands you a JSON
