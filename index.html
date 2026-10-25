@@ -338,7 +338,7 @@
       <button class="btn" id="drillChange">Change drill</button>
     </div>
     <table id="drillResTable"><tbody id="drillResRows"></tbody></table>
-    <p class="help">Nothing is saved or sent: results last until you close the page. Take a screenshot to keep them.</p>
+    <p class="help">Nothing is saved or sent: results last for this session. Take a screenshot to keep them.</p>
   </div>
 </div>
 
@@ -606,15 +606,16 @@ function openPicker() { pickerHi = drillSel; renderPicker(); $('drillOv').classL
 function closePicker() { $('drillOv').classList.remove('show'); }
 /** Start a run of the selected drill on the current engine (no-op for Freestyle); the 'r' row makes it replayable. */
 function beginDrillRun(t) {
-  drillCancelled = false;
-  if (drillSel === 'freestyle') return;
-  const seed = (Math.random() * 2 ** 32) >>> 0;
-  if (engine.startDrill(t, drillSel, seed)) logRow(['r', t, drillSel, seed]);
+  if (drillSel !== 'freestyle') {
+    const seed = (Math.random() * 2 ** 32) >>> 0;
+    if (engine.startDrill(t, drillSel, seed)) logRow(['r', t, drillSel, seed]);
+  }
+  drillCancelled = false;                        // after startDrill: its drillCancel (a run in progress) sets it
 }
 /** Leaving the trainer for the start screen: the run is dropped ('x' row) and the trainer stops. */
 function leaveToStart() {
   const t = now();
-  engine.cancelDrill(t); logRow(['x', t]);
+  if (engine.state.drill) { engine.cancelDrill(t); logRow(['x', t]); }   // Freestyle logs no 'x' row
   running = false;
   $('rotateOv').classList.remove('armed');
   buildSettings(); renderDrillBtn(); $('startOv').classList.add('show');
@@ -644,7 +645,7 @@ function drillLineText(s) {
   const d = s.drill;
   if (!d) return '';
   const m = DRILL_MODES.find(x => x.id === d.id), name = m ? m.name : d.id;
-  if (d.phase === 'standby') return drillCancelled ? `${name} · run cancelled, finger on the frame to restart`
+  if (d.phase === 'standby') return drillCancelled ? 'Cancelled · finger on the frame to restart'
                                                    : `${name} · finger on the frame, wait for the beep`;
   if (d.phase === 'live') return d.shots.length ? `Shot ${d.shots.length} of ${TDT.DRILL_DEFS[d.id].shots}` : 'Go';
   if (d.phase === 'finishing') return 'Finger back on the frame';
