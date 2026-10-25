@@ -33,7 +33,7 @@ updated: 2026-10-25
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-029 | Box Drill: five positions, move cue after 2+ shots | P2 | M | queued | — | drills |
+| WQ-029 | Box Drill: five positions, move cue after 2+ shots | P2 | M | claimed:round-20261025-2 | — | drills |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -187,7 +187,7 @@ WQ-022.
 
 ### WQ-029 — Box Drill: five positions, move cue after 2+ shots (D-95, D-98)
 
-- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** drills · **Env:** any
+- **Status:** claimed:round-20261025-2 · **Priority:** P2 · **Size:** M · **Track:** drills · **Env:** any
 - **Added:** 2026-10-24 by drill-planning session · **Updated:** 2026-10-24 by drill-planning session (Ricky accepted D-98) · **Updated:** 2026-10-24 by orchestration session (merged from the drill-planning branch: the planning session numbered this item WQ-024 and its decisions D-85–D-90, IDs that rounds 1–4 of 2026-10-24 had already used on `main`, so it is WQ-029 and the decisions are D-93–D-98 (D-85 → D-93, D-86 → D-94, D-87 → D-95, D-88 → D-96, D-89 → D-97, D-90 → D-98); code anchors refreshed to engine 0.12.6. The `docs/mockups/drills/picker-*.png` mockups the item cites were never committed (`.gitignore` has `*.png`): the SVG strings in `docs/mockups/drills/diagrams.js` are the approved source; render them yourself if a picture helps)
 - **Depends on:** — · **Blocks:** —
 
