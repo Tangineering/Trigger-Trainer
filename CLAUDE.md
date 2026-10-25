@@ -448,3 +448,12 @@ The fix line (`motionFixText()`) is chosen by feature checks (D-53): non-secure 
 `DeviceMotionEvent.requestPermission` present → close the tab, reopen, Allow, or Settings → Safari → Motion &
 Orientation Access; else HTTPS line. While open, `setStatus` prefixes the pill with "NO MOTION · ". `#warnLine` no longer
 carries a no-motion message. `window.__tdt()` adds `motionSeen` (any sample since load) and `motionBannerOpen`.
+
+## WQ-036 — held test clock in the smoke suite (D-126)
+
+`tests/smoke.js` can hold the page's clock: `holdClock()` replaces `performance.now` in the page (test-only, injected by
+`page.evaluate`; `index.html` and `engine.js` unchanged) with a virtual time advanced only by the `motion` / `wobble`
+helpers, 16 ms per sample, each sample followed by one rendered frame; `releaseClock()` resumes real time at a fixed
+offset. The main press block (trigger reset graded Moved through the third shot during an alarm) runs held, so the
+angle a burst integrates to and the movement time during a press no longer depend on event-loop timing. Checks that
+need wall time to pass (portrait hold, drill delays) must not run while the clock is held.

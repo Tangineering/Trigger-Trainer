@@ -75,22 +75,33 @@ const check = (name, cond, state) => {
   const cdp = await ctx.newCDPSession(page);
   const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', {
     type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 25, radiusY: 25 })) });
-  const motion = async (alpha, beta = alpha, n = 15) => {
-    for (let i = 0; i < n; i++) {
-      await page.evaluate(([a, b]) => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
-        rotationRate: { alpha: a, beta: b, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), [alpha, beta]);
-      await page.waitForTimeout(16);
-    }
+  // Test clock (WQ-036, D-126). The page stamps every input and tick with performance.now(), so samples sent
+  // 16 ms apart in wall time can land 30-100 ms apart in a slow frame, and the same burst integrates to a
+  // different angle. While the clock is held (holdClock), performance.now() in the page returns a virtual time
+  // that only the motion helpers advance, 16 ms per sample, and each sample waits for one rendered frame so the
+  // page's tick sees it: the engine then gets the same timestamps on every run. releaseClock() lets time run on
+  // from where the virtual clock stopped (a fixed offset from the real clock, so time never jumps).
+  // Test-only, injected from here: index.html and engine.js are unchanged.
+  let held = false;
+  const holdClock = () => page.evaluate(() => {
+    const c = window.__testClock || (window.__testClock = { real: performance.now.bind(performance), off: 0 });
+    c.vt = Math.ceil(c.real() - c.off); c.held = true;
+    performance.now = () => (c.held ? c.vt : c.real() - c.off);
+  }).then(() => { held = true; });
+  const releaseClock = () => page.evaluate(() => { const c = window.__testClock; c.off = c.real() - c.vt; c.held = false; })
+    .then(() => { held = false; });
+  const frame = () => page.evaluate(() => new Promise(r => requestAnimationFrame(() => r())));
+  const sample = async (a, b) => {
+    await page.evaluate(([a, b]) => {
+      if (window.__testClock && window.__testClock.held) window.__testClock.vt += 16;
+      window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+        rotationRate: { alpha: a, beta: b, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 }));
+    }, [a, b]);
+    if (held) await frame(); else await page.waitForTimeout(16);
   };
+  const motion = async (alpha, beta = alpha, n = 15) => { for (let i = 0; i < n; i++) await sample(alpha, beta); };
   // Shake back and forth: high rotation rate, little net change in where the muzzle points.
-  const wobble = async (rate, n = 15) => {
-    for (let i = 0; i < n; i++) {
-      const r = i % 2 ? rate : -rate;
-      await page.evaluate(r => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
-        rotationRate: { alpha: r, beta: r, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), r);
-      await page.waitForTimeout(16);
-    }
-  };
+  const wobble = async (rate, n = 15) => { for (let i = 0; i < n; i++) { const r = i % 2 ? rate : -rate; await sample(r, r); } };
   let s;
 
   s = await st(); check('starts unarmed', !s.armed, s);
@@ -123,6 +134,8 @@ const check = (name, cond, state) => {
   await touch('touchMove', [[TRG[0] - 70, TRG[1], 2]]); await motion(0, 0, 3);
   s = await st(); check('full pull while still fires a clean shot', s.shots === 1 && s.lastGrade === 'Clean', s);
 
+  // The press checks below depend on how far the muzzle turns and how long it moves: run them on the held clock.
+  await holdClock();
   await touch('touchMove', [[TRG[0] - 10, TRG[1], 2]]); await motion(0, 0, 3);
   await motion(-15, 0, 6);                                   // muzzle dips ~1.4 deg during the press
   await touch('touchMove', [[TRG[0] - 75, TRG[1], 2]]); await page.waitForTimeout(50);
@@ -153,6 +166,7 @@ const check = (name, cond, state) => {
   await touch('touchMove', [[TRG[0] - 70, TRG[1], 2]]); await motion(0, 0, 3);
   s = await st(); check('full pull during an alarm fires a third shot, marked as fired during an alarm',
     s.shots === 3 && s.summary.unsafeShots === 1 && s.summary.graded === 2, s);
+  await releaseClock();
 
   await touch('touchEnd', []); await motion(0, 0, 3);
   await touch('touchStart', [REST]); await motion(0, 0, 5);
