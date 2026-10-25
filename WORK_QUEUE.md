@@ -24,7 +24,7 @@ How to use it:
 
 ```yaml
 next_id: WQ-030
-updated: 2026-10-24
+updated: 2026-10-25
 ```
 
 ## Index
@@ -33,9 +33,8 @@ updated: 2026-10-24
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-027 | Drill framework, start-screen drill picker and the Bill Drill | P2 | L | claimed:round-20261024-5 | — | drills |
-| WQ-028 | Low Ready drill with the three-beep cue | P2 | M | queued | WQ-027 | drills |
-| WQ-029 | Box Drill: five positions, move cue after 2+ shots | P2 | M | queued | WQ-027, WQ-028 | drills |
+| WQ-028 | Low Ready drill with the three-beep cue | P2 | M | queued | — | drills |
+| WQ-029 | Box Drill: five positions, move cue after 2+ shots | P2 | M | queued | WQ-028 | drills |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -187,122 +186,11 @@ WQ-022.
 
 ---
 
-### WQ-027 — Drill framework, start-screen drill picker and the Bill Drill (D-93, D-94, D-97, D-98)
-
-- **Status:** claimed:round-20261024-5 · **Priority:** P2 · **Size:** L · **Track:** drills · **Env:** any
-- **Added:** 2026-10-24 by drill-planning session · **Updated:** 2026-10-24 by drill-planning session (Ricky accepted D-98) · **Updated:** 2026-10-24 by orchestration session (merged from the drill-planning branch: the planning session numbered this item WQ-022 and its decisions D-85–D-90, IDs that rounds 1–4 of 2026-10-24 had already used on `main`, so it is WQ-027 and the decisions are D-93–D-98 (D-85 → D-93, D-86 → D-94, D-87 → D-95, D-88 → D-96, D-89 → D-97, D-90 → D-98); code anchors refreshed to engine 0.12.6. The `docs/mockups/drills/picker-*.png` mockups the item cites were never committed (`.gitignore` has `*.png`): the SVG strings in `docs/mockups/drills/diagrams.js` are the approved source; render them yourself if a picture helps)
-- **Depends on:** — · **Blocks:** WQ-028, WQ-029
-
-**Context.** Ricky decided to add timed drills next to today's trainer (D-93). The start screen gets a **Drill** selector;
-its picker lists **Freestyle** (today's trainer, unchanged, the default), **Low Ready**, **Box Drill**, **Bill Drill**, in
-that order, and shows a diagram of what to do for the selected drill. Every drill ends with a completion tone (D-94).
-The Bill Drill is six shots from the start beep, with no muzzle-angle requirement before the beep (D-97). The details
-Ricky did not state at first are fixed in D-98 (Claude → Ricky accepted): read D-93–D-98 in `docs/DECISIONS.md` before starting;
-they are this item's spec. Approved look: `docs/mockups/drills/picker-*.png` (landscape 844 × 390 and portrait
-390 × 844, one per drill), drawn from the SVG strings in `docs/mockups/drills/diagrams.js` (exports `freestyle`,
-`lr`, `box`, `bill`; each a 360 × 200 SVG string).
-This item builds what all three drills share, and the Bill Drill as the first and simplest drill (one beep, six
-shots, one end). WQ-028 (Low Ready) and WQ-029 (Box Drill) add their sequences on top. Today the engine has no
-drill or timer: `createEngine` returns `{motion, touches, tick, setPaused, setDownrange, resetStats, state, version}`
-(`engine.js:512`), the event list is in the comment at `engine.js:235`, and `replay()` handles rows `m t p f d`
-(`engine.js:550-555`). The page: `Snd` (`index.html:337`; `ok()` 364, `shot()` 365, `startAlarm()` 376),
-`onEvent` (`index.html:515`), recorder `DRILLS` list (`index.html:494`) and `startRecording()` (`index.html:538`),
-the start overlay `#startOv` (`index.html:189`, Start/Settings row at 204-207), `start()` (`index.html:910`),
-`showSummary()` (`index.html:993`), `window.__tdt()` (near the end of `index.html`).
-
-**Scope.**
-- Engine (`engine.js`; no DOM, no `performance.now()`, no `Math.random()`: every input carries its timestamp):
-  - A small seeded generator (for example mulberry32) inside the engine.
-  - `startDrill(t, id, seed)` and `cancelDrill(t)` on the object `createEngine` returns. Ids: `'bill'` here;
-    `'lowready'` (WQ-028) and `'box'` (WQ-029) are reserved and must be rejected (no state change) until built.
-    Freestyle means no drill: `st.drill` stays `null` and the engine behaves exactly as today.
-  - Drill state `st.drill` (`id`, `phase`, generator, due time, run data, `result`) and `st.drillRuns` (session list of
-    finished-run results; `resetStats()` clears it).
-  - Standby (D-98 a): the first tick after `startDrill` with the engine armed and `st.onRest` true starts the delay;
-    draw it from the generator, uniform 1000–4000 ms for Bill. At the first tick at or after the due time with
-    `st.onRest` true, emit `drillBeep {t, drill, rep: 1}` (a beep never plays with the finger off the frame; it plays at
-    the first tick back on the frame).
-  - Bill run: shots (the existing `fire()` path, `engine.js:403`) between the beep and the sixth are the run's shots
-    (time, grade, dev, `unsafe`). A shot before the beep counts in `result.early` and not toward the six (D-98 d). At the
-    sixth shot the timer stops: `first` = shot 1 − beep, `splits` = the five gaps, `total` = shot 6 − beep. At the
-    first tick at or after the sixth shot with `st.onRest` true, emit `drillEnd {t, drill, result}`, push the result to
-    `st.drillRuns` and set the phase to ended. `result.alarms` = alarm starts between the beep and the end; the run is
-    marked with alarm if non-zero; grading of unsafe shots stays as D-45.
-  - `setPaused(true)` while a run is in standby or live cancels it (D-98 e): emit `drillCancel {t, drill}` and return to
-    standby, so a fresh run starts when the trainer resumes. `cancelDrill(t)` cancels and clears `st.drill`.
-  - `packEvent` (`engine.js:537`): `drillBeep` → `[t, 'drillBeep', rep]`, `drillEnd` → `[t, 'drillEnd', drill,
-    r4(total)]`; other new events keep `[t, type]`.
-  - `replay()`: new rows `['r', t, drill, seed]` → `startDrill`, `['x', t]` → `cancelDrill`; update the row comment
-    at `engine.js:541-543`.
-  - Bump `VERSION` (`engine.js:15`) from `0.12.6` to `0.13.0` (new inputs and events). Freestyle replays must not
-    change: no existing recording may change outcome or events.
-- Sounds (`index.html` `Snd`, D-94, D-98 g): `timerBeep()` (one 2.6 kHz tone, about 0.3 s, loud, like a shot timer)
-  and `complete()` (rising C5–E5–G5–C6 arpeggio, about 0.9 s). Both go through `tone()` and the master gain, never the
-  alarm node. `onEvent`: `drillBeep` → `timerBeep()` + `buzz(80)`; `drillEnd` → `complete()` started after the OK tone
-  (about 0.35 s, D-98 g) + `buzz([60, 60, 60])`, then open the results overlay; `drillCancel` → no sound, status text only.
-  The three-beep cue is WQ-028's.
-- Start screen and picker (`index.html`):
-  - A `DRILL_MODES` table: `{id, name, sub, how, svg, ready}` in D-93 order (Freestyle, Low Ready, Box Drill,
-    Bill Drill). Port the `freestyle` and `bill` SVG strings from `docs/mockups/drills/diagrams.js` inline (static
-    page, no fetch). Low Ready and Box Drill get `ready: false` and are hidden from the picker until their items land.
-  - A **Drill** button above the Start/Settings row in `#startOv`, showing the selected drill's name and subtitle
-    (as behind the picker in `docs/mockups/drills/picker-*.png`). It opens a picker overlay:
-    landscape has the list left and the diagram, one-line how-to and **Choose** / **Cancel** right; portrait has the
-    diagram above the list. Match the mockups; buttons must not be clipped at 844 × 390 or 390 × 844.
-  - Remember the selected drill in `localStorage` key `tdt.drill` (try/catch; default Freestyle; D-98 i).
-- Running a drill: in `start()` (and on **Again**), when the selection is not Freestyle, call
-  `engine.startDrill(t, id, seed)` with `seed = (Math.random() * 2 ** 32) >>> 0` and `logRow(['r', t, id, seed])`.
-  Freestyle logs no `r` row. `startRecording()` makes a fresh engine (`index.html:539`); when a drill is selected it
-  must start the run on that engine and log the `r` row first. Leaving the trainer for the start screen calls
-  `cancelDrill` and logs `['x', t]`.
-- Trainer screen: one short drill line in the status area (`#statusBox`, `index.html:167`), for example
-  "Bill Drill · wait for the beep", "Go", "Shot 3 of 6", "Finger back on the frame", "Run cancelled, finger on the
-  frame to restart". Freestyle shows nothing new.
-- Results overlay (D-98 f): opens at `drillEnd`; Bill shows first shot, the five splits, total (seconds, 2 decimals),
-  the six grades, early shots and "with alarm" when it applies, and the best clean total of the session; buttons
-  **Again** (new run, new seed) and **Change drill** (back to the start screen). Session-only; nothing saved.
-- `window.__tdt()`: add read-only `drill: {id, phase, shots, result}` (or `null`).
-- Recorder: add `{id: 'drill-bill', name: 'Drill: Bill', hint: 'Select Bill Drill first. Finger on the frame, wait
-  for the beep, fire six, finger back on the frame. Expect: one beep and one drill end.'}` to `DRILLS`.
-- Tests: `tests/expectations.js` `'drill-bill'` (one `drillBeep`, one `drillEnd`, six run shots); extend the summary in
-  `tests/replay.js` (around line 33) with drill event counts; `tests/make-synthetic.js` a `drill-bill` scenario
-  (needs the `r` row) and regenerate `tests/recordings/synthetic/`; `tests/smoke.js`: picker order and hidden
-  not-ready drills, a Bill run end to end (beep 1–4 s after arming, six presses, finger back → end, results overlay,
-  Again restarts), a shot before the beep counted as early, pausing via the gear cancels the run;
-  `tests/roundtrip.js`: one Bill run recorded in the page replays with identical events.
-- Docs: `CLAUDE.md` (behavior spec bullet for drills, the engine and `index.html` tables, the state-machine paragraph),
-  `docs/RECORDINGS.md` (rows `r` and `x`, label `drill-bill`), `docs/CLASS_USE.md` (how to pick and run a drill),
-  `README.md` if it lists features. Log every choice beyond D-93–D-98 as `Claude (proposed)` in `docs/DECISIONS.md`.
-- Out of scope: Low Ready and the three-beep cue (WQ-028), Box Drill (WQ-029), saving results between sessions,
-  drill rows in the session summary, par times, any change to Freestyle thresholds or events.
-
-**Acceptance.**
-- `npm test` passes; `npm run test:replay` before and after shows no change for any pre-existing recording.
-- `grep -nE "Math.random|performance.now|window|document" engine.js` finds nothing new.
-- Synthetic `drill-bill` replays: the beep falls 1000–4000 ms after the tick that started standby; `first`, `splits`
-  and `total` equal the shot times minus the beep; replaying the same recording twice gives identical events; a
-  different seed gives a different beep time.
-- The picker lists Freestyle and Bill Drill only, in D-93 order, with the diagrams; screenshots at 844 × 390 and
-  390 × 844 (start screen, picker, results) saved under `docs/screenshots/wq-022/`, nothing clipped.
-- Freestyle: starting it logs no `r` row and emits no drill event.
-- *Owner-verifiable* (an iPhone and an Android phone):
-  - The start beep is easy to hear and cannot be mistaken for the OK tone, the shot or an alarm; the completion tone
-    sounds like "done".
-  - Six fast shots with full trigger resets all break; results show believable times. Note whether a fast string
-    alarms under the 300 ms jerk allowance (`jerkMs`, D-47) and report it; do not change the threshold here.
-
-**Verification.** Run the commands above; drive the page with Playwright and the mouse fallback for the UI checks.
-Record in the completion entry: the before/after replay diff, the synthetic beep time and result, the screenshot
-paths, and every `Claude (proposed)` row added. Size L: implement with `orchestrated-feature`. Touches `engine.js` and
-`index.html`: never run in parallel with another item that touches either.
-
----
-
 ### WQ-028 — Low Ready drill with the three-beep cue (D-96, D-98)
 
 - **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** drills · **Env:** any
 - **Added:** 2026-10-24 by drill-planning session · **Updated:** 2026-10-24 by drill-planning session (Ricky accepted D-98) · **Updated:** 2026-10-24 by orchestration session (merged from the drill-planning branch: the planning session numbered this item WQ-023 and its decisions D-85–D-90, IDs that rounds 1–4 of 2026-10-24 had already used on `main`, so it is WQ-028 and the decisions are D-93–D-98 (D-85 → D-93, D-86 → D-94, D-87 → D-95, D-88 → D-96, D-89 → D-97, D-90 → D-98); code anchors refreshed to engine 0.12.6. The `docs/mockups/drills/picker-*.png` mockups the item cites were never committed (`.gitignore` has `*.png`): the SVG strings in `docs/mockups/drills/diagrams.js` are the approved source; render them yourself if a picture helps)
-- **Depends on:** WQ-027 · **Blocks:** WQ-029
+- **Depends on:** — · **Blocks:** WQ-029
 
 **Context.** D-96 (Ricky) defines the Low Ready drill and D-98 (Claude → Ricky accepted) fills its gaps; read both. Low ready
 here is competition style: the muzzle stays downrange and the gun is translated down, so there is no muzzle-angle
@@ -354,7 +242,7 @@ screenshots in the completion entry. Touches `engine.js` and `index.html`: no pa
 
 - **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** drills · **Env:** any
 - **Added:** 2026-10-24 by drill-planning session · **Updated:** 2026-10-24 by drill-planning session (Ricky accepted D-98) · **Updated:** 2026-10-24 by orchestration session (merged from the drill-planning branch: the planning session numbered this item WQ-024 and its decisions D-85–D-90, IDs that rounds 1–4 of 2026-10-24 had already used on `main`, so it is WQ-029 and the decisions are D-93–D-98 (D-85 → D-93, D-86 → D-94, D-87 → D-95, D-88 → D-96, D-89 → D-97, D-90 → D-98); code anchors refreshed to engine 0.12.6. The `docs/mockups/drills/picker-*.png` mockups the item cites were never committed (`.gitignore` has `*.png`): the SVG strings in `docs/mockups/drills/diagrams.js` are the approved source; render them yourself if a picture helps)
-- **Depends on:** WQ-027, WQ-028 · **Blocks:** —
+- **Depends on:** WQ-028 · **Blocks:** —
 
 **Context.** D-95 (Ricky) defines the Box Drill and D-98 (Claude → Ricky accepted) fills its gaps; read both. The student marks
 four spots, starts at spot 1, goes round and finishes back at spot 1: five shooting positions. The student sets the
@@ -400,6 +288,10 @@ the `drillCue` event, reused here. Approved diagram: `box` in `docs/mockups/dril
 Ideas noted but not yet turned into items (an exploratory session may
 promote one with `work-queue-add`):
 
+- **Stale synthetic recordings** (WQ-027 test writer, 2026-10-25): the committed `tests/recordings/synthetic/` set other than
+  `drill-bill` was generated with engine 0.12.3; `node tests/make-synthetic.js` today changes all 11 files (`app` field) and the
+  logs of `clean-press`, `jerked-press`, `press-wobble`, `trigger-sweep` (D-72/D-87 trigger geometry). Regenerate in a commit of
+  its own and confirm every expectation still passes; routine, no decision needed.
 - **Timing-sensitive summary checks in `tests/smoke.js`** (WQ-023 agent, 2026-10-24): one `npm test` run under container load
   reported "3 failed", two of them the summary grading checks (a shot Jerked instead of Moved); seven reruns passed. Worth a
   look if it recurs: the simulated motion burst that should grade Moved may cross the Jerked limit when frames are slow.
