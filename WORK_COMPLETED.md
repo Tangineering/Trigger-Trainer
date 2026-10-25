@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-034 — Link the page to its source and add contributing notes to the README
+
+- **Closed:** 2026-10-25 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff and the new files and archived · **Round:** round-20261025-6
+- **Commits / PR:** d1d9295 "WQ-034: link the page to its source; add contributing, conduct and security notes"; merge on the orchestration branch
+
+**What was done.** `index.html`: the Ko-fi `p.tip` on `#startOv` ends with a plain "Source on GitHub" anchor (`target="_blank" rel="noopener noreferrer"`, D-63 style), above the WQ-032 lines. New files: `CONTRIBUTING.md` (issues with phone / OS / browser / engine line; a recording is the best attachment; `npm test` before a pull request and the `replay` check green; thresholds change only with the replay suite; the CHANGELOG rule; where planning lives; conduct and security pointers), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1; reports via GitHub issues or the Ko-fi page's message form, no e-mail address), `SECURITY.md` (three lines), `.github/ISSUE_TEMPLATE/bug_report.md` (phone, OS, browser, engine version, hand and grip, what happened, steps, recording; label `bug`). `README.md`: "## Project files" and a "Report a problem" line appended after "Develop". `docs/RECORDINGS.md`: a "Contributing a recording" consent paragraph and the notes hint now "phone model, grip, hand; no names". D-125 (`Claude (proposed)`) records the consent wording. Screenshots `docs/screenshots/wq-034/` (852×393 and 667×375, top and bottom).
+
+**Why.** Public-release review (2026-10-25): the page never named its repository, and nothing told a visitor how the project is run, how to report a problem, or what a contributed recording contains.
+
+**Deviations.** (1) The consent text lists everything a recording actually holds (also frame times, screen size and pixel ratio, settings, drill label, notes, date and time, and the trainer's events), not the item's "user agent, motion samples and touch positions and nothing else", which was incomplete (D-125 b). (2) The recorder how-to's notes hint lost "who" to agree with the no-names rule. (3) The issue template also asks for hand and grip and sets the default `bug` label. (4) No release tag (out of scope; the owner's suggested first tag is `v0.17.0`).
+
+**Verification.** Agent: `npm test` exit 0 (replay "all passed (46 recordings)", smoke and roundtrip "all passed", 0 FAIL, no flake); engine untouched at 0.17.0; Playwright on `#startOv` at 852×393 and 667×375: the Ko-fi line with the new link stays on one line, no horizontal scroll, **Start** top unchanged at 500 px; both anchors carry `target=_blank` and `rel="noopener noreferrer"`; every file named in `CONTRIBUTING.md` and the README exists; `git ls-files` lists the four new files and four screenshots. Orchestrator: diff and new files read in full (conduct file's contact section checked for the no-e-mail rule). Not applicable: real phones.
+
+**Follow-ups.** None. (Q20, moving the planning files out of the root, is still open; the README paragraph explains them in place.)
+
+---
+
+---
+
 ### WQ-040 — Add a browser-support and known-issues section to the README
 
 - **Closed:** 2026-10-25 · **Outcome:** done-with-deviations

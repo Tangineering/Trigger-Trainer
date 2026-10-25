@@ -35,7 +35,6 @@ updated: 2026-10-25
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | claimed:round-20261025-6 | — | docs |
 | WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | claimed:round-20261025-6 | — | hygiene |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | claimed:round-20261025-6 | — | ui |
 | WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | queued | — | docs |
@@ -265,54 +264,6 @@ WQ-022.
 
 **Verification.** `npm test`; a Playwright run with `navigator.vibrate` stubbed to return `false` shows
 `vib: false` in the readout after a simulated shot (add it to `tests/smoke.js`).
-
----
-
-### WQ-034 — Link the page to its source and add contributing notes to the README
-
-- **Status:** claimed:round-20261025-6 · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
-- **Added:** 2026-10-25 by public-release review session · **Updated:** 2026-10-25 by the same session (recording consent, code of conduct, security policy folded in at Ricky's request)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** The repo (`Tangineering/Trigger-Trainer`, MIT) is public with issues enabled, but the page never names
-it: `index.html` contains no `github.com` link, so a user who wants to report a problem or read the license has no
-way in from the phone. `README.md` explains what the tool does and how to deploy it, but not how the project is run:
-the planning files that sit in the root (`WORK_QUEUE.md`, `WORK_COMPLETED.md`, `OPEN_QUESTIONS.md`, `CLAUDE.md`,
-`.claude/skills/`) look like clutter to a stranger, and nothing says that real-phone recordings in `tests/recordings/`
-are the ground truth or that Ricky owns scope. There is no `CONTRIBUTING.md`, no issue template and no release tag.
-
-**Scope.**
-- Add a "Source on GitHub" anchor (`https://github.com/Tangineering/Trigger-Trainer`, `target="_blank"
-  rel="noopener noreferrer"`, plain anchor like the Ko-fi link, D-63 style) to the start screen's tip line at
-  `index.html:242`, after the Ko-fi sentence.
-- Add `CONTRIBUTING.md` (about ten lines): report problems as GitHub issues naming phone, OS and browser; a
-  recording from Settings → **Record test data** is the most useful attachment (`docs/RECORDINGS.md`); run `npm test`
-  before a pull request; thresholds and logic change only with the replay suite's say-so; Ricky decides scope
-  (`docs/DECISIONS.md`); planning lives in `WORK_QUEUE.md`, finished work in `WORK_COMPLETED.md`.
-- Add a short "Project files" paragraph to `README.md` (after "Develop", `README.md:40`–50) naming the planning
-  documents and `CONTRIBUTING.md`, and a "Report a problem" line pointing at the issues page. Append; do not rewrite
-  the README.
-- Add `.github/ISSUE_TEMPLATE/bug_report.md` asking for phone model, OS version, browser, engine version (the
-  `Engine x.y.z` line in Settings, `index.html:1332`), what happened, and a recording if possible.
-- (Updated 2026-10-25) Recording consent: `CONTRIBUTING.md` and `docs/RECORDINGS.md` say that a contributed recording
-  is committed under the MIT licence, that it contains the phone's user-agent string, motion samples and touch
-  positions and nothing else, and that the notes field must carry no names (phone model, grip and hand are enough).
-- (Updated 2026-10-25) Add `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1, contact: GitHub issues or the Ko-fi page's
-  message form; no e-mail address in the repo) and a three-line `SECURITY.md`: the page makes no network calls and
-  stores only settings on the phone; report anything suspicious as a GitHub issue; there is no bounty.
-- Out of scope: the disclaimer sentence (WQ-032); the CI workflow (WQ-033); a release tag (owner's call: suggest
-  `v0.17.0` in the completion entry, do not push tags); moving the planning files out of the root; the
-  changelog (WQ-038), the architecture page (WQ-039) and the known-issues section (WQ-040), which append to
-  `README.md` as this item does.
-
-**Acceptance.**
-- The start screen shows the source link next to the Ko-fi line at 852×393 and 667×375 CSS px without layout change
-  elsewhere (screenshots in `docs/screenshots/wq-034/`).
-- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, the README paragraph and the issue template exist and name
-  only files that exist; `docs/RECORDINGS.md` carries the consent paragraph.
-- `npm test` passes unchanged; engine `VERSION` unchanged.
-
-**Verification.** `npm test`; Playwright screenshots; `git ls-files` shows the new files; completion entry lists them.
 
 ---
 
