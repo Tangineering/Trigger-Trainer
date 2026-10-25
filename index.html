@@ -636,7 +636,10 @@ function showDrillResult(r) {
   ];
   if (r.early > 0) rows.push([r.reps ? 'Early shots (before a beep)' : 'Early shots (before the beep)', r.early]);
   if (r.withAlarm) rows.push(['With alarm', `${r.alarms} alarm${r.alarms === 1 ? '' : 's'} during the run`]);
-  rows.push(['Best clean total this session', clean.length ? secs2(Math.min(...clean)) + ' s' : '—']);
+  if (r.reps) {                                   // Low Ready: totals depend on the seeded delays, so compare reactions
+    const avgs = engine.state.drillRuns.filter(x => x.drill === r.drill && !x.withAlarm && x.avgReaction != null).map(x => x.avgReaction);
+    rows.push(['Best average reaction this session (runs with no alarm)', avgs.length ? secs2(Math.min(...avgs)) + ' s' : '—']);
+  } else rows.push(['Best clean total this session', clean.length ? secs2(Math.min(...clean)) + ' s' : '—']);
   $('drillResRows').replaceChildren(...rows.map(([k, v]) => {
     const tr = document.createElement('tr');
     [k, v].forEach(x => { const td = document.createElement('td'); td.textContent = x; tr.appendChild(td); });
@@ -667,7 +670,8 @@ function drillLineText(s) {
   if (d.phase === 'standby' && drillCancelled) return 'Cancelled · finger on the frame to restart';
   const lr = TDT.DRILL_DEFS[d.id].reps;
   if (lr) {                                       // Low Ready (D-96)
-    if (d.phase === 'standby') return `Rep ${d.rep + 1} of ${lr} · wait for the beep`;
+    if (d.phase === 'standby') return d.dueAt == null ? `Rep 1 of ${lr} · finger on the frame`
+                                                      : `Rep ${d.rep + 1} of ${lr} · wait for the beep`;
     if (d.phase === 'live') return d.cur && d.cur.shots.length ? 'Shot 1 of 2 — fire again' : 'Go — raise and fire two';
     if (d.phase === 'finishing') return d.cueDueAt != null ? 'Hold…' : 'Finger back on the frame';
     return 'Done';
@@ -698,10 +702,11 @@ function onEvent(e) {
     }
     case 'downrangeLost': Snd.tone(330, 0, 0.25, 'triangle'); break;
     case 'drillBeep': drillCancelled = false; Snd.timerBeep(); buzz(80); break;
-    // The completion tone starts as the OK tone of the same tick ends (D-98 g).
     // Low Ready's cue comes 750 ms after the finger is back on the frame, clear of the OK tone (D-98 g).
     case 'drillCue': Snd.cue3(); buzz([50, 50, 50, 50, 50]); break;
-    case 'drillEnd': Snd.complete(0.35); buzz([60, 60, 60]); renderStats(); showDrillResult(e.result); break;
+    // Bill: the completion tone starts as the OK tone of the same tick ends (D-98 g). Low Ready's end, like its
+    // cue, comes 750 ms after the OK tone, so it plays at once.
+    case 'drillEnd': Snd.complete(e.drill === 'lowready' ? 0 : 0.35); buzz([60, 60, 60]); renderStats(); showDrillResult(e.result); break;
     case 'drillCancel': drillCancelled = true; break;                          // no sound: status line only
   }
 }
@@ -1243,7 +1248,7 @@ window.__tdt = () => {
     summary: TDT.summarize(s), summaryOpen: $('summaryOv').classList.contains('show'),
     drill: s.drill ? { id: s.drill.id, phase: s.drill.phase, shots: s.drill.shots.length, early: s.drill.early,
                        rep: s.drill.rep, repsDone: s.drill.reps.length, curShots: s.drill.cur ? s.drill.cur.shots.length : 0,
-                       cuePending: s.drill.cueDueAt != null,
+                       cuePending: s.drill.cueDueAt != null, dueSet: s.drill.dueAt != null,
                        result: s.drill.result ? JSON.parse(JSON.stringify(s.drill.result)) : null } : null,
     drillRuns: s.drillRuns.length, drillSel, drillResOpen: $('drillResOv').classList.contains('show'),
     pickerOpen: $('drillOv').classList.contains('show') };

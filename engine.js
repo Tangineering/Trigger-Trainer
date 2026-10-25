@@ -479,6 +479,7 @@
     function tickDrill(t) {
       const d = st.drill;
       const def = DRILL_DEFS[d.id];
+      if (!st.alarmActive) { d.alarmCounted = false; d.alarmInPending = false; }   // the episode is over
       if (d.phase === 'standby') {
         // Rep 1 (and Bill): the delay starts at the first armed tick on the frame. Later Low Ready reps: the cue set it.
         if (d.dueAt == null && st.armed && st.onRest) {
@@ -491,14 +492,22 @@
           if (def.reps) {
             d.rep++; d.phase = 'live';
             if (d.rep === 1) d.beepT = t;
-            d.cur = { rep: d.rep, beepT: t, shots: [], early: d.earlyPending, alarms: 0 };
-            d.earlyPending = 0;
-            if (st.alarmActive) { d.alarms++; d.cur.alarms++; }   // an alarm still sounding at the beep marks the rep
+            d.cur = { rep: d.rep, beepT: t, shots: [], early: d.earlyPending, alarms: d.alarmsPending };
+            d.earlyPending = 0; d.alarmsPending = 0;
+            // An alarm still sounding at the beep marks the rep; it counts into the run only once per episode, and
+            // into this rep only if it is not already there from between the reps.
+            if (st.alarmActive) {
+              if (!d.alarmCounted) d.alarms++;
+              if (!d.alarmInPending) d.cur.alarms++;
+              d.alarmCounted = true;
+            }
+            d.alarmInPending = false;
             emit({ type: 'drillBeep', t, drill: d.id, rep: d.rep });
             return;
           }
           d.beepT = t; d.rep = 1; d.phase = 'live';
-          if (st.alarmActive) d.alarms++;                 // an alarm (180) still sounding at the beep marks the run
+          // an alarm (180) still sounding at the beep marks the run (once per episode)
+          if (st.alarmActive) { if (!d.alarmCounted) d.alarms++; d.alarmCounted = true; }
           emit({ type: 'drillBeep', t, drill: d.id, rep: 1 });
         }
       } else if (d.phase === 'finishing' && def.reps) {
@@ -542,15 +551,21 @@
     }
 
     // Counts alarm episodes from the beep to the end (a move alarm escalating to 180 is one episode).
-    // Low Ready also counts into the rep in progress.
+    // Low Ready also counts into the rep in progress, and an episode that starts between reps (standby after rep 1's
+    // beep) into the run and the next rep (carried in alarmsPending to its beep).
     const drillAlarm = () => {
       const d = st.drill;
-      if (d && (d.phase === 'live' || d.phase === 'finishing')) { d.alarms++; if (d.cur) d.cur.alarms++; }
+      if (!d) return;
+      if (d.phase === 'live' || d.phase === 'finishing') { d.alarms++; if (d.cur) d.cur.alarms++; d.alarmCounted = true; }
+      else if (d.phase === 'standby' && d.rep > 0 && DRILL_DEFS[d.id].reps) {
+        d.alarms++; d.alarmsPending++; d.alarmCounted = true; d.alarmInPending = true;
+      }
     };
 
     function freshRun(d) {
       d.phase = 'standby'; d.dueAt = null; d.beepT = null; d.rep = 0; d.shots = []; d.early = 0; d.alarms = 0; d.result = null;
       d.reps = []; d.cur = null; d.cueDueAt = null; d.earlyPending = 0;   // Low Ready (a cancel loses the reps, D-98 e)
+      d.alarmsPending = 0; d.alarmCounted = false; d.alarmInPending = false;
       return d;
     }
 
