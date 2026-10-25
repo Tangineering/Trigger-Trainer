@@ -7,7 +7,7 @@ recording back through `engine.js` and checks it.
 ## Making a recording
 
 1. Open the trainer on the phone (the HTTPS GitHub Pages URL; motion data needs HTTPS).
-2. Settings → **Record test data**. Pick a drill, optionally add notes (phone model, grip, who).
+2. Settings → **Record test data**. Pick a drill, optionally add notes (phone model, grip, hand; no names).
 3. **Start recording**. Settings close and a red **● REC** button appears on the slide.
 4. Do the drill (hints below). Tap **● REC** to stop. The file is saved and Settings opens at **Record test
    data**, ready for the next drill. You don't need **Save last recording**.
@@ -21,6 +21,13 @@ recording back through `engine.js` and checks it.
    Recordings stop on their own at 3 minutes (not saved; Settings opens so you can save it).
 
 Nothing is sent anywhere unless you share the file.
+
+**Contributing a recording** (WQ-034). A recording you send to the project is committed to this public repository
+under the MIT licence (`LICENSE`), like the code. It holds what the phone's browser reported during the drill and
+nothing else: the browser's user-agent string, motion samples, touch positions, animation-frame times, the screen
+size and pixel ratio, the settings in force, the drill label, your notes, the date and time it was made, and the
+events the trainer produced. It holds no location, no photos, no audio and no account. The notes field must carry
+no names: phone model, grip and hand are enough.
 
 ## Drills and what the tests expect
 
