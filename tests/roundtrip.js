@@ -307,6 +307,74 @@ const check = (name, cond, extra) => {
     resX.state.drillRuns.length === 1 && resX.state.drillRuns[0].reps.length === 5 && Math.abs(resX.state.drillRuns[0].total - endX[3]) < 0.001 && endX[2] === 'box' &&
     Math.abs(endX[3] - (lastShotX - beepX)) < 0.01, [resX.state.drillRuns.length, endX, lastShotX - beepX]);
   check('WQ-029: Box recording: the results overlay paused the engine (no drillCancel observed)', boxLast.paused === true && obsX('drillCancel').length === 0);
+  // WQ-030: a Transitions run recorded in the page (picked through the picker and the recorder; ten shots, four fast swings with
+  // the touch kept on the trigger) replays with identical events and raises no alarm.
+  await page.reload();
+  await page.evaluate(() => { navigator.canShare = undefined; });
+  await page.click('#drillBtn');
+  await page.click('#drillList .drillOpt[data-id="transitions"]');
+  await page.click('#drillChoose');
+  check('WQ-030: Transitions selected in the picker', await page.evaluate(() => window.__tdt().drillSel) === 'transitions');
+  await page.click('#startSettingsBtn');
+  check('WQ-030: the recorder offers the drill-transitions label', await page.$$eval('#recLabel option', os => os.some(o => o.value === 'drill-transitions')));
+  await page.selectOption('#recLabel', 'drill-transitions');
+  await page.fill('#recNotes', 'roundtrip test, Transitions');
+  await page.click('#recStart'); await page.waitForTimeout(100);
+  check('WQ-030: Transitions recording started with the drill in standby', await page.evaluate(() => {
+    const t = window.__tdt(); return t.recording && t.drill && t.drill.id === 'transitions' && t.drill.phase === 'standby' && t.drill.shots === 0; }));
+  await page.waitForTimeout(150);
+  const lineTr = () => page.textContent('#drillLine');
+  check('WQ-030: with no touch the drill line says to put the finger on the frame and wait for the beep', await lineTr() === 'Transitions · finger on the frame, wait for the beep', await lineTr());
+  await touch('touchStart', [REST]); await motion(0, 0, 4);
+  const stTr = () => page.evaluate(() => window.__tdt());
+  const waitTr = async (cond, maxMs) => { const t1 = Date.now(); let x; while (Date.now() - t1 < maxMs) { await motion(0, 0, 1); x = await stTr(); if (cond(x)) return x; } return x; };
+  let trLast = await waitTr(x => x.drill && x.drill.phase === 'live', 5500);
+  const trLive = !!(trLast.drill && trLast.drill.phase === 'live');
+  // keep the touch on the trigger: engage, then pull and let the pull go back to the base (reset) for each shot; a swing is constant-sign rotation
+  await touch('touchEnd', []); await motion(0, 0, 4); await touch('touchStart', [TRG]); await motion(0, 0, 4);
+  const fireKeep = async () => {
+    for (let dx = 20; dx <= 70; dx += 25) { await touch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await motion(0, 0, 2); }
+    await motion(0, 0, 1); await touch('touchMove', [[TRG[0], TRG[1], 2]]); await motion(0, 0, 4);
+  };
+  const swingKeep = async sign => { for (let i = 0; i < 30; i++) { await page.evaluate(a => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+    rotationRate: { alpha: a, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, accelerationIncludingGravity: { x: 0, y: 0, z: 9.81 }, interval: 16 })), sign * 80); await page.waitForTimeout(16); } await motion(0, 0, 12); };
+  let trFree = 0;
+  for (let n = 1; trLive && n <= 10; n++) {
+    await fireKeep();
+    if (n < 10 && (await stTr()).drill.freeOnTrigger) trFree++;
+    if (n < 10 && n % 2 === 0) { await swingKeep(n % 4 ? 1 : -1); if ((await stTr()).drill.freeOnTrigger) trFree++; }
+  }
+  trLast = await stTr();
+  check('WQ-030: Transitions recording: ten shots, window open at each look inside it (before the tenth), phase finishing, no alarm', trLive && trLast.drill.shots === 10 && trLast.drill.phase === 'finishing' && trFree === 13 && !trLast.alarmActive && trLast.violations === 0, [trLive, trFree, trLast.drill, trLast.violations]);
+  await touch('touchEnd', []); await motion(0, 0, 2); await touch('touchStart', [REST]); await motion(0, 0, 3);
+  trLast = await waitTr(x => x.drillResOpen && x.paused, 3000);
+  check('WQ-030: Transitions recording: the results opened, one run, engine paused', trLast.drillResOpen && trLast.drillRuns === 1 && trLast.paused === true, trLast);
+  await touch('touchEnd', []);
+  await page.click('#drillChange');
+  const [dl7] = await Promise.all([page.waitForEvent('download'), page.$eval('#recPill', el => el.click())]);
+  const recT = JSON.parse(fs.readFileSync(await dl7.path(), 'utf8'));
+  const resT = TDT.replay(recT);
+  const obsT = k => recT.observed.filter(o => o[1] === k);
+  check("WQ-030: Transitions recording: label drill-transitions and the first log row is ['r', t, 'transitions', seed]",
+    recT.label === 'drill-transitions' && recT.log[0][0] === 'r' && recT.log[0][2] === 'transitions' && Number.isInteger(recT.log[0][3]) && recT.log[0][3] >= 0 && recT.log[0][3] < 2 ** 32, recT.log[0]);
+  check('WQ-030: Transitions recording: exactly one r row', recT.log.filter(r => r[0] === 'r').length === 1);
+  check('WQ-030: Transitions recording: observed has 1 drillBeep, 1 drillEnd naming transitions, 0 drillCancel, 0 drillCue, 0 alarmStart, ten shots',
+    obsT('drillBeep').length === 1 && obsT('drillBeep')[0][2] === 1 && obsT('drillEnd').length === 1 && obsT('drillEnd')[0][2] === 'transitions' && obsT('drillCancel').length === 0 &&
+    obsT('drillCue').length === 0 && obsT('alarmStart').length === 0 && obsT('shot').length === 10, recT.observed.filter(o => /drill|alarm|shot/.test(o[1])));
+  check('WQ-030: Transitions recording: the log holds fast turns (the swings really were recorded): at least 100 motion rows with a rate over 25 deg/s',
+    recT.log.filter(r => r[0] === 'm' && Math.hypot(r[2], r[3], r[4]) > 25).length >= 100, recT.log.filter(r => r[0] === 'm').length);
+  check(`WQ-030: Transitions recording: replay reproduces the live events exactly (${recT.observed.length} events)`,
+    JSON.stringify(recT.observed) === JSON.stringify(resT.packed), { live: recT.observed, replay: resT.packed });
+  const endT = recT.observed.find(o => o[1] === 'drillEnd');
+  check('WQ-030: Transitions recording: the replayed run has ten shots, five pair splits and four transitions; its total matches the live drillEnd total and is shot 10 minus the beep',
+    resT.state.drillRuns.length === 1 && resT.state.drillRuns[0].shots.length === 10 && resT.state.drillRuns[0].pairSplits.length === 5 && resT.state.drillRuns[0].transitions.length === 4 &&
+    Math.abs(resT.state.drillRuns[0].total - endT[3]) < 0.001 && Math.abs(endT[3] - (obsT('shot')[9][0] - obsT('drillBeep')[0][0])) < 0.01, [resT.state.drillRuns.length, endT]);
+  {
+    const asBill = JSON.parse(JSON.stringify(recT)); asBill.log.find(r => r[0] === 'r')[2] = 'bill';
+    const ab = TDT.replay(asBill).events.filter(e => e.type === 'alarmStart');
+    check(`WQ-030: Transitions recording: the same recorded log replayed as a Bill run alarms (${ab.length} alarmStart): the recorded swings are strong enough, and only the window keeps the Transitions run quiet`, ab.length >= 1, ab.length);
+  }
+  check('WQ-030: Transitions recording: the results overlay paused the engine (no drillCancel observed)', trLast.paused === true && obsT('drillCancel').length === 0);
   check('no page errors', errors.length === 0, errors);
 
   await browser.close();

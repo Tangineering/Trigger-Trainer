@@ -33,10 +33,11 @@
 - **180:** turn and move freely with the finger on the frame. Past 90° from downrange a lower "wail" alarm
   sounds even with the finger on the frame. "Muzzle N° from downrange" under the muzzle shows how close they are.
 
-## Timed drills (Bill Drill, Low Ready, Box Drill)
+## Timed drills (Bill Drill, Low Ready, Box Drill, Transitions)
 The **Drill** button on the start screen (above **Start**) opens the drill picker. **Freestyle** is the trainer
 described above, with no timer. Pick a drill, check the diagram, tap **Choose**; the phone remembers the choice.
-All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 rule.
+All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 rule, except the Transitions window
+(D-111: from the first shot to the tenth, movement with the finger on the trigger does not alarm).
 - **Bill Drill:** tap **Start**, finger flat on the frame. After a random 1–4 s the start beep sounds (a high
   shot-timer beep; it only plays with the finger on the frame). Fire six shots as fast as the phone stays still,
   with a full trigger reset each time, then put the finger back on the frame: the completion tone plays and the
@@ -63,6 +64,21 @@ All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 
   time (from the beep or the previous cue to the first shot there: the move plus the settle), the split(s) and
   grades, then the total (beep to the last shot), early shots, "With alarm", and the best total of the session among
   runs with no alarm. **Again** starts a new run; **Change drill** goes back to the start screen.
+- **Transitions** (ten shots, two at each target): set up two or three targets in view, for example left, middle and
+  right (left–middle–right–middle–left is a good order; the phone does not know where the targets are, so any order
+  works). Start from low ready as in Low Ready: no muzzle-angle check, **Set downrange** not needed. Tap **Start**,
+  finger flat on the frame. After a random 2–5 s the start beep sounds: raise and fire two at the first target, then
+  swing to the next target **with the finger on the trigger** and fire two there, and so on: five pairs, ten shots.
+  This is the only drill that allows movement with the finger on the trigger, and only from the first shot to the
+  tenth. Before the first shot (raising from low ready) and after the tenth the normal rules apply: the finger on the
+  trigger while moving alarms. Lifting the finger off the trigger mid-string (not onto the frame) is off the frame
+  again: moving then alarms as usual. The 180 rule still applies throughout when downrange is set. After the tenth
+  shot put the finger back on the frame: the completion tone plays and the results open: first shot (beep to first
+  shot), the five pair splits (first to second shot of each pair), the four transitions (last shot of a pair to the
+  first shot of the next), the average transition, the total (beep to the tenth shot), the grade of each shot (each
+  graded from where the muzzle pointed when that press started, so the swing is not counted), early shots, "With
+  alarm", and the best total of the session among runs with no alarm. **Again** starts a new run; **Change drill**
+  goes back to the start screen.
 - **Bill Drill results:** first shot (beep to first shot), the five splits, total (beep to sixth shot), the grade of each
   shot, early shots (fired before the beep; not timed), "With alarm" if an alarm went off during the run or was
   still sounding at the beep (shots fired during an alarm show as "alarm", not graded), and the best total of the session among runs with no alarm.

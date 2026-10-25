@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.15.0';
+  const VERSION = '0.16.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -118,8 +118,13 @@
   // the end) comes `cueHoldMs` after the finger is back on the frame. `cue` names the drillCue; `next` says what
   // follows it: 'standby' (Low Ready, D-96: the next rep's beep is delayMs after the cue) or 'live' (Box Drill, D-95:
   // the next position is live at once, no beep). In Box data a "rep" is a shooting position.
+  // Single-string drills (a def with `shots`, Bill and Transitions): one beep, `shots` shots, timer stopped at the last.
+  // `pairShots` (Transitions, D-112 j) adds pair splits and transitions to the result; `onTriggerFree` (Transitions,
+  // D-111, D-112 d) suspends the move alarm while the finger is on the trigger from the first shot to the last.
   const DRILL_DEFS = Object.freeze({
     bill:     Object.freeze({ delayMs: Object.freeze([1000, 4000]), shots: 6, ready: true }),
+    transitions: Object.freeze({ delayMs: Object.freeze([2000, 5000]), shots: 10, pairShots: 2, onTriggerFree: true,
+                                 ready: true }),
     lowready: Object.freeze({ delayMs: Object.freeze([2000, 5000]), reps: 5, shotsPerRep: 2, cueHoldMs: 750,
                               cue: 'lowready', next: 'standby', ready: true }),
     box:      Object.freeze({ delayMs: Object.freeze([1000, 4000]), reps: 5, shotsPerRep: 2, cueHoldMs: 0,
@@ -291,6 +296,7 @@
       axisEst: null,                               // advisory gyro-axis estimate {cand, margin, motionS, windows} (D-57)
       drill: null,                                 // current drill run (null = Freestyle); see startDrill()
       drillRuns: [],                               // results of the runs finished this session (resetStats clears)
+      drillFree: false,                            // Transitions window this tick: no move alarm on the trigger (D-112 d)
     };
     let grav = null, vw = 1, vh = 1;
     const axisEstimator = createAxisEstimator();
@@ -412,7 +418,7 @@
         for (const [id, tc] of st.touches) {
           if (inZone(tc, zoneFor('trigger', vw))) {
             st.trig = { id, base: rearPx(tc), pull: 0, fired: false, breakT: 0, breakIdx: -1,
-                        oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0 };
+                        oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0, minPull: 0 };
             emit({ type: 'trigOn', t });
             break;
           }
@@ -424,17 +430,37 @@
       let pull = rearPx(tc) - tr.base;
       if (pull < 0 && !tr.fired) { tr.base = rearPx(tc); pull = 0; }   // slid forward: re-zero
       tr.pull = Math.max(0, pull);
+      if (tr.pull < tr.minPull) tr.minPull = tr.pull;                    // lowest pull of this press attempt
+      // Transitions (D-112 i): while the run is live a shot is graded from where the muzzle pointed when the press
+      // started. Until the pull has risen PULL_START_FRACTION above its lowest point of this attempt (a reset ridden
+      // between targets, an aborted partial press), the origin and trace follow the muzzle on every update; once it
+      // has, they freeze; dropping back below resumes the re-take. The swing to the target is not graded. Re-taken
+      // on every touch update and every tick (a finger held still on the trigger sends no touch events while the
+      // phone swings).
+      retakeOrigin(tr);
       if (!tr.fired && pull >= S.pullPx) fire(t);
       else if (tr.fired && pull <= S.pullPx * K.RESET_FRACTION) {      // trigger reset -> follow-up
         st.lastTrace = tr;
-        st.trig = Object.assign({}, tr, { fired: false, breakT: 0, breakIdx: -1, oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0 });
+        st.trig = Object.assign({}, tr, { fired: false, breakT: 0, breakIdx: -1, oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0,
+                                             minPull: tr.pull });
         emit({ type: 'reset', t });
+      }
+    }
+
+    function retakeOrigin(tr) {
+      if (!tr.fired && st.drill && DRILL_DEFS[st.drill.id].onTriggerFree && st.drill.phase === 'live'
+          && tr.pull < tr.minPull + S.pullPx * K.PULL_START_FRACTION) {
+        tr.oh = st.aimH; tr.ov = st.aimV; tr.trace = [];
       }
     }
 
     function endTrigger(t) {
       if (st.trig && st.trig.trace.length) st.lastTrace = st.trig;
+      const wasFree = freeOnTrigger();
       st.trig = null;
+      // Transitions (D-112 f): a finger lifted off the trigger inside the window, not onto the frame, is judged by the
+      // normal off-frame rules from here, so the swing already made is not counted as drift.
+      if (wasFree && st.qOff) st.qOff = st.q.slice();
       st.trigOffAt = t;
       emit({ type: 'trigOff', t });
     }
@@ -453,7 +479,9 @@
     }
 
     /* Drill run (D-97, D-98). Phases: standby (waiting for the frame, then the random delay) → live (beep given,
-       counting shots) → finishing (sixth shot fired, timer stopped, waiting for the finger on the frame) → ended.
+       counting shots) → finishing (the last shot, def.shots, fired, timer stopped, waiting for the finger on the frame)
+       → ended. Transitions (D-111, D-112) is single-string with shots: 10; from its first shot until the tenth (phase
+       live, at least one shot) the finger on the trigger suspends the move alarm (freeOnTrigger, gated in tick()).
        Per-rep drills loop live → finishing once per rep: finishing waits cueHoldMs with the finger on the frame,
        then emits drillCue (reps 1–4) or drillEnd (last rep). After the cue Low Ready (D-96, next: 'standby') goes
        back to standby with the next beep due delayMs after it; Box Drill (D-95, next: 'live', cue 'move') makes the
@@ -482,7 +510,17 @@
         shots: d.shots.map(x => ({ grade: x.grade, dev: x.dev, unsafe: x.unsafe })),
         early: d.early, alarms: 0, withAlarm: false, endT: null,
       };
+      if (def.pairShots) {                                // Transitions (D-112 j): within a pair vs between pairs
+        const transitions = splits.filter((_, i) => i % 2 === 1);
+        d.result.pairSplits = splits.filter((_, i) => i % 2 === 0);
+        d.result.transitions = transitions;
+        d.result.avgTransition = transitions.length ? r4(transitions.reduce((a, b) => a + b, 0) / transitions.length) : null;
+      }
       d.phase = 'finishing';
+      if (def.onTriggerFree) {                            // the window ends at the last shot's break (D-112 g)
+        if (st.qOff) st.qOff = st.q.slice();
+        st.trig.moveMs = 0;
+      }
     }
 
     function tickDrill(t) {
@@ -606,11 +644,19 @@
       return d;
     }
 
+    // A run replaced or dropped inside the Transitions window: re-take the drift reference (as at a lift, D-112 f) so
+    // the swing already made does not alarm at the next tick, and clear the window flag.
+    function closeWindow() {
+      if (freeOnTrigger() && st.qOff) st.qOff = st.q.slice();
+      st.drillFree = false;
+    }
+
     /** Start a run of drill `id` (a ready DRILL_DEFS key) with generator seed `seed`. Returns false and changes
      *  nothing for an unknown or not-yet-built drill. A run already in progress is cancelled first. */
     function startDrill(t, id, seed) {
       const def = Object.prototype.hasOwnProperty.call(DRILL_DEFS, id) ? DRILL_DEFS[id] : null;
       if (!def || !def.ready) return false;
+      closeWindow();
       if (drillActive(st.drill)) emit({ type: 'drillCancel', t, drill: st.drill.id });
       st.drill = freshRun({ id, seed: seed >>> 0, rng: mulberry32(seed) });
       return true;
@@ -619,9 +665,17 @@
     /** Back to Freestyle: cancel any run in progress (event) and drop the drill. */
     function cancelDrill(t) {
       if (!st.drill) return;
+      closeWindow();
       if (drillActive(st.drill)) emit({ type: 'drillCancel', t, drill: st.drill.id });
       st.drill = null;
     }
+
+    // Transitions window (D-112 d): a drill with onTriggerFree, live, at least one shot, finger on the trigger.
+    // Phase finishing (after the last shot) is outside it by construction.
+    const freeOnTrigger = () => {
+      const d = st.drill;
+      return !!d && !!DRILL_DEFS[d.id].onTriggerFree && d.phase === 'live' && d.shots.length > 0 && !!st.trig;
+    };
 
     function tick(t) {
       if (st.paused) return;
@@ -650,6 +704,7 @@
       st.lastTickT = t;
       if (inPress && moving) tr0.moveMs += dtMs;
 
+      st.drillFree = freeOnTrigger();                 // after this tick's st.trig (D-112 d)
       st.dev180 = st.refSet ? deviation180() : 0;     // live readout even before arming
       st.devOff = st.qOff ? deviationFrom(st.qOff) : 0;
       if (!st.armed) {
@@ -676,7 +731,8 @@
         // Grace also applies after a press ends and after the finger leaves the trigger.
         // In every off-frame state (trigger and press included) the muzzle may also drift at most
         // offFrameDeg from where it pointed when the finger left, however slowly (D-56).
-        if (!st.onRest && !st.alarmActive) {
+        // Inside the Transitions window (st.drillFree, D-112 d) none of these start an alarm; the 180 rule above stays.
+        if (!st.onRest && !st.alarmActive && !st.drillFree) {
           let alarm;
           if (st.inPress) alarm = st.trig.moveMs > S.jerkMs;
           else alarm = moving && t - st.offSince > S.graceMs && t - st.pressEndAt > S.graceMs && t - st.trigOffAt > S.graceMs
@@ -693,6 +749,7 @@
       if (st.drill) tickDrill(t);
 
       const tr = st.trig;
+      if (tr) retakeOrigin(tr);                       // Transitions grading origin (D-112 i); no-op otherwise
       if (tr && (!tr.fired || t - tr.breakT < K.FOLLOW_THROUGH_MS) && tr.trace.length < K.TRACE_MAX) {
         tr.trace.push([st.aimH - tr.oh, st.aimV - tr.ov]);
       }
@@ -706,7 +763,7 @@
       if (p) {
         if (st.alarmActive) { st.alarmActive = false; st.alarmReason = null; emit({ type: 'alarmStop', t }); }
         st.armed = false; st.onRest = st.wasOnRest = false; st.restLostAt = null; st.restContact = false;
-        st.qOff = null; st.devOff = 0;
+        st.qOff = null; st.devOff = 0; st.drillFree = false;
         if (st.trig) endTrigger(t);
         // A pause cancels a run without the completion tone; the drill waits in a fresh standby (D-98 e).
         // The generator carries on, so the next run's delay is still decided by the seed.

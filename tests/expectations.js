@@ -156,6 +156,37 @@ module.exports = {
       ['Box positions carry time / splits and no Low Ready fields (no reaction, no split)', !!run && run.reps.every(p => !('reaction' in p) && !('split' in p) && 'time' in p && Array.isArray(p.splits)) && !('avgReaction' in run)],
     ];
   },
+  // WQ-030: Transitions. Structural checks apply to every recording with this label (real phones too); the timing, grade and
+  // no-alarm checks hold only for the generated synthetic one (r.synthetic), whose swings and presses are scripted. Every figure
+  // is derived here from the event times.
+  'drill-transitions': r => {
+    const FR = 17, near = (a, b) => Math.abs(a - b) < 0.01, run = r.runs[0], B = r.beepEvs, endT = r.endTs[0], st = r.shotTimes;
+    const have = B.length === 1 && st.length === 10 && endT !== undefined;
+    const gaps = have ? st.slice(1).map((x, i) => x - st[i]) : [];
+    const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+    const out = [
+      ['exactly one start beep (rep 1), no cue, no cancel, one drill end', r.drillBeeps === 1 && B[0].rep === 1 && r.drillCues === 0 && r.drillCancels === 0 && r.drillEnds === 1],
+      ['the beep falls 2000-5000 ms (+ one frame) after arming', B.length > 0 && r.firstArmedT !== undefined && B[0].t - r.firstArmedT >= 2000 && B[0].t - r.firstArmedT <= 5000 + FR],
+      ['ten shots, all after the beep, the drill end after the tenth', have && st.every(t => t > B[0].t) && endT > st[9]],
+      ['no alarmStart between shot 1 and shot 10 (the window)', have && !r.alarmTs.some(t => t >= st[0] && t <= st[9])],
+      ['the end has the same t as an ok event (the finger back on the frame)', endT !== undefined && r.okTs.includes(endT)],
+      ['state.drillRuns holds one run, drill "transitions", ten shots, nine splits', r.runs.length === 1 && !!run && run.drill === 'transitions' && run.shots.length === 10 && run.splits.length === 9],
+      ['first = shot 1 - beep; total = shot 10 - beep (not the end); endT = the drillEnd t',
+        !!run && have && near(run.first, st[0] - B[0].t) && near(run.total, st[9] - B[0].t) && near(run.endT, endT) && near(run.beepT, B[0].t) && run.total < endT - B[0].t - 10],
+      ['splits = the nine shot gaps', !!run && have && run.splits.every((x, i) => near(x, gaps[i]))],
+      ['pairSplits = splits 1-2, 3-4, 5-6, 7-8, 9-10 (indices 0, 2, 4, 6, 8; five)', !!run && have && run.pairSplits.length === 5 && run.pairSplits.every((x, i) => near(x, gaps[2 * i]))],
+      ['transitions = splits 2-3, 4-5, 6-7, 8-9 (indices 1, 3, 5, 7; four)', !!run && have && run.transitions.length === 4 && run.transitions.every((x, i) => near(x, gaps[2 * i + 1]))],
+      ['avgTransition = the mean of the four transitions (4 decimals)', !!run && have && Math.abs(run.avgTransition - mean(gaps.filter((_, i) => i % 2 === 1))) < 0.001],
+      ['a Transitions result carries no Low Ready / Box fields (reps, time, reaction, avgReaction)', !!run && !('reps' in run) && !('time' in run) && !('reaction' in run) && !('avgReaction' in run)],
+    ];
+    if (r.synthetic) out.push(
+      ['synthetic: no alarm at all, every shot graded Clean (the phone is still during each press), none unsafe',
+        r.alarms === 0 && r.alarmTs.length === 0 && r.shots.length === 10 && r.shots.every(s => s.grade === 'Clean') && !!run && run.shots.every(x => !x.unsafe && x.grade !== 'alarm')],
+      ['synthetic: pair splits are 500 ms (+- one frame), transitions 1900 ms (+- one frame: the 0.5 s swing sits inside)',
+        !!run && have && run.pairSplits.every(x => Math.abs(x - 500) <= FR) && run.transitions.every(x => Math.abs(x - 1900) <= FR)],
+      ['synthetic: run-level early 0, alarms 0, withAlarm false', !!run && run.early === 0 && run.alarms === 0 && run.withAlarm === false]);
+    return out;
+  },
   'axis-up': r => [
     ['largest excursion reads as muzzle UP', dominant(r.peak, 'v', +1)],
   ],

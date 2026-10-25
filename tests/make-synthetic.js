@@ -135,6 +135,44 @@ const S = {
     finished(t) { return this.mem.end != null && t >= this.mem.end + 0.4; },
     rot: t => ({ a: tiny(t), b: tiny(t + 2), g: 0 }),
   },
+  // Transitions (WQ-030): ten shots in five pairs, seeded, adaptive (the generator reads engine.state.drill; the written log is a
+  // plain recording). From the beep (the tick the run goes live) pair p (0-4) starts at 0.6 + 2.4 p s: press, press 0.5 s later
+  // (each a 0.35 s pull and reset), then the trigger touch STAYS at its base (pull 0) while the phone swings fast about the
+  // barrel-perpendicular axis for 0.5 s (80 deg/s, 40 deg; direction alternates so the muzzle does not wander), then 0.85 s
+  // of stillness before the next pair. After shot 10 the trigger is lifted and the finger is back on the frame 0.1 s later.
+  // The run ends 0.4 s after the drill end event. The phone is still during every press, so every shot grades Clean.
+  'drill-transitions': {
+    live: true, drillAt: 0, drillId: 'transitions', drillSeed: 20261031, dur: 0,
+    mem: { t0: null, end: null },
+    sched: p => 0.6 + 2.4 * p,                              // pair p opens at this many seconds after the beep
+    touches(t, eng) {
+      const d = eng.state.drill, m = this.mem;
+      if (!d) return [REST];
+      if (d.phase === 'live' && m.t0 == null) m.t0 = t;
+      if (d.phase === 'ended' && m.end == null) m.end = t;
+      if (m.t0 == null || d.phase === 'ended') return [REST];
+      const u = t - m.t0, pull = uu => Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (uu - 0.05) / 0.25)) * 70 });
+      if (u < this.sched(0)) return [REST];                  // finger on the frame until the first press
+      const p = Math.min(4, Math.floor((u - this.sched(0)) / 2.4)), a = this.sched(p), uu = u - a;
+      if (p === 4 && uu >= 0.5 + 0.35 + 0.1) return [REST];  // after shot 10: lifted, finger back on the frame 0.1 s later
+      if (p === 4 && uu >= 0.5 + 0.35) return [];
+      if (uu >= 0 && uu < 0.35) return [pull(uu)];
+      if (uu >= 0.5 && uu < 0.85) return [pull(uu - 0.5)];
+      return [TRG];                                          // the touch stays on the trigger, pull 0
+    },
+    finished(t) { return this.mem.end != null && t >= this.mem.end + 0.4; },
+    rot(t) {
+      const t0 = this.mem.t0;
+      if (t0 != null) {
+        const u = t - t0;
+        for (let p = 0; p < 4; p++) {                        // the swing after pair p: 0.2 s after its second press has reset
+          const s = this.sched(p) + 1.05;
+          if (u >= s && u < s + 0.5) return { a: p % 2 ? -80 : 80, b: 0, g: 0 };
+        }
+      }
+      return { a: tiny(t), b: tiny(t + 2), g: 0 };
+    },
+  },
   'axis-up': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 40, b: 0, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
   'axis-right': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 0, b: -40, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
 };

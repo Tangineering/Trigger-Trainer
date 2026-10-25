@@ -34,6 +34,7 @@ function summarize(res) {
     armed: ev.filter(e => e.type === 'armed').length,
     alarms: ev.filter(e => e.type === 'alarmStart').length,                      // any reason
     alarmsMove: ev.filter(e => e.type === 'alarmStart' && e.reason === 'move').length,
+    alarmTs: ev.filter(e => e.type === 'alarmStart').map(e => e.t),
     b180: ev.filter(e => e.type === 'alarmStart' && e.reason === '180').length,
     drillBeeps: ev.filter(e => e.type === 'drillBeep').length,
     drillCues: ev.filter(e => e.type === 'drillCue').length,
@@ -86,7 +87,7 @@ for (const f of files) {
   if (rec.format !== 'tdt-recording') { console.log(`SKIP  ${rel}: not a tdt recording`); continue; }
 
   const res = TDT.replay(rec);
-  const sum = summarize(res);
+  const sum = summarize(res); sum.synthetic = !!rec.synthetic;
   const dur = rec.t1 && rec.t0 ? ((rec.t1 - rec.t0) / 1000).toFixed(1) + ' s' : '';
   console.log(`\n${rel}  [${rec.label}${rec.synthetic ? ', synthetic' : ''}] ${dur}` +
     `  shots ${sum.shots.length} (${sum.shots.map(s => s.grade[0]).join('') || '-'})  alarms ${sum.alarmsMove}  180s ${sum.b180} (max ${sum.maxDev.toFixed(0)}°)` +
@@ -435,6 +436,285 @@ if (boxFile) {
     c.eng.setPaused(true, c.T + 1);
     t('pausing in finishing: one drillCancel, standby at rep 0, positions and current position lost, no cue after the pause',
       c.of('drillCancel').length === 1 && d().phase === 'standby' && d().rep === 0 && d().reps.length === 0 && d().cur === null && d().cueDueAt === null && c.of('drillCue').length === 2 && c.of('drillEnd').length === 0);
+  }
+}
+
+// WQ-030: the synthetic Transitions drill replays deterministically; the seed in the 'r' row decides the beep time. Engine-level
+// checks cover the alarm window (D-112 d: first shot to tenth shot, finger on the trigger), the drift-reference re-takes (f, g),
+// the 180 rule inside the window (e), grading from the press start (i), and what must NOT change (Bill, Freestyle, a pause).
+// Every "no alarm" check is paired with the same stimulus alarming outside the window.
+const trFile = files.find(f => f.endsWith(path.join('synthetic', 'drill-transitions.json')));
+if (trFile) {
+  console.log('\nTransitions determinism and window (synthetic/drill-transitions.json, in memory)');
+  const t = (desc, pass) => { console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${desc}`); if (!pass) failures++; };
+  const rec = JSON.parse(fs.readFileSync(trFile, 'utf8'));
+  const withSeed = sd => { const o = JSON.parse(JSON.stringify(rec)); o.log[o.log.findIndex(r => r[0] === 'r')][3] = sd >>> 0; return o; };
+  const withDrill = id => { const o = JSON.parse(JSON.stringify(rec)); const r = o.log.find(x => x[0] === 'r'); if (id) r[2] = id; else o.log.splice(o.log.indexOf(r), 1); return o; };
+  const beepsOf = res => res.events.filter(e => e.type === 'drillBeep').map(e => e.t);
+  const a = TDT.replay(rec), b = TDT.replay(rec);
+  t('replaying twice gives identical packed events', JSON.stringify(a.packed) === JSON.stringify(b.packed) && a.packed.length > 0);
+  const rIdx = rec.log.findIndex(r => r[0] === 'r');
+  t('the log carries one r row, right after the opening p row, naming transitions', rec.log.filter(r => r[0] === 'r').length === 1 && rIdx === 1 && rec.log[rIdx][2] === 'transitions');
+  t('observed is empty (synthetic recordings carry no live events)', rec.synthetic === true && Array.isArray(rec.observed) && rec.observed.length === 0);
+  t('packed: one drillBeep, one drillEnd naming transitions with the run total, no drillCancel, no alarmStart, no drillCue',
+    a.packed.filter(x => x[1] === 'drillBeep').length === 1 && a.packed.filter(x => x[1] === 'drillEnd').length === 1
+    && a.packed.find(x => x[1] === 'drillEnd')[2] === 'transitions' && a.packed.find(x => x[1] === 'drillEnd')[3] === a.state.drillRuns[0].total
+    && !a.packed.some(x => x[1] === 'drillCancel' || x[1] === 'alarmStart' || x[1] === 'drillCue'));
+  // The window is what keeps this recording quiet: the same log as Bill or as Freestyle alarms in the swings.
+  {
+    const asBill = TDT.replay(withDrill('bill')), asFree = TDT.replay(withDrill(null));
+    const ab = asBill.events.filter(e => e.type === 'alarmStart'), af = asFree.events.filter(e => e.type === 'alarmStart');
+    t(`vacuity: the same recording as a Bill run alarms in a swing (${ab.length} alarms), as Freestyle too (${af.length}); as Transitions none`,
+      ab.length >= 1 && af.length >= 1 && ab.every(e => e.reason === 'move') && a.events.filter(e => e.type === 'alarmStart').length === 0);
+  }
+  const base = beepsOf(a);
+  const seeds = [rec.log[rIdx][3] + 12345, 1, 2, 3, 4, 5, 99, 123456, 4294967295];
+  const others = seeds.map(sd => beepsOf(TDT.replay(withSeed(sd))));
+  t(`a different seed moves the beep (original ${base.map(Math.round).join('/')}; others ${others.map(o => o.map(Math.round).join('/')).join(', ')})`,
+    base.length === 1 && others.every(o => o.length >= 1) && new Set(others.map(o => o[0])).size >= 4 && others.some(o => o[0] !== base[0]));
+  t('seed coercion: -1 behaves as 4294967295 (same beeps)', JSON.stringify(beepsOf(TDT.replay(withSeed(-1)))) === JSON.stringify(beepsOf(TDT.replay(withSeed(4294967295)))));
+
+  // ---- engine-level harness: a Transitions run driven by hand ----
+  const W = 844, H = 390, mid = z => [(z.x + z.w / 2) * W, (z.y + z.h / 2) * H];
+  const REST = [{ id: 1, cx: mid(TDT.ZONES.rest)[0], cy: mid(TDT.ZONES.rest)[1], rx: 0, ry: 0 }], TR = mid(TDT.zoneFor('trigger', W));
+  const TOUCH = dx => [{ id: 2, cx: TR[0] - dx, cy: TR[1], rx: 0, ry: 0 }];
+  const mk = (seed, id = 'transitions') => {
+    const evs = [], eng = TDT.createEngine(Object.assign({}, TDT.DEFAULTS), { onEvent: e => evs.push(e) });
+    const c = { evs, eng, T: 0, freeSeen: [] };
+    c.step = (a = 0) => { c.T += 1000 / 60; eng.motion({ t: c.T, a, b: 0, g: 0, angle: 90 }); eng.tick(c.T); c.freeSeen.push(eng.state.drillFree); };
+    c.run = ms => { const e = c.T + ms; while (c.T < e) c.step(); };
+    c.rate = (dps, ms) => { const e = c.T + ms; while (c.T < e) c.step(dps); };                  // a turn at dps for ms (dps * ms / 1000 deg)
+    c.swing = (deg, dps = 80) => c.rate(Math.sign(deg) * dps, Math.abs(deg) / dps * 1000);       // a fast swing through deg degrees
+    c.on = () => eng.touches(c.T, TOUCH(0), W, H);                                                // finger onto the trigger, no pull
+    c.frame = () => eng.touches(c.T, REST, W, H);
+    c.lift = () => eng.touches(c.T, [], W, H);
+    // one pull and reset with the touch kept on the trigger (the finger stays prepped)
+    c.fire = () => { for (const dx of [20, 45, 70]) { eng.touches(c.T, TOUCH(dx), W, H); c.run(40); } c.on(); c.run(120); };
+    c.until = (cond, maxMs) => { const e = c.T + maxMs; while (!cond() && c.T < e) c.run(17); return cond(); };
+    c.d = () => eng.state.drill;
+    c.of = type => evs.filter(e => e.type === type);
+    c.alarms = () => c.of('alarmStart');
+    c.go = () => { eng.touches(10, REST, W, H); return c.until(() => c.d().phase === 'live', 7000); };   // to the beep
+    eng.setPaused(false, 0); eng.startDrill(0, id, seed);
+    return c;
+  };
+  // (a) + (b): the same swing, before the first shot and after it.
+  {
+    const c = mk(5); t('beep came, run live with no shots, window closed', c.go() && c.d().shots.length === 0 && !c.eng.state.drillFree);
+    c.on(); c.run(600);
+    t('finger on the trigger before the first shot, no pull, phone still: off the frame, no alarm, window closed', !c.eng.state.onRest && c.alarms().length === 0 && c.eng.state.drillFree === false);
+    c.swing(40);
+    t('(a) a fast 40 deg swing with the finger on the trigger BEFORE the first shot alarms (move)', c.alarms().length === 1 && c.alarms()[0].reason === 'move' && c.eng.state.alarmActive && c.eng.state.drillFree === false);
+  }
+  {
+    const c = mk(5); c.go(); c.on(); c.run(600); c.fire(); c.run(600);
+    t('(b) first shot fired: one shot in the run, window open (drillFree true), no alarm', c.d().shots.length === 1 && c.eng.state.drillFree === true && c.alarms().length === 0);
+    c.freeSeen.length = 0; c.swing(40);
+    t('(b) the same 40 deg swing after shot 1 raises no alarm, and drillFree is true on every tick of it', c.alarms().length === 0 && !c.eng.state.alarmActive && c.freeSeen.length > 20 && c.freeSeen.every(x => x === true));
+    c.freeSeen.length = 0; c.swing(-40); c.run(300); c.rate(10, 800);
+    t('(b) the swing back, a slow 8 deg drift and a standstill: still no alarm (rate, drift and press jerk tests all suspended)', c.alarms().length === 0 && c.freeSeen.every(x => x === true) && c.eng.state.devOff > 5);
+    c.fire();
+    t('(b) a second press in the window: shot 2, no alarm, window still open', c.d().shots.length === 2 && c.alarms().length === 0 && c.eng.state.drillFree === true);
+    // drill frozen-in: with the finger back on the frame the window closes
+    c.frame(); c.run(100);
+    t('(b) finger back on the frame mid-window: window closed (no trigger touch), on rest', c.eng.state.onRest && c.eng.state.drillFree === false && c.alarms().length === 0);
+  }
+  // Same stimulus in Freestyle and in Bill alarms (the window is Transitions-only) (h).
+  for (const [name, id] of [['Bill', 'bill'], ['Freestyle', null]]) {
+    const c = mk(5, id || 'bill'); if (!id) c.eng.cancelDrill(0);
+    c.eng.touches(10, REST, W, H); if (id) c.until(() => c.d().phase === 'live', 7000); else c.run(300);
+    c.on(); c.run(600); c.fire(); c.run(600);
+    t(`(h) ${name}: one shot fired with the finger kept on the trigger; drillFree is false`, c.of('shot').length === 1 && c.eng.state.drillFree === false);
+    c.swing(40);
+    t(`(h) ${name}: the same swing after the first shot alarms (move)`, c.alarms().length === 1 && c.alarms()[0].reason === 'move');
+  }
+  // (c) lifted off the trigger mid-window, not onto the frame: normal rules, drift reference re-taken at the lift.
+  {
+    const c = mk(5); c.go(); c.on(); c.run(600); c.fire(); c.run(600); c.swing(40); c.run(200);
+    c.lift(); c.run(700);                                                    // past graceMs (300): the swing already made is not counted
+    t('(c) trigger touch lifted mid-window, finger off everything: window closed, no alarm at the lift, drift reference re-taken (devOff ~0)',
+      c.eng.state.drillFree === false && c.alarms().length === 0 && c.eng.state.devOff < 0.5 && !c.eng.state.onRest, c.eng.state.devOff);
+    c.rate(10, 400);
+    t(`(c) 4 deg of slow drift after the lift does not alarm even though 44 deg have passed since the finger left the frame (devOff ${c.eng.state.devOff.toFixed(1)})`,
+      c.alarms().length === 0 && c.eng.state.devOff > 3 && c.eng.state.devOff < 5);
+    c.rate(10, 400);
+    t(`(c) a further 4 deg (devOff ${c.eng.state.devOff.toFixed(1)}) alarms (move): the off-frame rules are back`, c.alarms().length === 1 && c.alarms()[0].reason === 'move' && c.eng.state.devOff > 5);
+  }
+  {
+    const c = mk(5); c.go(); c.on(); c.run(600); c.fire(); c.run(600); c.swing(40); c.run(200);
+    c.lift(); c.run(700);
+    c.swing(40);
+    t('(c) a fast swing with the trigger lifted mid-window alarms (move)', c.alarms().length === 1 && c.alarms()[0].reason === 'move');
+  }
+  // (d) after the tenth shot, finger still on the trigger: the normal rules, press movement restarted at the tenth shot.
+  {
+    const c = mk(5); c.go(); c.on(); c.run(600);
+    for (let n = 1; n <= 8; n++) { c.fire(); if (n % 2 === 0) { c.run(300); c.swing(n % 4 ? -40 : 40); c.run(400); } else c.run(150); }
+    c.run(300);
+    t('eight shots, four swings, no alarm; window open', c.d().shots.length === 8 && c.alarms().length === 0 && c.eng.state.drillFree === true);
+    c.fire(); c.run(300);
+    // tenth press with ~200 ms of movement during the pull, before the break
+    c.eng.touches(c.T, TOUCH(20), W, H); c.run(100); c.rate(60, 200); c.run(150);
+    const before = c.eng.state.trig.moveMs;
+    c.eng.touches(c.T, TOUCH(70), W, H);
+    t(`the movement count of the press had reached ${Math.round(before)} ms (>= 150) before shot 10, and is 0 at shot 10`,
+      before >= 150 && c.d().phase === 'finishing' && c.d().shots.length === 10 && c.eng.state.trig.moveMs === 0);
+    // the finger stays pulled through the break (the press runs on for 500 ms after it); a 150 ms jerk right after shot 10
+    c.rate(60, 75); c.rate(-60, 75);                            // back and forth: well inside offFrameDeg
+    const jerk = c.eng.state.trig.moveMs;
+    t(`a 150 ms jerk right after shot 10 (press movement ${Math.round(before)} + ${Math.round(jerk)} ms would pass jerkMs 300 without the restart; it is ${Math.round(jerk)}): no alarm`,
+      c.alarms().length === 0 && c.eng.state.drillFree === false && c.eng.state.inPress && jerk > 100 && jerk < 300 && before + jerk > 300);
+    c.on(); c.run(900);
+    c.swing(40);
+    t('(d) after shot 10, finger still on the trigger: the same fast swing alarms (move); window closed (phase finishing)',
+      c.alarms().length === 1 && c.alarms()[0].reason === 'move' && c.eng.state.drillFree === false && c.d().phase === 'finishing');
+    c.frame(); c.run(100);
+    t('finger to the frame: alarm clears, drillEnd with the alarm counted (withAlarm true, alarms 1)', !c.eng.state.alarmActive && c.of('drillEnd').length === 1 && c.eng.state.drillRuns[0].withAlarm === true && c.eng.state.drillRuns[0].alarms === 1);
+  }
+  // (d2) the drift reference is re-taken at the tenth shot: a slow drift after it is judged from there.
+  {
+    const c = mk(5); c.go(); c.on(); c.run(600);
+    for (let n = 1; n <= 9; n++) { c.fire(); c.run(n % 2 ? 150 : 300); if (n % 2 === 0) { c.swing(n % 4 ? -40 : 40); c.run(400); } }
+    c.swing(40); c.run(400);
+    t(`before shot 10: nine shots, ~40 deg of drift since the finger left (devOff ${c.eng.state.devOff.toFixed(0)}), no alarm`, c.d().shots.length === 9 && c.eng.state.devOff > 20 && c.alarms().length === 0);
+    c.fire();
+    t('shot 10: phase finishing, drift reference re-taken (devOff ~0)', c.d().phase === 'finishing' && c.eng.state.devOff < 1, c.eng.state.devOff);
+    c.run(1100); c.rate(10, 400);
+    t(`(g) 4 deg of slow drift after shot 10 does not alarm (judged from the tenth shot; devOff ${c.eng.state.devOff.toFixed(1)})`, c.alarms().length === 0 && c.eng.state.devOff > 3 && c.eng.state.devOff < 5);
+    c.rate(10, 400);
+    t(`(g) 8 deg after shot 10 alarms (move; devOff ${c.eng.state.devOff.toFixed(1)}): the drift rule is live again`, c.alarms().length === 1 && c.alarms()[0].reason === 'move');
+  }
+  // (e) the 180 rule stays inside the window.
+  {
+    const c = mk(5), eng = c.eng; c.run(100); eng.setDownrange(c.T); c.run(100); c.go(); c.on(); c.run(600); c.fire(); c.run(600);
+    t('downrange set, shot 1 fired, window open, no alarm', c.d().shots.length === 1 && eng.state.drillFree === true && c.alarms().length === 0);
+    c.swing(60); c.run(100);
+    t('a swing within 90 deg of downrange: no alarm (inside the window)', c.alarms().length === 0 && eng.state.dev180 > 50 && eng.state.dev180 < 90);
+    c.swing(60);
+    t(`(e) past 90 deg of downrange (${eng.state.dev180.toFixed(0)} deg) with the finger on the trigger, inside the window: the 180 alarm fires`,
+      eng.state.drillFree === true && c.alarms().length === 1 && c.alarms()[0].reason === '180' && eng.state.alarmActive);
+  }
+  {
+    const c = mk(5), eng = c.eng; c.run(100); eng.setDownrange(c.T); c.run(100); c.go(); c.on(); c.run(600); c.fire(); c.run(600);
+    c.swing(-120); c.run(200);
+    t('(e) the same swing the other way round also trips the 180 rule inside the window', c.alarms().some(e => e.reason === '180'));
+  }
+  // (f) an alarm latched before the window is not cleared by it; shots fired in it are unsafe and the run is withAlarm.
+  {
+    const c = mk(5); c.go(); c.on(); c.run(600); c.swing(40);
+    t('alarm latched before the first shot (move)', c.alarms().length === 1 && c.eng.state.alarmActive);
+    for (let n = 0; n < 10; n++) { c.fire(); c.run(200); }
+    t('ten shots fired with the alarm latched: the swing did not clear it, one alarmStart, window ended the run at shot 10', c.eng.state.alarmActive && c.alarms().length === 1 && c.d().phase === 'finishing' && c.d().shots.length === 10);
+    c.frame(); c.run(100);
+    const run = c.eng.state.drillRuns[0];
+    t('(f) every shot of the run is unsafe (not graded), the run is withAlarm with alarms 1', !!run && run.shots.length === 10 && run.shots.every(x => x.unsafe) && run.withAlarm === true && run.alarms === 1);
+  }
+  // (g) a pause in live cancels the run; the window is closed afterwards.
+  {
+    const c = mk(5); c.go(); c.on(); c.run(600); c.fire(); c.run(300); c.fire(); c.run(300); c.swing(40);
+    t('three-quarters through a pair swing: window open', c.eng.state.drillFree === true && c.d().shots.length === 2);
+    c.eng.setPaused(true, c.T + 1);
+    t('pause: one drillCancel (transitions), fresh standby with no shots', c.of('drillCancel').length === 1 && c.of('drillCancel')[0].drill === 'transitions' && c.d().phase === 'standby' && c.d().shots.length === 0 && c.d().dueAt === null);
+    c.eng.setPaused(false, c.T + 2); c.eng.touches(c.T + 2, REST, W, H); c.run(100);
+    t('resumed: window closed (drillFree false) and no alarm', c.eng.state.drillFree === false && c.alarms().length === 0);
+    t('and a new beep comes (rep 1) with the old shots gone', c.until(() => c.of('drillBeep').length === 2, 7000) && c.d().shots.length === 0 && c.d().early === 0);
+  }
+  // (i) Bill's result keeps exactly its keys; (j) the seed is coerced like the others.
+  {
+    const c = mk(5, 'bill'); c.go(); c.on(); c.run(600);
+    for (let n = 0; n < 6; n++) { c.fire(); c.run(200); }
+    c.frame(); c.run(100);
+    const run = c.eng.state.drillRuns[0];
+    t('(i) a Bill result has no pairSplits / transitions / avgTransition and six shots', !!run && run.shots.length === 6 && !('pairSplits' in run) && !('transitions' in run) && !('avgTransition' in run));
+    const tr = mk(5); tr.go(); tr.on(); tr.run(600); for (let n = 0; n < 10; n++) { tr.fire(); tr.run(200); } tr.frame(); tr.run(100);
+    const rr = tr.eng.state.drillRuns[0];
+    t('(i) the Transitions result of the same kind of run has the three keys', !!rr && Array.isArray(rr.pairSplits) && Array.isArray(rr.transitions) && typeof rr.avgTransition === 'number');
+    const s1 = mk('7'), s2 = mk(7);
+    s1.eng.touches(10, REST, W, H); s2.eng.touches(10, REST, W, H); s1.until(() => s1.of('drillBeep').length, 7000); s2.until(() => s2.of('drillBeep').length, 7000);
+    t(`(j) startDrill(0, "transitions", "7") is seed 7 (${s1.d().seed}) and beeps exactly when numeric 7 does`, s1.d().seed === 7 && s1.of('drillBeep')[0].t === s2.of('drillBeep')[0].t);
+  }
+  // Grading from the press start (D-112 i): a swing that finishes before the pull reaches 15 % is not in the shot's deviation.
+  {
+    const run = id => {
+      const c = mk(5, id); c.go(); c.on(); c.run(600); c.fire(); c.run(600);
+      c.swing(40); c.run(300);                                              // the swing to the next target, then still
+      c.eng.touches(c.T, TOUCH(20), W, H); c.run(100);                      // pull passes 15 % (9 px) with the phone still
+      c.eng.touches(c.T, TOUCH(45), W, H); c.run(50); c.eng.touches(c.T, TOUCH(70), W, H); c.run(60);
+      return c.of('shot')[1];
+    };
+    const tshot = run('transitions'), bshot = run('bill');
+    t(`grading: Transitions grades the shot after the 40 deg swing from the press start: Clean, dev ${tshot && tshot.shot.dev}`, !!tshot && tshot.shot.grade === 'Clean' && tshot.shot.dev < 0.5);
+    t(`grading: the same sequence in Bill counts the swing: dev ${bshot && bshot.shot.dev.toFixed(1)} deg, not Clean (${bshot && bshot.shot.grade})`, !!bshot && bshot.shot.dev > 5 && bshot.shot.grade !== 'Clean');
+  }
+  // (F) the stimulus itself: the recording's four swings are real (>= 80 deg/s for >= 0.45 s, >= 35 deg) and nothing else moves
+  {
+    const ms = rec.log.filter(r => r[0] === 'm'), mag = r => Math.hypot(r[2], r[3], r[4]);
+    const stretches = []; let cur = null;
+    ms.forEach((r, i) => {
+      const hi = mag(r) >= 79.9;
+      if (hi) { if (!cur) { cur = { t0: r[1], t1: r[1], deg: 0 }; stretches.push(cur); } const dt = i ? (r[1] - ms[i - 1][1]) / 1000 : 0; cur.deg += mag(r) * dt; cur.t1 = r[1]; }
+      else cur = null;
+    });
+    t(`(F) the recording holds exactly four swings (${stretches.length}), each >= 80 deg/s for >= 0.45 s and integrating to >= 35 deg (${stretches.map(x => `${((x.t1 - x.t0) / 1000 + 1 / 60).toFixed(2)} s/${x.deg.toFixed(0)} deg`).join(', ')})`,
+      stretches.length === 4 && stretches.every(x => (x.t1 - x.t0) / 1000 + 1 / 60 >= 0.45 && x.deg >= 35));
+    t('(F) no other stretch of the recording exceeds moveDps (25 deg/s): the only fast turning is the four swings',
+      ms.every(r => mag(r) >= 79.9 || mag(r) <= TDT.DEFAULTS.moveDps));
+  }
+  // (A) grading origin follows the muzzle until the pull has risen 15 % above its lowest point of the attempt
+  {
+    const pull2 = c => { for (const dx of [20, 45, 70]) { c.eng.touches(c.T, TOUCH(dx), W, H); c.run(40); } };   // a pull with no return: the touch stays at 70 px
+    const seq = (id, how, ride) => {
+      const c = mk(5, id); c.go(); c.on(); c.run(600); c.fire(); c.run(300);                              // shot 1, touch kept at base
+      if (ride) { pull2(c); c.run(100); } else { c.fire(); c.run(300); }                                  // shot 2: held at 70 px (ride) or returned to base
+      how(c);
+      c.eng.touches(c.T, TOUCH(45), W, H); c.run(40); c.eng.touches(c.T, TOUCH(70), W, H); c.run(60);
+      return c;
+    };
+    const ride = c => { c.eng.touches(c.T, TOUCH(25), W, H);   // the broken trigger rides forward to 25 px: that is the reset, minPull 25
+      c.run(100); c.swing(40); c.run(300); };      // hold the reset at ~40 % pull, swing, the phone still
+    const abort = c => { c.eng.touches(c.T, TOUCH(18), W, H); c.run(100); c.eng.touches(c.T, TOUCH(0), W, H); c.run(100); c.swing(40); c.run(300); };   // 30 % and back
+    for (const [name, how, rd] of [['A1 reset-ride (held at 25 px = 42 %)', ride, true], ['A2 aborted press (30 % and back to 0)', abort, false]]) {
+      const tc = seq('transitions', how, rd), bc = seq('bill', how, rd);
+      const ts = tc.d().shots[2], bs = bc.d().shots[2];
+      t(`(${name}) Transitions: shot 3 grades from the press start: dev ${ts && ts.dev.toFixed(2)} (< 1), Clean, no alarm`, tc.d().shots.length === 3 && ts.grade === 'Clean' && ts.dev < 1 && tc.alarms().length === 0, ts);
+      t(`(${name}) vacuity, same sequence in Bill: the swing is in the deviation: dev ${bs && bs.dev.toFixed(1)} (about 40), not Clean`, bc.d().shots.length === 3 && bs.dev > 30 && bs.dev < 50 && bs.grade !== 'Clean', bs);
+    }
+    // a press that rises through the freeze point and falls back below it re-takes again (the origin follows a hold at the low point only)
+    const c = mk(5); c.go(); c.on(); c.run(600); c.fire(); c.run(300);
+    c.eng.touches(c.T, TOUCH(30), W, H); c.run(60); c.swing(20); c.run(100);                              // above 15 % of base 0: origin frozen at the 30 px moment
+    c.eng.touches(c.T, TOUCH(0), W, H); c.run(100); c.swing(-20); c.run(200);                              // back to the low point, then another swing: origin follows
+    c.eng.touches(c.T, TOUCH(45), W, H); c.run(40); c.eng.touches(c.T, TOUCH(70), W, H); c.run(60);
+    t(`(A3) press rising, falling back below the freeze point, swinging, then firing: the shot grades from the last low point (dev ${c.d().shots[1] && c.d().shots[1].dev.toFixed(2)} < 1)`, c.d().shots.length === 2 && c.d().shots[1].dev < 1);
+  }
+  // (B) a run replaced or dropped un-paused inside the window: cancel event, drift reference re-taken, window closed
+  for (const [name, act] of [['cancelDrill', c => c.eng.cancelDrill(c.T)], ["startDrill('bill')", c => c.eng.startDrill(c.T, 'bill', 9)]]) {
+    const c = mk(5); c.go(); c.on(); c.run(600); c.fire(); c.run(600); c.swing(40); c.run(100);
+    t(`(B) ${name}: setup: window open after a 40 deg swing, no alarm`, c.eng.state.drillFree === true && c.alarms().length === 0 && c.eng.state.devOff > 30);
+    act(c);
+    const freeAtOnce = c.eng.state.drillFree; c.run(20);
+    t(`(B) ${name}: one drillCancel (transitions), drillFree false at once, drift reference re-taken (devOff ${c.eng.state.devOff.toFixed(2)} at the next tick)`,
+      c.of('drillCancel').length === 1 && c.of('drillCancel')[0].drill === 'transitions' && freeAtOnce === false && c.eng.state.devOff < 1);
+    c.run(800);
+    t(`(B) ${name}: no alarmStart over the next 800 ms with the phone still (without the re-take the 40 deg drift would alarm); window still closed`, c.alarms().length === 0 && c.eng.state.drillFree === false);
+    c.rate(10, 1000);
+    t(`(B) ${name}: ... and the normal drift rule is live afterwards (a slow 10 deg alarms)`, c.alarms().length === 1 && c.alarms()[0].reason === 'move');
+  }
+  // (C) a pause mid-window closes the window at once
+  {
+    const c = mk(5); c.go(); c.on(); c.run(600); c.fire(); c.run(300);
+    t('(C) setup: window open', c.eng.state.drillFree === true);
+    c.eng.setPaused(true, c.T + 1);
+    t('(C) setPaused(true) mid-window: drillFree is false immediately, with no tick in between', c.eng.state.drillFree === false && c.of('drillCancel').length === 1);
+  }
+  // (I) a shot before the beep is early and opens no window
+  {
+    const c = mk(5); c.eng.touches(10, REST, W, H); c.run(700); c.on(); c.run(500); c.fire(); c.run(300);
+    t('(I) a shot in standby before the beep: early 1, phase standby, no run shot, drillFree false', c.d().phase === 'standby' && c.d().early === 1 && c.d().shots.length === 0 && c.eng.state.drillFree === false && c.of('shot').length === 1);
+    c.swing(40);
+    t('(I) ... and a swing then alarms (no window was opened by that shot)', c.alarms().length === 1 && c.alarms()[0].reason === 'move');
+    c.frame(); c.run(100);
+    c.until(() => c.d().phase === 'live', 7000);
+    t('(I) the beep still comes after the early shot; the early shot is not one of the ten (shots 0, early 1)', c.d().phase === 'live' && c.d().shots.length === 0 && c.d().early === 1);
   }
 }
 

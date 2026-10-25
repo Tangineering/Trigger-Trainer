@@ -519,7 +519,7 @@ const check = (name, cond, state) => {
     await dp.click('#drillBtn');
     check('WQ-027: tapping Drill opens the picker', (await dst()).pickerOpen === true);
     const ids = await dp.$$eval('#drillList .drillOpt', els => els.map(e => e.dataset.id));
-    check("WQ-027: picker lists exactly ['freestyle','lowready','box','bill'] in D-93 order (Low Ready joined with WQ-028, Box Drill with WQ-029)", JSON.stringify(ids) === '["freestyle","lowready","box","bill"]', ids);
+    check("WQ-027: picker lists exactly ['freestyle','lowready','box','bill','transitions'] in D-93 + D-112 a order (Low Ready joined with WQ-028, Box Drill with WQ-029, Transitions with WQ-030)", JSON.stringify(ids) === '["freestyle","lowready","box","bill","transitions"]', ids);
     check('WQ-027: the picker highlights the current selection (Freestyle) and shows an <svg> diagram',
       await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'freestyle' && await dp.$eval('#drillDiagram', e => !!e.querySelector('svg')));
     await dp.click('#drillList .drillOpt[data-id="bill"]');
@@ -723,8 +723,8 @@ const check = (name, cond, state) => {
     check('WQ-027: a stored unknown drill id falls back to Freestyle', (await dst()).drillSel === 'freestyle' && /Freestyle/.test(await dp.textContent('#drillBtn')));
     await dp.click('#drillBtn');
     const idsBox = await dp.$$eval('#drillList .drillOpt', els => els.map(e => e.dataset.id));
-    check("WQ-027: with tdt.drill = 'nope' stored the picker lists freestyle, lowready, box and bill, Freestyle highlighted",
-      JSON.stringify(idsBox) === '["freestyle","lowready","box","bill"]' && await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'freestyle', idsBox);
+    check("WQ-027: with tdt.drill = 'nope' stored the picker lists freestyle, lowready, box, bill and transitions, Freestyle highlighted",
+      JSON.stringify(idsBox) === '["freestyle","lowready","box","bill","transitions"]' && await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'freestyle', idsBox);
     await dp.click('#drillCancelBtn');
     await dp.evaluate(() => { try { localStorage.setItem('tdt.drill', 'box'); } catch (e) {} });
     await dp.reload();
@@ -925,7 +925,7 @@ const check = (name, cond, state) => {
     // --- 1. picker: order, diagram, remembered choice
     await lp.click('#drillBtn');
     const lids = await lp.$$eval('#drillList .drillOpt', els => els.map(e => e.dataset.id));
-    check("WQ-028: picker lists exactly ['freestyle','lowready','box','bill'] in that order", JSON.stringify(lids) === '["freestyle","lowready","box","bill"]', lids);
+    check("WQ-028: picker lists exactly ['freestyle','lowready','box','bill','transitions'] in that order (Transitions joined with WQ-030)", JSON.stringify(lids) === '["freestyle","lowready","box","bill","transitions"]', lids);
     const lnames = await lp.$$eval('#drillList .drillOpt', els => els.map(e => e.textContent));
     check('WQ-028: the Low Ready entry is named Low Ready and carries its subtitle', /Low Ready/.test(lnames[1]) && /Five reps/.test(lnames[1]), lnames);
     const svgFree = await lp.$eval('#drillDiagram', e => e.innerHTML);
@@ -1263,7 +1263,7 @@ const check = (name, cond, state) => {
     // --- 1. picker: order, Box entry and diagram, screenshots, bounding boxes
     await bp.click('#drillBtn');
     const bids = await bp.$$eval('#drillList .drillOpt', els => els.map(e => e.dataset.id));
-    check("WQ-029: picker lists exactly ['freestyle','lowready','box','bill'] in D-93 order", JSON.stringify(bids) === '["freestyle","lowready","box","bill"]', bids);
+    check("WQ-029: picker lists exactly ['freestyle','lowready','box','bill','transitions'] in D-93 + D-112 a order (Transitions joined with WQ-030)", JSON.stringify(bids) === '["freestyle","lowready","box","bill","transitions"]', bids);
     const bnames = await bp.$$eval('#drillList .drillOpt', els => els.map(e => e.textContent));
     check('WQ-029: the third entry is named Box Drill with its subtitle', /Box Drill/.test(bnames[2]) && /Four corners/.test(bnames[2]), bnames);
     const svgs = {};
@@ -1472,6 +1472,317 @@ const check = (name, cond, state) => {
     check('WQ-029: Change drill: trainer stopped, start screen shown, results closed, drill is null; the stored choice stays Box',
       d.running === false && d.drill === null && !d.drillResOpen && await startOv() && await lsGet() === 'box', d);
     await bp.close(); await bctx.close();
+  }
+
+  // WQ-030: Transitions (D-111, D-112). Fresh context so localStorage and touches start clean.
+  {
+    const fs = require('fs');
+    const shotDir = path.resolve(__dirname, '..', 'docs', 'screenshots', 'wq-030');
+    if (process.env.WQ_SCREENSHOTS) fs.mkdirSync(shotDir, { recursive: true });
+    const tctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+    const tp = await tctx.newPage();
+    tp.on('pageerror', e => errors.push('transitions page: ' + e.message));
+    await tp.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await tp.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await tp.reload();
+    const tst = () => tp.evaluate(() => window.__tdt());
+    const tcdp = await tctx.newCDPSession(tp);
+    const ttouch = (type, pts) => tcdp.send('Input.dispatchTouchEvent', {
+      type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 25, radiusY: 25 })) });
+    const tmotion = async (alpha = 0, n = 1) => {
+      for (let i = 0; i < n; i++) {
+        await tp.evaluate(a => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+          rotationRate: { alpha: a, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), alpha);
+        await tp.waitForTimeout(16);
+      }
+    };
+    const tsleep = async ms => { const t0 = Date.now(); while (Date.now() - t0 < ms) await tmotion(0, 1); };
+    // A fast swing (80 deg/s) until the muzzle has moved at least `deg` degrees from where it was; then the phone stands still.
+    const tswing = async (sign, deg) => {
+      const h0 = (await tst()).aimH;
+      for (let i = 0; i < 400; i++) { await tmotion(sign * 80, 1); if (Math.abs((await tst()).aimH - h0) >= deg) break; }
+      await tmotion(0, 3);
+    };
+    // Swing until a state condition holds (the 180 checks).
+    const tswingUntil = async (rate, cond, max = 400) => { for (let i = 0; i < max; i++) { await tmotion(rate, 1); if (cond(await tst())) return true; } return false; };
+    const tengage = async () => { await ttouch('touchEnd', []); await tmotion(0, 3); await ttouch('touchStart', [TRG]); await tmotion(0, 3); };   // finger off the frame, onto the trigger, no pull
+    // One pull and reset with the touch kept on the trigger (the finger stays prepped); the phone stands still.
+    const tfire = async () => {
+      for (let dx = 20; dx <= 70; dx += 25) { await ttouch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await tmotion(0, 2); }
+      await tmotion(0, 1); await ttouch('touchMove', [[TRG[0], TRG[1], 2]]); await tmotion(0, 4);
+    };
+    const tline = () => tp.textContent('#drillLine');
+    const trows = () => tp.$$eval('#drillResRows tr', trs => trs.map(tr => [...tr.children].map(td => td.textContent)));
+    const waitS = async (cond, maxMs) => { const t0 = Date.now(); let s; while (Date.now() - t0 < maxMs) { await tmotion(0, 1); s = await tst(); if (cond(s)) return s; } return s; };
+    const waitBeep = () => waitS(x => x.drill && x.drill.phase === 'live', 6500);
+    const shoot = p => process.env.WQ_SCREENSHOTS ? tp.screenshot({ path: p }) : null;   // PNGs only on request: npm test leaves the tree clean
+    const inView = async (sel, vw, vh) => {
+      const h = await tp.$(sel); await h.scrollIntoViewIfNeeded();
+      const b = await h.boundingBox();
+      return b && b.width > 0 && b.height > 0 && b.x >= 0 && b.x + b.width <= vw + 0.5 && b.y >= 0 && b.y + b.height <= vh + 0.5 ? true : b;
+    };
+    const lsGet = () => tp.evaluate(() => { try { return localStorage.getItem('tdt.drill'); } catch (e) { return 'ERR'; } });
+    const startOv = () => tp.$eval('#startOv', e => e.classList.contains('show'));
+    const FRM = 17;
+    // Page-side frame observer (performance.now() of the frame that first shows each change): the beep, each shot, the finger
+    // coming onto the frame, the results opening, every distinct drill line text, and every frame where the window was open
+    // (and whether an alarm sounded in it). Independent of the engine's own event times.
+    const observeT = () => tp.evaluate(() => {
+      window.__to = { ev: [], lines: [], freeFrames: 0, freeAlarmFrames: 0, alarmFrames: 0 };
+      if (window.__toOn) return; window.__toOn = true;
+      let phase = null, shots = 0, rest = false, res = false, line = null, alarm = false;
+      const f = () => {
+        const s = window.__tdt(), n = performance.now(), o = window.__to, d = s.drill;
+        if (d) {
+          if (d.phase === 'live' && (phase === 'standby' || phase === null)) o.ev.push({ k: 'beep', n });
+          for (; shots < d.shots; shots++) o.ev.push({ k: 'shot', i: shots + 1, n });
+          if (d.shots < shots) shots = d.shots;
+          phase = d.phase;
+          if (d.freeOnTrigger) { o.freeFrames++; if (s.alarmActive) o.freeAlarmFrames++; }
+        } else { phase = null; shots = 0; }
+        if (s.alarmActive) o.alarmFrames++;
+        if (s.alarmActive && !alarm) o.ev.push({ k: 'alarm', n, reason: s.alarmReason, shots: d ? d.shots : null });
+        alarm = s.alarmActive;
+        if (s.onRest && !rest) o.ev.push({ k: 'rest', n });
+        rest = s.onRest;
+        if (s.drillResOpen && !res) o.ev.push({ k: 'res', n });
+        res = s.drillResOpen;
+        const l = document.getElementById('drillLine').textContent;
+        if (l !== line) { o.lines.push({ l, n }); line = l; }
+        requestAnimationFrame(f);
+      };
+      requestAnimationFrame(f);
+    });
+    const TO = () => tp.evaluate(() => window.__to);
+    const pick = (ev, k, pred = () => true) => ev.find(e => e.k === k && pred(e));
+
+    // --- 1. picker: five entries, Transitions highlighted, reachability at both orientations, screenshots
+    await tp.click('#drillBtn');
+    const tids = await tp.$$eval('#drillList .drillOpt', els => els.map(e => e.dataset.id));
+    check("WQ-030: picker lists exactly ['freestyle','lowready','box','bill','transitions'] in D-93 + D-112 a order", JSON.stringify(tids) === '["freestyle","lowready","box","bill","transitions"]', tids);
+    const tnames = await tp.$$eval('#drillList .drillOpt', els => els.map(e => e.textContent));
+    check('WQ-030: the fifth entry is named Transitions and carries the subtitle "Five pairs, target to target"', /Transitions/.test(tnames[4]) && /Five pairs, target to target/.test(tnames[4]), tnames);
+    const tsvgs = {};
+    for (const id of ['freestyle', 'lowready', 'box', 'bill', 'transitions']) { await tp.click(`#drillList .drillOpt[data-id="${id}"]`); tsvgs[id] = await tp.$eval('#drillDiagram', e => e.innerHTML); }
+    check('WQ-030: highlighting Transitions moves .sel and shows its own <svg> (different from the other four), selectable',
+      await tp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'transitions' && /^<svg/.test(tsvgs.transitions.trim()) && /trigger/i.test(tsvgs.transitions) &&
+      ['freestyle', 'lowready', 'box', 'bill'].every(k => tsvgs[k] !== tsvgs.transitions) && !(await tp.$eval('#drillList .drillOpt[data-id="transitions"]', e => e.disabled || e.classList.contains('disabled'))));
+    const howT = await tp.textContent('#drillHow');
+    check('WQ-030: the how-to mentions the finger on the trigger between targets, five pairs and finishing on the frame', /trigger/i.test(howT) && /five pairs/i.test(howT) && /finger back on the frame/i.test(howT), howT);
+    for (const [name, vw, vh] of [['landscape', W, H], ['portrait', H, W]]) {
+      await tp.setViewportSize({ width: vw, height: vh }); await tp.waitForTimeout(250);
+      await tp.$eval('#drillOv', e => { e.scrollTop = 0; });
+      await shoot(path.join(shotDir, `picker-${name}.png`));
+      const reach = [];
+      for (const sel of ['#drillChoose', '#drillCancelBtn']) reach.push(await inView(sel, vw, vh));
+      check(`WQ-030: ${vw}x${vh}: #drillChoose and #drillCancelBtn are reachable and not clipped with Transitions highlighted`, reach.every(r => r === true), reach);
+      const noH = await tp.evaluate(() => { const o = document.getElementById('drillOv'); return o.scrollWidth <= o.clientWidth + 1; });
+      check(`WQ-030: ${vw}x${vh}: the picker has no horizontal overflow`, noH);
+      const sb = await tp.$eval('#drillDiagram svg', e => { const b = e.getBoundingClientRect(); return { x: b.x, r: b.right, w: b.width, h: b.height }; });
+      check(`WQ-030: ${vw}x${vh}: the Transitions diagram is fully inside the viewport and has a size`, sb.x >= 0 && sb.r <= vw + 0.5 && sb.w > 100 && sb.h > 50, sb);
+      if (vw === W) {                                   // D-112 compact landscape rule: all five entries, the diagram and both buttons fit with no scrolling
+        const fit = await tp.evaluate(() => { const o = document.getElementById('drillOv'); return { sh: o.scrollHeight, ch: o.clientHeight, sw: o.scrollWidth, cw: o.clientWidth }; });
+        check(`WQ-030: ${vw}x${vh}: the picker needs no scrolling (scrollHeight ${fit.sh} === clientHeight ${fit.ch})`, fit.sh === fit.ch && fit.sw <= fit.cw + 1, fit);
+        const allIn = [];
+        for (const id of ['freestyle', 'lowready', 'box', 'bill', 'transitions']) allIn.push(await tp.$eval(`#drillList .drillOpt[data-id="${id}"]`, (e, [vw, vh]) => { const b = e.getBoundingClientRect(); return b.top >= 0 && b.bottom <= vh + 0.5 && b.left >= 0 && b.right <= vw + 0.5; }, [vw, vh]));
+        check(`WQ-030: ${vw}x${vh}: all five list entries are inside the viewport without scrolling (scrollTop 0)`, allIn.every(Boolean) && await tp.$eval('#drillOv', e => e.scrollTop === 0), allIn);
+      }
+      const last = await inView('#drillList .drillOpt[data-id="transitions"]', vw, vh);
+      check(`WQ-030: ${vw}x${vh}: the fifth list entry can be scrolled into view`, last === true || (last && last.width > 0), last);
+    }
+    await tp.setViewportSize({ width: W, height: H }); await tp.waitForTimeout(250);
+    await tp.click('#drillChoose');
+    check("WQ-030: Choose stores tdt.drill === 'transitions' and the button names Transitions", await lsGet() === 'transitions' && /Transitions/.test(await tp.textContent('#drillBtn')) && (await tst()).drillSel === 'transitions');
+    await tp.reload();
+    check('WQ-030: the Transitions choice survives a reload', (await tst()).drillSel === 'transitions' && /Transitions/.test(await tp.textContent('#drillBtn')));
+
+    // --- 2. run 1: the same swing BEFORE the first shot alarms; the beep timing and the first texts
+    await tp.click('#startBtn'); await tp.waitForTimeout(150);
+    await observeT();
+    let d = await tst();
+    check('WQ-030: after Start the run is in standby: no shots, window closed, line "Transitions · finger on the frame, wait for the beep"',
+      d.drill && d.drill.id === 'transitions' && d.drill.phase === 'standby' && d.drill.shots === 0 && d.drill.freeOnTrigger === false && d.drillRuns === 0 &&
+      await tline() === 'Transitions · finger on the frame, wait for the beep', [d.drill, await tline()]);
+    await ttouch('touchStart', [REST]); await tmotion(0, 4);
+    d = await waitBeep();
+    let lo = await TO();
+    const rest1 = pick(lo.ev, 'rest'), beep1 = pick(lo.ev, 'beep');
+    check(`WQ-030: the beep came 2000-5000 ms (+ one frame) after the finger came onto the frame (${beep1 && rest1 ? (beep1.n - rest1.n).toFixed(0) : '?'} ms)`,
+      !!beep1 && !!rest1 && beep1.n - rest1.n >= 2000 - FRM && beep1.n - rest1.n <= 5000 + Math.max(2 * FRM, 100), lo.ev);
+    check('WQ-030: at the beep the line says "Go — two at the first target", live, no shots, window closed',
+      d.drill.phase === 'live' && d.drill.shots === 0 && d.drill.freeOnTrigger === false && await tline() === 'Go — two at the first target', [d.drill, await tline()]);
+    await tengage(); await tsleep(450);                                   // trigger touched, no pull, past the grace period
+    d = await tst();
+    check('WQ-030: finger on the trigger before any shot: off the frame, no alarm, window closed (freeOnTrigger false)', !d.onRest && !d.alarmActive && d.trig && !d.trig.fired && d.drill.freeOnTrigger === false, d);
+    await tswing(1, 40); d = await tst();
+    check('WQ-030: a fast 40 deg swing with the finger on the trigger BEFORE the first shot alarms (move); freeOnTrigger false', d.alarmActive && d.alarmReason === 'move' && d.violations === 1 && d.drill.freeOnTrigger === false && d.drill.shots === 0, d);
+    await ttouch('touchEnd', []); await tmotion(0, 2); await ttouch('touchStart', [REST]); await tmotion(0, 8); d = await tst();
+    check('WQ-030: the finger back on the frame clears that alarm (the run stays live)', !d.alarmActive && d.onRest && d.drill.phase === 'live', d);
+    await ttouch('touchEnd', []);
+    await tp.click('#gear'); await tp.waitForTimeout(120);
+    d = await tst();
+    check('WQ-030: gear in a live run cancels it: paused, standby, no shots, no result, no run counted, results not open',
+      d.paused && d.drill.phase === 'standby' && d.drill.shots === 0 && d.drill.result === null && d.drillRuns === 0 && !d.drillResOpen, d);
+    await tp.click('#doneBtn'); await tp.waitForTimeout(100);
+    check('WQ-030: after Resume the line says Cancelled and to restart', /^Cancelled/.test(await tline()) && /restart/i.test(await tline()), await tline());
+
+    // --- 3. run 2 (clean): window opens at shot 1, closes at shot 10; every status text; the results
+    await observeT();
+    await ttouch('touchStart', [REST]); await tmotion(0, 4);
+    d = await waitBeep();
+    await tengage();
+    await tfire(); d = await tst();
+    check('WQ-030: after shot 1 the run is live with 1 shot, the window is open (freeOnTrigger true), line "Target 1 · fire again"',
+      d.drill.phase === 'live' && d.drill.shots === 1 && d.drill.freeOnTrigger === true && await tline() === 'Target 1 · fire again', [d.drill, await tline()]);
+    await tfire(); d = await tst();
+    check('WQ-030: after shot 2 the line says "Next target · finger may stay on the trigger", window open', d.drill.shots === 2 && d.drill.freeOnTrigger === true && await tline() === 'Next target · finger may stay on the trigger', [d.drill, await tline()]);
+    await tsleep(200);
+    const freeBefore = (await TO()).freeFrames, alarmsBefore = d.violations;
+    await tswing(1, 40); d = await tst();
+    check(`WQ-030: the same 40 deg swing after shot 2, touch kept on the trigger: NO alarm, freeOnTrigger true (the frame observer saw the window open on ${(await TO()).freeFrames - freeBefore} frames of it)`,
+      !d.alarmActive && d.violations === alarmsBefore && d.drill.freeOnTrigger === true && d.trig && (await TO()).freeFrames - freeBefore > 10, d);
+    await tsleep(250);
+    const wins = [];
+    for (let n = 3; n <= 10; n++) {
+      await tfire(); d = await tst();
+      if (n < 10) {
+        const want = n % 2 ? `Target ${(n - 1) / 2 + 1} · fire again` : 'Next target · finger may stay on the trigger';
+        wins.push([n, d.drill.shots === n && d.drill.freeOnTrigger === true && await tline() === want && !d.alarmActive, want]);
+        if (n % 2 === 0) { await tsleep(200); await tswing(n % 4 ? 1 : -1, 40); await tsleep(250); d = await tst(); wins.push([`swing after ${n}`, !d.alarmActive && d.drill.freeOnTrigger === true]); }
+        else await tsleep(150);
+        if (n === 2) { /* (the first transition was done above) */ }
+      }
+    }
+    check('WQ-030: shots 3-9: each status line matches (Target n · fire again after an odd shot, Next target after an even one), the window stays open, and the three later swings raise no alarm',
+      wins.every(w => w[1]), wins);
+    await tmotion(0, 4); d = await tst();
+    check('WQ-030: after shot 10 the phase is finishing, the window is closed (freeOnTrigger false), no alarm, line "Finger back on the frame", no results yet',
+      d.drill.phase === 'finishing' && d.drill.shots === 10 && d.drill.freeOnTrigger === false && !d.alarmActive && !d.drillResOpen && await tline() === 'Finger back on the frame', [d.drill, await tline()]);
+    lo = await TO();
+    check(`WQ-030: over the whole run the observer saw the window open on ${lo.freeFrames} frames, an alarm on none of them, and no alarm at all (${lo.alarmFrames} frames)`, lo.freeFrames > 100 && lo.freeAlarmFrames === 0 && lo.alarmFrames === 0, lo);
+    await ttouch('touchEnd', []); await tmotion(0, 2); await ttouch('touchStart', [REST]); await tmotion(0, 4);
+    d = await tst(); lo = await TO();
+    const rows = await trows(), res = d.drill.result, rowOf = k => (rows.find(r => r[0] === k) || [])[1];
+    check('WQ-030: finger back on the frame ends the run: results open, 1 run, engine paused, phase ended', d.drillResOpen === true && d.drillRuns === 1 && d.paused === true && d.drill.phase === 'ended', d);
+    check('WQ-030: results title says Transitions', /Transitions/.test(await tp.textContent('#drillResTitle')));
+    check('WQ-030: results rows in order: First shot, Pairs, Transitions, Average transition, Total, Shots, Best clean total this session (no With alarm, no Early)',
+      JSON.stringify(rows.map(r => r[0])) === JSON.stringify(['First shot', 'Pairs', 'Transitions', 'Average transition', 'Total', 'Shots', 'Best clean total this session']), rows);
+    const nums = k => (rowOf(k) || '').replace(/ s$/, '').split(' · ').map(parseFloat);
+    const shotsN = lo.ev.filter(e => e.k === 'shot').map(e => e.n), beepN = pick(lo.ev, 'beep').n;
+    check(`WQ-030: the observer saw ten shots; the Pairs row has five values and the Transitions row four`, shotsN.length === 10 && nums('Pairs').length === 5 && nums('Transitions').length === 4 && nums('Pairs').every(x => x > 0) && nums('Transitions').every(x => x > 0), [rows, shotsN.length]);
+    const obsPairs = [0, 2, 4, 6, 8].map(i => shotsN[i + 1] - shotsN[i]), obsTr = [1, 3, 5, 7].map(i => shotsN[i + 1] - shotsN[i]);
+    check(`WQ-030: the five pair splits in the result match the observed frames within 40 ms (${res.pairSplits.map(Math.round)} vs ${obsPairs.map(Math.round)})`, res.pairSplits.length === 5 && res.pairSplits.every((x, i) => Math.abs(x - obsPairs[i]) <= 40), [res.pairSplits, obsPairs]);
+    check(`WQ-030: the four transitions in the result match the observed frames within 40 ms (${res.transitions.map(Math.round)} vs ${obsTr.map(Math.round)}), and the shown rows match the result (to the rounding)`,
+      res.transitions.length === 4 && res.transitions.every((x, i) => Math.abs(x - obsTr[i]) <= 40) && nums('Pairs').every((x, i) => Math.abs(x * 1000 - res.pairSplits[i]) <= 6) && nums('Transitions').every((x, i) => Math.abs(x * 1000 - res.transitions[i]) <= 6), [res, rows]);
+    const meanTr = res.transitions.reduce((a, b) => a + b, 0) / 4;
+    check(`WQ-030: Average transition is the mean of the four (${(meanTr / 1000).toFixed(3)} s) and is shown as ${rowOf('Average transition')}`,
+      Math.abs(res.avgTransition - meanTr) < 0.01 && rowOf('Average transition') === (res.avgTransition / 1000).toFixed(2) + ' s', [res, rows]);
+    check(`WQ-030: First shot (${res.first}) and Total (${res.total}) match the observed frames (${(shotsN[0] - beepN).toFixed(0)} / ${(shotsN[9] - beepN).toFixed(0)}) within 40 ms; Total ends at shot 10`,
+      Math.abs(res.first - (shotsN[0] - beepN)) <= 40 && Math.abs(res.total - (shotsN[9] - beepN)) <= 40 && rowOf('First shot') === (res.first / 1000).toFixed(2) + ' s' && rowOf('Total') === (res.total / 1000).toFixed(2) + ' s', [res, rows]);
+    const shotCells = (rowOf('Shots') || '').split(' · ');
+    check('WQ-030: the Shots row lists ten grades (no "alarm"), and the clean run has no early shot, no alarm, and is not withAlarm',
+      shotCells.length === 10 && shotCells.every(g => g && g !== 'alarm') && res.early === 0 && res.alarms === 0 && res.withAlarm === false && res.shots.length === 10 && res.splits.length === 9, [rows, res]);
+    check('WQ-030: Best clean total this session equals this run (the first clean run)', rowOf('Best clean total this session') === (res.total / 1000).toFixed(2) + ' s', rows);
+    const okTexts = [/^Transitions · finger on the frame, wait for the beep$/, /^Go — two at the first target$/, /^Target [1-5] · fire again$/, /^Next target · finger may stay on the trigger$/, /^Finger back on the frame$/, /^Done$/, /^Cancelled/];
+    const seenT = lo.lines.map(x => x.l);
+    check('WQ-030: every text the drill line showed during the clean run is one of the D-112 k texts', seenT.every(l => okTexts.some(re => re.test(l))), seenT);
+    check('WQ-030: and the run showed the beep text, "Target 1".."Target 5 · fire again", "Next target…" and "Finger back on the frame"',
+      ['Go — two at the first target', 'Target 1 · fire again', 'Target 2 · fire again', 'Target 3 · fire again', 'Target 4 · fire again', 'Target 5 · fire again', 'Next target · finger may stay on the trigger', 'Finger back on the frame'].every(x => seenT.includes(x)), seenT);
+    for (const sel of ['#drillAgain', '#drillChange']) { const r = await inView(sel, W, H); check(`WQ-030: ${sel} is inside the 844x390 viewport on the results`, r === true, r); }
+    const cellsIn = vw => tp.evaluate(vw => [...document.querySelectorAll('#drillResRows td')].every(td => { const b = td.getBoundingClientRect(); return b.right <= vw + 0.5 && b.left >= -0.5; }), vw);
+    check('WQ-030: all result cells are inside the 844-wide viewport', await cellsIn(W));
+    await tp.$eval('#drillResOv', e => { e.scrollTop = 0; });
+    await shoot(path.join(shotDir, 'results-landscape.png'));
+    await tp.evaluate(() => document.fullscreenElement ? document.exitFullscreen() : null); await tp.waitForTimeout(200);
+    await tp.setViewportSize({ width: H, height: W }); await tp.waitForTimeout(250);
+    for (const sel of ['#drillAgain', '#drillChange']) { const r = await inView(sel, H, W); check(`WQ-030: ${sel} is inside the 390x844 viewport on the results`, r === true, r); }
+    check('WQ-030: all result cells are inside the 390-wide viewport', await cellsIn(H));
+    check('WQ-030: the results have no horizontal overflow at 390x844', await tp.evaluate(() => { const o = document.getElementById('drillResOv'); return o.scrollWidth <= o.clientWidth + 1; }));
+    await tp.$eval('#drillResOv', e => { e.scrollTop = 0; });
+    await shoot(path.join(shotDir, 'results-portrait.png'));
+    await tp.setViewportSize({ width: W, height: H }); await tp.waitForTimeout(250);
+
+    // --- 4. Again -> run 3: ten shots with the swings, then the same swing AFTER shot 10 with the finger still on the trigger alarms
+    await ttouch('touchEnd', []);
+    await tp.click('#drillAgain'); await tp.waitForTimeout(100);
+    d = await tst();
+    check('WQ-030: Again hides the results and starts a new run in standby; the run count stays 1, line "Transitions · finger on the frame, wait for the beep"',
+      !d.drillResOpen && d.drill.phase === 'standby' && d.drill.shots === 0 && d.drillRuns === 1 && d.running && await tline() === 'Transitions · finger on the frame, wait for the beep', [d.drill, await tline()]);
+    await observeT();
+    await ttouch('touchStart', [REST]); await tmotion(0, 4);
+    d = await waitBeep(); const v3 = d.violations; await tengage();
+    for (let n = 1; n <= 10; n++) { await tfire(); if (n < 10) { await tsleep(150); if (n % 2 === 0) { await tswing(n % 4 ? 1 : -1, 40); await tsleep(250); } } }
+    await tmotion(0, 4); d = await tst();
+    check('WQ-030: run 3: ten shots with four swings in the window, no alarm; phase finishing, window closed', d.drill.phase === 'finishing' && d.drill.shots === 10 && !d.alarmActive && d.violations === v3 && d.drill.freeOnTrigger === false, d);
+    await tsleep(800);                                                    // the press is over, the grace period is over, the finger is still on the trigger
+    d = await tst();
+    check('WQ-030: after shot 10, finger still on the trigger, phone still: no alarm yet', !d.alarmActive && d.trig && !d.trig.fired && !d.onRest, d);
+    await tswing(1, 40); d = await tst();
+    check('WQ-030: after shot 10 the same fast 40 deg swing with the finger still on the trigger alarms (move)', d.alarmActive && d.alarmReason === 'move' && d.violations === v3 + 1 && d.drill.phase === 'finishing' && d.drill.freeOnTrigger === false, d);
+    await ttouch('touchEnd', []); await tmotion(0, 2); await ttouch('touchStart', [REST]); await tmotion(0, 5);
+    d = await tst();
+    const rows3 = await trows(), res3 = d.drill.result, rowOf3 = k => (rows3.find(r => r[0] === k) || [])[1];
+    check('WQ-030: finger to the frame: the alarm clears and the results open (2 runs); that run is With alarm (1 alarm)', !d.alarmActive && d.drillResOpen && d.drillRuns === 2 && res3.withAlarm === true && res3.alarms === 1 && /^1 alarm /.test(rowOf3('With alarm') || ''), [d.drillRuns, rows3, res3]);
+    check(`WQ-030: Best clean total is run 2's (${res.total}), not this run's (${res3.total}) which had the alarm`, rowOf3('Best clean total this session') === (res.total / 1000).toFixed(2) + ' s', rows3);
+    check('WQ-030: the ten shots fired before the alarm are graded (no "alarm" cells in the Shots row) and counted in the pairs and transitions', !(rowOf3('Shots') || '').includes('alarm') && res3.pairSplits.length === 5 && res3.transitions.length === 4, [rows3, res3]);
+
+    // --- 5. Change drill: start screen, no drill, stored choice stays; Start again gives a fresh Transitions standby
+    await ttouch('touchEnd', []);
+    await tp.click('#drillChange'); await tp.waitForTimeout(100);
+    d = await tst();
+    check('WQ-030: Change drill: trainer stopped, start screen shown, results closed, drill is null; the stored choice stays Transitions',
+      d.running === false && d.drill === null && !d.drillResOpen && await startOv() && await lsGet() === 'transitions', d);
+    await tp.click('#startBtn'); await tp.waitForTimeout(150);
+    d = await tst();
+    check('WQ-030: Start again: a fresh Transitions run in standby, no shots', d.drill && d.drill.id === 'transitions' && d.drill.phase === 'standby' && d.drill.shots === 0, d.drill);
+
+    // --- 6. run 4: the trigger touch lifted mid-window (finger off everything) and the phone swung alarms
+    await observeT();
+    await ttouch('touchStart', [REST]); await tmotion(0, 4);
+    d = await waitBeep(); const v4 = d.violations; await tengage(); await tfire(); await tfire(); await tsleep(200);
+    await tswing(1, 40); d = await tst();
+    check('WQ-030: run 4: after two shots a 40 deg swing with the touch kept on the trigger raises no alarm (window open)', d.drill.shots === 2 && !d.alarmActive && d.drill.freeOnTrigger === true, d);
+    await ttouch('touchEnd', []); await tsleep(500); d = await tst();
+    check('WQ-030: run 4: finger lifted off the trigger and not onto the frame: window closed, no alarm yet, not on the frame', d.drill.freeOnTrigger === false && !d.alarmActive && !d.onRest && d.trig === null, d);
+    await tswing(-1, 40); d = await tst();
+    check('WQ-030: run 4: the swing now alarms (move): the normal off-frame rules apply once the finger has left the trigger', d.alarmActive && d.alarmReason === 'move' && d.violations === v4 + 1 && d.drill.phase === 'live' && d.drill.shots === 2, d);
+    await tp.click('#gear'); await tp.waitForTimeout(120);
+    d = await tst();
+    check('WQ-030: run 4: gear cancels the run (standby, no shots, 2 runs counted, results not open)', d.paused && d.drill.phase === 'standby' && d.drill.shots === 0 && d.drillRuns === 2 && !d.drillResOpen, d);
+    check('WQ-030: run 4: while paused after the gear cancel freeOnTrigger is false', d.drill.freeOnTrigger === false, d.drill);
+    await tp.click('#doneBtn'); await tp.waitForTimeout(100);
+
+    // --- 7. run 5: gear in a live run with the window open cancels (no result, run count unchanged)
+    await ttouch('touchStart', [REST]); await tmotion(0, 4);
+    d = await waitBeep(); await tengage(); await tfire();
+    d = await tst();
+    check('WQ-030: run 5: one shot fired, window open', d.drill.shots === 1 && d.drill.freeOnTrigger === true && d.drill.phase === 'live', d.drill);
+    await ttouch('touchEnd', []);
+    await tp.click('#gear'); await tp.waitForTimeout(120);
+    d = await tst();
+    check('WQ-030: run 5: gear with the window open cancels: paused, standby, no shots, no result, run count still 2, results not open',
+      d.paused && d.drill.phase === 'standby' && d.drill.shots === 0 && d.drill.result === null && d.drillRuns === 2 && !d.drillResOpen, d);
+    check('WQ-030: run 5: with the window open at the gear tap, freeOnTrigger is false while paused (before Resume)', d.paused && d.drill.freeOnTrigger === false, d.drill);
+    await tp.click('#doneBtn'); await tp.waitForTimeout(100);
+    d = await tst();
+    check('WQ-030: run 5: after Resume the window is closed (freeOnTrigger false), the line says Cancelled', d.drill.freeOnTrigger === false && /^Cancelled/.test(await tline()), [d.drill, await tline()]);
+
+    // --- 8. run 6: with downrange set, a swing past 90 deg inside the window still raises the 180 alarm
+    await ttouch('touchStart', [REST]); await tmotion(0, 4);
+    await tp.click('#downrangeBtn'); await tmotion(0, 3);
+    check('WQ-030: run 6: Set downrange took', (await tst()).refSet === true);
+    d = await waitBeep(); await tengage(); await tfire(); await tsleep(300);
+    d = await tst();
+    check('WQ-030: run 6: one shot fired, window open, no alarm', d.drill.shots === 1 && d.drill.freeOnTrigger === true && !d.alarmActive, d);
+    await tswingUntil(-80, x => x.dev180 > 65); d = await tst();
+    check(`WQ-030: run 6: ${d.dev180.toFixed(0)} deg off downrange with the finger on the trigger inside the window: no alarm`, d.dev180 > 65 && d.dev180 < 90 && !d.alarmActive && d.drill.freeOnTrigger === true, d);
+    await tswingUntil(-80, x => x.dev180 > 95); d = await tst();
+    check(`WQ-030: run 6: past 90 deg of downrange (${d.dev180.toFixed(0)} deg) inside the window: the 180 alarm fires`, d.alarmActive && d.alarmReason === '180' && d.breaks180 === 1 && d.drill.freeOnTrigger === true, d);
+    await ttouch('touchEnd', []);
+    await tp.click('#gear'); await tp.waitForTimeout(120);
+    await tp.click('#doneBtn'); await tp.waitForTimeout(100);
+    check('WQ-030: no page errors in this section', errors.filter(e => e.startsWith('transitions page')).length === 0, errors);
+    await tp.close(); await tctx.close();
   }
 
   check('no page errors', errors.length === 0, errors);
