@@ -216,6 +216,7 @@ const check = (name, cond, extra) => {
     lrLast = await waitLR(x => rp === 5 ? x.drillResOpen : x.drill.repsDone >= rp, 2500);
     if (!(rp === 5 ? lrLast.drillResOpen : lrLast.drill.repsDone >= rp)) { lrOk = false; break; }
   }
+  await motion(0, 0, 4); lrLast = await stLR();   // one frame later the page has paused the engine for the results overlay
   check('WQ-028: Low Ready recording: all five reps ran live and the results opened', lrOk && lrLast.drillResOpen && lrLast.drillRuns === 1 && lrLast.paused === true, lrLast);
   await touch('touchEnd', []);
   await page.click('#drillChange');
