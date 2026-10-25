@@ -180,14 +180,70 @@ const check = (name, cond, extra) => {
   {
     // Another seed must give a beep too (the delay fits the log), at a different time than the recorded one.
     const b1 = resB.events.find(e => e.type === 'drillBeep'), i = recB.log.findIndex(r => r[0] === 'r');
+    // Scan seeds in Node (replay is cheap) until one yields a beep inside the recorded log at a different time.
     let b2 = null, used = null;
-    for (const add of [777, 1001, 2003, 3001, 5003, 8009]) {
+    for (let add = 1; add <= 5000 && !b2; add++) {
       const r2 = JSON.parse(JSON.stringify(recB)); r2.log[i][3] = (r2.log[i][3] + add) >>> 0;
       const e = TDT.replay(r2).events.find(x => x.type === 'drillBeep');
-      if (e && e.t !== b1.t) { b2 = e; used = add; break; }
+      if (e && e.t !== b1.t) { b2 = e; used = add; }
     }
     check(`WQ-027: Bill recording: another seed gives a beep too, at a different time (${b1 && b1.t} vs ${b2 && b2.t}, seed + ${used})`, !!b1 && !!b2 && b2.t !== b1.t);
   }
+  // WQ-028: a Low Ready run recorded in the page (five reps, picked through the picker and the recorder) replays with identical events.
+  await page.reload();
+  await page.evaluate(() => { navigator.canShare = undefined; });
+  await page.click('#drillBtn');
+  await page.click('#drillList .drillOpt[data-id="lowready"]');
+  await page.click('#drillChoose');
+  check('WQ-028: Low Ready selected in the picker', await page.evaluate(() => window.__tdt().drillSel) === 'lowready');
+  await page.click('#startSettingsBtn');
+  check('WQ-028: the recorder offers the drill-low-ready label', await page.$$eval('#recLabel option', os => os.some(o => o.value === 'drill-low-ready')));
+  await page.selectOption('#recLabel', 'drill-low-ready');
+  await page.fill('#recNotes', 'roundtrip test, Low Ready');
+  await page.click('#recStart'); await page.waitForTimeout(100);
+  check('WQ-028: Low Ready recording started with the drill in standby at rep 0', await page.evaluate(() => {
+    const t = window.__tdt(); return t.recording && t.drill && t.drill.id === 'lowready' && t.drill.phase === 'standby' && t.drill.rep === 0; }));
+  await page.waitForTimeout(150);
+  const lineLR = () => page.textContent('#drillLine');
+  check('WQ-028: before any touch the drill line says "Rep 1 of 5 · finger on the frame"', await lineLR() === 'Rep 1 of 5 · finger on the frame', await lineLR());
+  await touch('touchStart', [REST]); await motion(0, 0, 4);
+  check('WQ-028: with the finger on the frame the line says "Rep 1 of 5 · wait for the beep"', await lineLR() === 'Rep 1 of 5 · wait for the beep', await lineLR());
+  const stLR = () => page.evaluate(() => window.__tdt());
+  const waitLR = async (cond, maxMs) => { const t1 = Date.now(); let x; while (Date.now() - t1 < maxMs) { await motion(0, 0, 1); x = await stLR(); if (cond(x)) return x; } return x; };
+  let lrOk = true, lrLast = null;
+  for (let rp = 1; rp <= 5; rp++) {
+    lrLast = await waitLR(x => x.drill && x.drill.rep === rp && x.drill.phase === 'live', 6500);
+    if (!(lrLast.drill && lrLast.drill.rep === rp && lrLast.drill.phase === 'live')) { lrOk = false; break; }
+    await motion(0, 0, 5);
+    await press(); await press();
+    await touch('touchStart', [REST]); await motion(0, 0, 3);
+    lrLast = await waitLR(x => rp === 5 ? x.drillResOpen : x.drill.repsDone >= rp, 2500);
+    if (!(rp === 5 ? lrLast.drillResOpen : lrLast.drill.repsDone >= rp)) { lrOk = false; break; }
+  }
+  lrLast = await waitLR(x => x.drillResOpen && x.paused, 3000);   // the page pauses the engine on the frame after the results open
+  check('WQ-028: Low Ready recording: all five reps ran live and the results opened', lrOk && lrLast.drillResOpen && lrLast.drillRuns === 1 && lrLast.paused === true, lrLast);
+  await touch('touchEnd', []);
+  await page.click('#drillChange');
+  const [dl5] = await Promise.all([page.waitForEvent('download'), page.$eval('#recPill', el => el.click())]);
+  const recL = JSON.parse(fs.readFileSync(await dl5.path(), 'utf8'));
+  const resL = TDT.replay(recL);
+  const obsL = k => recL.observed.filter(o => o[1] === k);
+  check("WQ-028: Low Ready recording: label drill-low-ready and the first log row is ['r', t, 'lowready', seed]",
+    recL.label === 'drill-low-ready' && recL.log[0][0] === 'r' && recL.log[0][2] === 'lowready' && Number.isInteger(recL.log[0][3]) && recL.log[0][3] >= 0 && recL.log[0][3] < 2 ** 32, recL.log[0]);
+  check('WQ-028: Low Ready recording: exactly one r row', recL.log.filter(r => r[0] === 'r').length === 1);
+  check('WQ-028: Low Ready recording: observed has 5 drillBeep (reps 1-5), 4 drillCue (reps 1-4, "lowready"), 1 drillEnd, 0 drillCancel',
+    obsL('drillBeep').map(o => o[2]).join() === '1,2,3,4,5' && obsL('drillCue').length === 4 && obsL('drillCue').every((o, i) => o[2] === 'lowready' && o[3] === i + 1) &&
+    obsL('drillEnd').length === 1 && obsL('drillCancel').length === 0, recL.observed.filter(o => /drill/.test(o[1])));
+  check('WQ-028: Low Ready recording: each cue comes 750 ms (+ a frame, + 40 ms browser jitter) after the last ok before it',
+    obsL('drillCue').concat(obsL('drillEnd')).every(c => { const oks = recL.observed.filter(o => o[1] === 'ok' && o[0] <= c[0]); const g = oks.length ? c[0] - oks[oks.length - 1][0] : NaN; return g >= 750 - 1 && g <= 750 + 17 + 40; }),
+    recL.observed.filter(o => /drill|ok/.test(o[1])));
+  check(`WQ-028: Low Ready recording: replay reproduces the live events exactly (${recL.observed.length} events)`,
+    JSON.stringify(recL.observed) === JSON.stringify(resL.packed), { live: recL.observed, replay: resL.packed });
+  const endL = recL.observed.find(o => o[1] === 'drillEnd');
+  check('WQ-028: Low Ready recording: the replayed run has five reps and its total matches the live drillEnd total',
+    resL.state.drillRuns.length === 1 && resL.state.drillRuns[0].reps.length === 5 && Math.abs(resL.state.drillRuns[0].total - endL[3]) < 0.001 && endL[2] === 'lowready', [resL.state.drillRuns.length, endL]);
+  check('WQ-028: Low Ready recording: the results overlay paused the engine (no drillCancel observed)', lrLast.paused === true && obsL('drillCancel').length === 0);
+  check('WQ-028: the earlier Bill and Freestyle recordings carry no drillCue', !recB.observed.concat(rec.observed, recH.observed).some(o => o[1] === 'drillCue'));
   check('no page errors', errors.length === 0, errors);
 
   await browser.close();

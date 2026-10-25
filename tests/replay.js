@@ -36,6 +36,10 @@ function summarize(res) {
     alarmsMove: ev.filter(e => e.type === 'alarmStart' && e.reason === 'move').length,
     b180: ev.filter(e => e.type === 'alarmStart' && e.reason === '180').length,
     drillBeeps: ev.filter(e => e.type === 'drillBeep').length,
+    drillCues: ev.filter(e => e.type === 'drillCue').length,
+    beepEvs: ev.filter(e => e.type === 'drillBeep').map(e => ({ t: e.t, rep: e.rep })),
+    cueEvs: ev.filter(e => e.type === 'drillCue').map(e => ({ t: e.t, rep: e.rep, cue: e.cue })),
+    endTs: ev.filter(e => e.type === 'drillEnd').map(e => e.t),
     drillEnds: ev.filter(e => e.type === 'drillEnd').length,
     drillCancels: ev.filter(e => e.type === 'drillCancel').length,
     okTs: ev.filter(e => e.type === 'ok').map(e => e.t),
@@ -86,7 +90,7 @@ for (const f of files) {
   const dur = rec.t1 && rec.t0 ? ((rec.t1 - rec.t0) / 1000).toFixed(1) + ' s' : '';
   console.log(`\n${rel}  [${rec.label}${rec.synthetic ? ', synthetic' : ''}] ${dur}` +
     `  shots ${sum.shots.length} (${sum.shots.map(s => s.grade[0]).join('') || '-'})  alarms ${sum.alarmsMove}  180s ${sum.b180} (max ${sum.maxDev.toFixed(0)}°)` +
-    (sum.drillBeeps || sum.drillEnds || sum.drillCancels ? `  drill: beeps ${sum.drillBeeps} ends ${sum.drillEnds} cancels ${sum.drillCancels}` : ''));
+    (sum.drillBeeps || sum.drillEnds || sum.drillCancels ? `  drill: beeps ${sum.drillBeeps} cues ${sum.drillCues} ends ${sum.drillEnds} cancels ${sum.drillCancels}` : ''));
 
   const check = EXPECT[rec.label];
   if (!check) { console.log(`  WARN  unknown label "${rec.label}" — no expectations`); }
@@ -175,6 +179,101 @@ if (billFile) {
   }
   const seeds = [1, 2, 3, 4, 5, 99, 123456, 4294967295].map(sd => { const r2 = JSON.parse(JSON.stringify(rec)); r2.log[rIdx][3] = sd; return beepOf(TDT.replay(r2)) - a.events.find(e => e.type === 'armed').t; });
   t(`beep falls 1000-4000 ms (+1 frame) after arming for 8 seeds (${seeds.map(x => Math.round(x)).join(', ')})`, seeds.every(x => x >= 1000 && x <= 4000 + 17));
+}
+
+// WQ-028: the synthetic Low Ready run replays deterministically; the seed in the 'r' row decides every beep time.
+const lrFile = files.find(f => f.endsWith(path.join('synthetic', 'drill-low-ready.json')));
+if (lrFile) {
+  console.log('\nLow Ready determinism (synthetic/drill-low-ready.json, in memory)');
+  const t = (desc, pass) => { console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${desc}`); if (!pass) failures++; };
+  const rec = JSON.parse(fs.readFileSync(lrFile, 'utf8'));
+  const withSeed = sd => { const o = JSON.parse(JSON.stringify(rec)); o.log[o.log.findIndex(r => r[0] === 'r')][3] = sd >>> 0; return o; };
+  const beepsOf = res => res.events.filter(e => e.type === 'drillBeep').map(e => e.t);
+  const a = TDT.replay(rec), b = TDT.replay(rec);
+  t('replaying twice gives identical packed events', JSON.stringify(a.packed) === JSON.stringify(b.packed) && a.packed.length > 0);
+  const rIdx = rec.log.findIndex(r => r[0] === 'r');
+  t('the log carries one r row, right after the opening p row, naming lowready', rec.log.filter(r => r[0] === 'r').length === 1 && rIdx === 1 && rec.log[rIdx][2] === 'lowready');
+  t('observed is empty (synthetic recordings carry no live events)', rec.synthetic === true && Array.isArray(rec.observed) && rec.observed.length === 0);
+  const base = beepsOf(a);
+  // The touches are fixed, so another seed's beeps no longer line up with the presses; only the beep times are compared.
+  const seeds = [rec.log[rIdx][3] + 12345, 1, 2, 3, 4, 5, 99, 123456, 4294967295];
+  const others = seeds.map(sd => beepsOf(TDT.replay(withSeed(sd))));
+  t(`a different seed moves at least one beep (original ${base.map(Math.round).join('/')})`,
+    base.length === 5 && others.every(o => o.length >= 1) && others.some(o => o.some((x, i) => x !== base[i])) && new Set(others.map(o => o[0])).size >= 4);
+  t('seed coercion: -1 behaves as 4294967295 (same beeps)', JSON.stringify(beepsOf(TDT.replay(withSeed(-1)))) === JSON.stringify(beepsOf(TDT.replay(withSeed(4294967295)))));
+  // With the finger staying on the frame (no deferral) rep 1's beep falls 2000-5000 ms after arming, for any seed.
+  // (The recording's own touches lift the finger for the presses, so other seeds can defer a beep: engine-level here.)
+  {
+    const rest = [{ id: 1, cx: (TDT.ZONES.rest.x + TDT.ZONES.rest.w / 2) * 844, cy: (TDT.ZONES.rest.y + TDT.ZONES.rest.h / 2) * 390, rx: 0, ry: 0 }];
+    const gaps = seeds.map(sd => {
+      const evs = [], eng = TDT.createEngine(Object.assign({}, TDT.DEFAULTS), { onEvent: e => evs.push(e) });
+      eng.setPaused(false, 0); eng.startDrill(0, 'lowready', sd); eng.touches(10, rest, 844, 390);
+      for (let T = 10; T < 8000 && !evs.some(e => e.type === 'drillBeep'); T += 1000 / 60) { eng.motion({ t: T, rot: [0, 0, 0], acc: [0, 0, 0] }); eng.tick(T); }
+      const bp = evs.find(e => e.type === 'drillBeep'), ar = evs.find(e => e.type === 'armed');
+      return bp && ar ? bp.t - ar.t : NaN;
+    });
+    t(`finger on the frame throughout: rep 1 beep 2000-5000 ms (+1 frame) after arming for ${seeds.length} seeds (${gaps.map(x => Math.round(x)).join(', ')})`,
+      gaps.every(x => x >= 2000 && x <= 5000 + 17));
+  }
+  // Rep 1 gated by the hold: lift the finger from 200 ms before the seeded beep to 100 ms after it; the beep then waits until the finger has
+  // been back DRILL_BEEP_HOLD_MS (350 ms), and the OK tone of the return comes at least 350 ms before it.
+  {
+    const o = JSON.parse(JSON.stringify(rec)), B = base[0];
+    const tpl = o.log.find(r => r[0] === 't'), W = tpl[2], H = tpl[3];
+    const restList = TDT.unpackTouchList(tpl[4]);
+    const at = (tt) => o.log.findIndex(r => (r[0] === 'm' || r[0] === 'f') && r[1] >= tt);
+    const backT = TDT.rt(B + 100), offT = TDT.rt(B - 200);
+    o.log.splice(at(backT), 0, TDT.packTouches(backT, restList, W, H));
+    o.log.splice(at(offT), 0, TDT.packTouches(offT, [], W, H));
+    const g = TDT.replay(o), gb = beepsOf(g)[0];
+    const okBack = g.events.filter(e => e.type === 'ok' && e.t > B - 200).map(e => e.t)[0];
+    t(`rep 1 beep gated by the hold: finger back at ${Math.round(backT)}, ok at ${Math.round(okBack)}, beep at ${Math.round(gb)} (seeded due ${Math.round(B)})`,
+      gb !== undefined && okBack !== undefined && gb >= backT + 350 && gb - okBack >= 350 && gb <= backT + 350 + 40);
+  }
+  // Engine-level: a cancel loses the reps (D-105); resetStats clears the runs.
+  {
+    const evs = [], eng = TDT.createEngine(Object.assign({}, TDT.DEFAULTS), { onEvent: e => evs.push(e) });
+    eng.setPaused(false, 0);
+    eng.startDrill(0, 'lowready', 5);
+    const rest = [{ id: 1, cx: (TDT.ZONES.rest.x + TDT.ZONES.rest.w / 2) * 844, cy: (TDT.ZONES.rest.y + TDT.ZONES.rest.h / 2) * 390, rx: 0, ry: 0 }];
+    eng.touches(10, rest, 844, 390);
+    let T = 10; while (T < 7000 && eng.state.drill.phase === 'standby') { T += 17; eng.motion({ t: T, rot: [0, 0, 0], acc: [0, 0, 0] }); eng.tick(T); }
+    t('Low Ready beep came and the run is live at rep 1', eng.state.drill.phase === 'live' && eng.state.drill.rep === 1);
+    eng.setPaused(true, T + 1);
+    t('pausing a live Low Ready run emits one drillCancel and restarts at rep 0 in standby with no reps (D-105)',
+      evs.filter(e => e.type === 'drillCancel').length === 1 && eng.state.drill.phase === 'standby' && eng.state.drill.rep === 0 && eng.state.drill.reps.length === 0 && eng.state.drill.cur === null);
+  }
+  // An alarm that spans two beeps counts once (D-105): a 180 alarm (muzzle swung 97 deg off downrange before the finger
+  // touches the frame) sounds through rep 1's beep, rep 1's shots, the cue and rep 2's beep; the run counts one alarm,
+  // and both reps are marked with it.
+  {
+    const W = 844, H = 390, mid = z => [(z.x + z.w / 2) * W, (z.y + z.h / 2) * H];
+    const REST = [{ id: 1, cx: mid(TDT.ZONES.rest)[0], cy: mid(TDT.ZONES.rest)[1], rx: 0, ry: 0 }], TR = mid(TDT.zoneFor('trigger', W));
+    const evs = [], eng = TDT.createEngine(Object.assign({}, TDT.DEFAULTS), { onEvent: e => evs.push(e) });
+    let T = 0; const step = (a = 0) => { T += 1000 / 60; eng.motion({ t: T, a, b: 0, g: 0, angle: 90 }); eng.tick(T); };
+    const run = ms => { const e = T + ms; while (T < e) step(); };
+    const press = () => {
+      eng.touches(T, [{ id: 2, cx: TR[0], cy: TR[1], rx: 0, ry: 0 }], W, H); run(60);
+      for (const dx of [20, 45, 70]) { eng.touches(T, [{ id: 2, cx: TR[0] - dx, cy: TR[1], rx: 0, ry: 0 }], W, H); run(40); }
+      run(30); eng.touches(T, [], W, H); run(50);
+    };
+    const until = (cond, maxMs) => { const e = T + maxMs; while (!cond() && T < e) run(17); return cond(); };
+    const d = () => eng.state.drill;
+    eng.setPaused(false, 0); eng.startDrill(0, 'lowready', 3);
+    run(100); eng.setDownrange(T); run(100);
+    for (let n = 0; eng.state.dev180 < 95 && n < 400; n++) step(-120);   // finger off the frame: unarmed, no alarm yet
+    t(`180 setup: muzzle ${eng.state.dev180.toFixed(0)} deg off downrange, no alarm yet`, eng.state.dev180 > 95 && !eng.state.alarmActive);
+    eng.touches(T, REST, W, H);
+    t('rep 1 beep with the 180 alarm sounding: run alarms 1, rep 1 marked', until(() => d().rep === 1, 7000) && eng.state.alarmActive && d().alarms === 1 && d().cur.alarms === 1);
+    press(); press(); eng.touches(T, REST, W, H);
+    t('cue 1 with the alarm still sounding: run alarms still 1', until(() => d().reps.length === 1, 3000) && eng.state.alarmActive && d().alarms === 1 && d().reps[0].alarms === 1);
+    t('rep 2 beep with the same alarm still sounding: run alarms still 1 (once per episode), rep 2 marked', until(() => d().rep === 2, 7000) && eng.state.alarmActive && d().alarms === 1 && d().cur.alarms === 1);
+    press(); press(); eng.touches(T, REST, W, H);
+    t('cue 2: both reps marked with one alarm each; the run counts one alarm episode; only one alarmStart event',
+      until(() => d().reps.length === 2, 3000) && d().alarms === 1 && d().reps.every(r => r.alarms === 1 && r.withAlarm) && evs.filter(e => e.type === 'alarmStart').length === 1,
+      d().reps.map(r => r.alarms));
+    t('shots fired in the alarm are not graded (unsafe)', d().reps.every(r => r.shots.every(x => x.unsafe)));
+  }
 }
 
 for (const [ua, list] of Object.entries(byDevice)) {

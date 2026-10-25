@@ -33,7 +33,7 @@
 - **180:** turn and move freely with the finger on the frame. Past 90° from downrange a lower "wail" alarm
   sounds even with the finger on the frame. "Muzzle N° from downrange" under the muzzle shows how close they are.
 
-## Timed drills (Bill Drill)
+## Timed drills (Bill Drill, Low Ready)
 The **Drill** button on the start screen (above **Start**) opens the drill picker. **Freestyle** is the trainer
 described above, with no timer. Pick a drill, check the diagram, tap **Choose**; the phone remembers the choice.
 All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 rule.
@@ -41,7 +41,18 @@ All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 
   shot-timer beep; it only plays with the finger on the frame). Fire six shots as fast as the phone stays still,
   with a full trigger reset each time, then put the finger back on the frame: the completion tone plays and the
   results open.
-- **Results:** first shot (beep to first shot), the five splits, total (beep to sixth shot), the grade of each
+- **Low Ready** (five reps): competition-style low ready — the muzzle stays pointed downrange and the gun is
+  lowered, so there is no muzzle-angle check and **Set downrange** is not needed (the 180 rule still works if it is
+  set). Tap **Start**, finger flat on the frame. After a random 2–5 s the start beep sounds: raise and fire two, then
+  put the finger back on the frame. Keep it there: 750 ms later three short beeps mean "back to low ready" (lifting
+  the finger before then restarts the wait; with only one shot fired there are no beeps, fire again). 2–5 s after
+  the three beeps the next rep's start beep sounds. After rep 5 the completion tone plays instead and the results
+  open: for each rep the reaction (beep to first shot), the split (first to second shot) and the grades, then the
+  total (first beep to the end), the average and best reaction over the reps with no alarm, early shots, "With
+  alarm" (an alarm during a rep, between reps or still sounding at a beep marks the run and that rep; its reaction
+  is left out of the average), and the best average reaction of the session among runs with no alarm. **Again**
+  starts a new five-rep run; **Change drill** goes back to the start screen.
+- **Bill Drill results:** first shot (beep to first shot), the five splits, total (beep to sixth shot), the grade of each
   shot, early shots (fired before the beep; not timed), "With alarm" if an alarm went off during the run or was
   still sounding at the beep (shots fired during an alarm show as "alarm", not graded), and the best total of the session among runs with no alarm.
   **Again** starts a new run with a new random delay; **Change drill** goes back to the start screen.

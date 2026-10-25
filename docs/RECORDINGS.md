@@ -39,6 +39,7 @@ Nothing is sent anywhere unless you share the file.
 | `axis-up` | Finger on frame; still 1 s; tilt muzzle **up** ~20°; hold 1 s; stop | Biggest excursion reads as up |
 | `axis-right` | Finger on frame; still 1 s; swing muzzle to **your right** ~20°; hold 1 s; stop | Biggest excursion reads as right |
 | `drill-bill` | Select **Bill Drill** on the start screen first. Finger on frame; wait for the start beep; fire six; finger back on frame | One `drillBeep`, one `drillEnd`, six run shots |
+| `drill-low-ready` | Select **Low Ready** on the start screen first. Finger on frame; on each beep raise and fire two, finger back on frame, wait for the three beeps, back to low ready. Five reps | Five `drillBeep`, four `drillCue`, one `drillEnd` |
 
 Expectations live in `tests/expectations.js`. For `axis-*` drills the replay also tries every gyro
 mapping and flip, and when a phone has both axis recordings it prints the one mapping that fits both.
@@ -88,11 +89,12 @@ A recording is edited only on a logged Ricky decision, and then its `notes` fiel
     ["t", t, vw, vh, [[id, cx, cy, rx, ry], ...]],      // all current touches, CSS px
     ["f", t],                           // animation frame (engine tick)
     ["d", t],                           // Set downrange pressed
-    ["r", t, drill, seed],              // drill run requested ("bill"); seed for the engine's delay generator
+    ["r", t, drill, seed],              // drill run requested ("bill", "lowready"); seed for the engine's delay generator
     ["x", t]                            // drill cancelled (back to the start screen)
   ],
   "observed": [[t, "armed"], [t, "alarmStart", "move"|"180", rot, lin, dev180], [t, "shot", "Clean", dev],
-               [t, "drillBeep", rep], [t, "drillEnd", drill, total_ms], [t, "drillCancel"], ...]
+               [t, "drillBeep", rep], [t, "drillCue", "lowready", rep], [t, "drillEnd", drill, total_ms],
+               [t, "drillCancel"], ...]
 }
 ```
 

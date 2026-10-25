@@ -94,7 +94,7 @@ inside the engine.
 | `VERSION` | Bump when outputs change for the same inputs (D-20). |
 | `DEFAULTS`, `ZONES`, `K`, `zoneFor` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. `zoneFor(name, vw)` adds the fixed `K.TRIGGER_FWD_PX` offset to the trigger (and the guard's front edge); the engine hit test and `rectFor()` both use it (D-72). |
 | `summarize(state)` | Session totals for the summary screen, from `state.tally` (not capped like `state.shots`) and the alarm counters. Grades and movement figures cover only shots fired with no alarm (`graded`, D-45). |
-| `createEngine(S, {onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, startDrill, cancelDrill, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`, `drillBeep`, `drillEnd`, `drillCancel`. Starts paused. |
+| `createEngine(S, {onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, startDrill, cancelDrill, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`, `drillBeep`, `drillCue`, `drillEnd`, `drillCancel`. Starts paused. |
 | `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace (each sample's `dt` clamped to `MAX_DT_S`). The 180 orientation quaternion integrates the mean of the previous and current rates over the raw gap, capped at `ORIENT_BRIDGE_MS` (300 ms), so `devicemotion` gaps are bridged (D-62). Axis mapping per `axisMode`. Also feeds an advisory gyro-axis estimator (E-2, fused gravity; D-57, D-70) that sets `state.axisEst` = `{cand, margin, motionS, windows}` (`null` until the first 0.5 s window counts); it reads raw rates only and changes no output. |
 | `touches(t, list, vw, vh)` | Full current touch list in CSS px; drives the trigger (engage on entering the zone, fire at `pullPx` rearward, re-arm at `RESET_FRACTION`). |
 | `tick(t)` | State machine: debounced frame contact → armed / safe / off-frame / alarm; trace capture. |
@@ -105,7 +105,7 @@ inside the engine.
 | Piece | What it does |
 |---|---|
 | `S` | Settings: always the full object (`DEFAULTS` merged with the stored changes). `localStorage['tdt.settings.v2']` holds only the keys whose value differs from `DEFAULTS` (D-64), so a default changed in the code reaches every phone where that setting was never moved; moving a setting back to its default drops its key. **Restore defaults** removes the stored key. A `tdt.settings.v1` whole-object save is migrated once at load (D-66). Bump the key if the schema changes incompatibly. |
-| `Snd` | Web Audio: `ok()`, `shot()`, `startAlarm(kind)/stopAlarm()` (`move` beeps, `180` wail). `bindTestSound()` wires the hold-to-test buttons (start screen warning box, Settings). Created/resumed inside the Start tap (iOS unlock). Sets `navigator.audioSession.type='playback'` where available (iOS 17+ silent switch). |
+| `Snd` | Web Audio: `ok()`, `shot()`, `startAlarm(kind)/stopAlarm()` (`move` beeps, `180` wail); drill sounds `timerBeep()`, `cue3()`, `complete()`. `bindTestSound()` wires the hold-to-test buttons (start screen warning box, Settings). Created/resumed inside the Start tap (iOS unlock). Sets `navigator.audioSession.type='playback'` where available (iOS 17+ silent switch). |
 | `onMotion` / `onTouch` / `onMouse` | Convert events with `TDT.fromDeviceMotion` / `fromTouch`, feed the engine, and log the same row if recording. |
 | `tick` (rAF) | Pauses the engine when not running / settings open / hidden, or once portrait has persisted `PORTRAIT_HOLD_MS` (3 s, D-60; the **Rotate to landscape** overlay appears then), logs a frame row, calls `engine.tick`, renders. While portrait is shorter than that, `onMotion` and `feedTouches` keep feeding the last landscape screen angle and touch list (D-68). |
 | `onEvent` | Engine events → sound, vibration, flash, alarm overlay; appended to `rec.observed` while recording. |
@@ -133,7 +133,9 @@ Opening settings or the summary, backgrounding the page, or a portrait orientati
 Drills (`st.drill`, only after `startDrill`): `standby` (delay drawn at the first armed tick on the frame; the beep waits
 for the due time and for the finger on the frame ≥ `DRILL_BEEP_HOLD_MS` 350 ms) → `live` (beep; shots counted) →
 `finishing` (sixth shot; timer stopped) → `ended` (finger on the frame: `drillEnd`); a pause in live, finishing or a
-started standby emits `drillCancel` and returns to a fresh standby.
+started standby emits `drillCancel` and returns to a fresh standby. Low Ready loops `standby → live → finishing` once per
+rep (finishing: two shots, then 750 ms with the finger on the frame → `drillCue` and the next beep due 2–5 s later, or
+`drillEnd` after rep 5).
 
 ## Known platform facts and unknowns
 
@@ -244,10 +246,11 @@ jerkMs).
 ## WQ-027 — drill framework and Bill Drill (D-93, D-94, D-97, D-98)
 
 **Engine** (`engine.js` 0.13.0). `mulberry32(seed)` is the drill generator (exported, D-98 h); `DRILL_DEFS` (exported)
-holds each drill's start-beep delay range and `ready` flag (`bill` ready; `lowready`, `box` reserved and rejected
-until WQ-028 / WQ-029). `startDrill(t, id, seed)` returns `false` and changes nothing for an unknown or not-ready id;
+holds each drill's start-beep delay range and `ready` flag (`bill` and `lowready` ready; `box` reserved and rejected
+until WQ-029). `startDrill(t, id, seed)` returns `false` and changes nothing for an unknown or not-ready id;
 otherwise it cancels a run in progress (`drillCancel`) and sets `st.drill = {id, seed, rng, phase, dueAt, beepT, rep,
-shots, early, alarms, result}`. Phases `standby → live → finishing → ended`, advanced by `tickDrill(t)` at the end of
+shots, early, alarms, result, reps, cur, cueDueAt, earlyPending, alarmsPending, alarmCounted}` (the last six for Low
+Ready, WQ-028; `alarmInPending` too). Phases `standby → live → finishing → ended`, advanced by `tickDrill(t)` at the end of
 `tick()` and by `drillShot()` from `fire()`: standby draws the delay (one `rng()` call) at the first tick armed with
 the finger on the frame, and emits `drillBeep {drill, rep: 1}` at the first tick at or after the due time with the
 finger on the frame for at least `K.DRILL_BEEP_HOLD_MS` (350 ms, clear of the OK tone; `st.restSinceT` is when the
@@ -274,3 +277,37 @@ calls `engine.startDrill` with a `Math.random` seed and logs the `r` row; Freest
 which pauses the engine while open. `#drillLine` under the status pill shows the run's phase (empty in Freestyle).
 `window.__tdt()` adds `drill {id, phase, shots, early, result}`, `drillRuns`, `drillSel`, `drillResOpen`, `pickerOpen`.
 Recorder label `drill-bill`.
+
+## WQ-028 — Low Ready (D-96, D-98)
+
+**Behavior.** Low Ready (second in the picker) is competition style: the muzzle stays downrange and the gun is lowered,
+so there is no muzzle-angle check and Set downrange is not needed; the ordinary alarms apply. Five reps: start beep →
+raise and fire at least two → finger back on the frame → 750 ms later (restarted if the finger leaves before it ends)
+the three-beep cue (back to low ready) → 2–5 s after the cue, with the finger on the frame, the next beep. After rep 5
+the completion tone plays where the cue would.
+
+**Engine** (`engine.js` 0.14.0). `DRILL_DEFS.lowready = {delayMs: [2000, 5000], reps: 5, shotsPerRep: 2, cueHoldMs: 750,
+ready: true}`; a def with `reps` takes the Low Ready branches of `drillShot` / `tickDrill`, Bill's code paths are
+unchanged. The run adds `rep` (reps whose beep has played), `reps` (finished rep results), `cur` (the rep in progress
+`{rep, beepT, shots, early, alarms}`), `cueDueAt`, `earlyPending`, all reset by `freshRun` (a cancel loses the reps).
+Rep 1's delay is drawn as Bill's; each cue draws the next rep's delay (one `rng()` call) and sets `dueAt`; the beep
+condition (due, finger on the frame ≥ `DRILL_BEEP_HOLD_MS`) is shared. In `finishing` further shots still join the rep;
+the cue timer runs only with `onRest` and is cleared when the finger is off. Rep result `{rep, beepT, reaction, split,
+shots: [{grade, dev, unsafe}], early, alarms, withAlarm}`; run result `{drill, seed, beepT, reps, total (rep 1 beep →
+end), avgReaction, bestReaction (over reps with no alarm; null if none), early, alarms, withAlarm, endT}`. Shots before
+a rep's beep count in the run's `early` and in that rep's `early`. `drillAlarm()` also counts into `cur.alarms`; an alarm
+episode that starts between reps (standby, `rep > 0`) counts into the run and, via `alarmsPending`, into the next rep.
+One episode counts once into the run: `alarmCounted` is set when it is counted and cleared at the first tick with no
+alarm, so a 180 alarm still sounding at a beep marks that rep (unless it is already there from between the reps,
+`alarmInPending`) without counting again; the same flag guards Bill's at-beep rule. Event
+`drillCue {drill, cue: 'lowready', rep}`, packed `[t, 'drillCue', cue, rep]`.
+
+**Page** (`index.html`). `Snd.cue3()` (three 70 ms 1.76 kHz beeps, 120 ms apart) + `buzz([50, 50, 50, 50, 50])` on
+`drillCue`, no delay (750 ms after the OK tone); `drillEnd` plays `Snd.complete(0)` for Low Ready (Bill keeps 0.35 s).
+`DRILL_MODES.lowready` is `ready: true`. `drillLineText`: "Rep 1 of 5 · finger on the frame" (no delay started yet),
+"Rep n of 5 · wait for the beep", "Go — raise and fire two", "Shot 1 of 2 — fire again", "Finger back on the frame", "Hold…" (cue
+timer running). `showDrillResult` → `lowReadyRows(r)`: one row per rep (reaction, split, grades; early / alarm marks),
+Total, Average and Best reaction (reps with no alarm), then the shared Early shots / With alarm rows, and "Best average reaction this session
+(runs with no alarm)" (min `avgReaction` over this session's Low Ready runs with no alarm; Bill keeps "Best clean total",
+since a Low Ready total depends on the seeded delays). `window.__tdt().drill` adds `rep`, `repsDone`, `curShots`,
+`cuePending`, `dueSet`. Recorder label `drill-low-ready`.

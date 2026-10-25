@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.13.0';
+  const VERSION = '0.14.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -111,10 +111,12 @@
     };
   }
   // delayMs: random start-beep delay [lo, hi] once the finger is on the frame (D-98 a). Not-ready drills are
-  // rejected by startDrill() until their items land (WQ-028 Low Ready, WQ-029 Box Drill).
+  // rejected by startDrill() until their item lands (WQ-029 Box Drill).
+  // Low Ready (D-96, D-98): `reps` reps of at least `shotsPerRep` shots; the cue (or, after the last rep, the end)
+  // comes `cueHoldMs` after the finger is back on the frame; the next rep's beep is delayMs after the cue.
   const DRILL_DEFS = Object.freeze({
     bill:     Object.freeze({ delayMs: Object.freeze([1000, 4000]), shots: 6, ready: true }),
-    lowready: Object.freeze({ delayMs: Object.freeze([2000, 5000]), ready: false }),   // WQ-028
+    lowready: Object.freeze({ delayMs: Object.freeze([2000, 5000]), reps: 5, shotsPerRep: 2, cueHoldMs: 750, ready: true }),
     box:      Object.freeze({ delayMs: Object.freeze([1000, 4000]), ready: false }),   // WQ-029
   });
   // A run a pause or cancel interrupts: live, finishing, or standby once the delay has started (D-102).
@@ -259,7 +261,8 @@
    * @param opts  { onEvent: fn({type, t, ...}) }
    * Events: armed, ok, alarmStart {reason: 'move'|'180', devOff on 'move'}, alarmStop, trigOn, trigOff, shot, reset,
    *         downrange (set by the user), downrangeLost (orientation tracking interrupted),
-   *         drillBeep {drill, rep} (start beep), drillEnd {drill, result} (run complete), drillCancel {drill}
+   *         drillBeep {drill, rep} (start beep), drillCue {drill, cue, rep} (Low Ready: back to low ready after rep),
+   *         drillEnd {drill, result} (run complete), drillCancel {drill}
    */
   function createEngine(S, opts) {
     opts = opts || {};
@@ -443,13 +446,25 @@
     }
 
     /* Drill run (D-97, D-98). Phases: standby (waiting for the frame, then the random delay) → live (beep given,
-       counting shots) → finishing (sixth shot fired, timer stopped, waiting for the finger on the frame) → ended. */
+       counting shots) → finishing (sixth shot fired, timer stopped, waiting for the finger on the frame) → ended.
+       Low Ready (D-96) loops standby → live → finishing once per rep: finishing waits cueHoldMs with the finger on
+       the frame, then emits drillCue (reps 1–4, next beep due delayMs after it) or drillEnd (last rep). */
     function drillShot(t, shot) {
       const d = st.drill;
-      if (d.phase === 'standby') { d.early++; return; }   // before the beep: counted, not timed (D-98 d)
+      const def = DRILL_DEFS[d.id];
+      if (d.phase === 'standby') {                        // before the beep: counted, not timed (D-98 d)
+        d.early++;
+        if (def.reps) d.earlyPending++;                   // Low Ready: carried into the next rep's result
+        return;
+      }
+      if (def.reps) {                                     // Low Ready: shots of the rep in progress
+        if (d.phase !== 'live' && d.phase !== 'finishing') return;
+        d.cur.shots.push({ t, grade: shot.grade, dev: shot.dev, unsafe: shot.unsafe });
+        if (d.phase === 'live' && d.cur.shots.length >= def.shotsPerRep) d.phase = 'finishing';
+        return;
+      }
       if (d.phase !== 'live') return;                     // finishing / ended: an ordinary Freestyle shot
       d.shots.push({ t, grade: shot.grade, dev: shot.dev, unsafe: shot.unsafe });
-      const def = DRILL_DEFS[d.id];
       if (d.shots.length < def.shots) return;
       const ts = d.shots.map(x => x.t), splits = [];
       for (let i = 1; i < ts.length; i++) splits.push(r4(ts[i] - ts[i - 1]));
@@ -463,18 +478,69 @@
 
     function tickDrill(t) {
       const d = st.drill;
+      const def = DRILL_DEFS[d.id];
+      if (!st.alarmActive) { d.alarmCounted = false; d.alarmInPending = false; }   // the episode is over
       if (d.phase === 'standby') {
+        // Rep 1 (and Bill): the delay starts at the first armed tick on the frame. Later Low Ready reps: the cue set it.
         if (d.dueAt == null && st.armed && st.onRest) {
-          const [lo, hi] = DRILL_DEFS[d.id].delayMs;
+          const [lo, hi] = def.delayMs;
           d.dueAt = t + lo + d.rng() * (hi - lo);
         }
         // The beep only plays with the finger on the frame: if it is off when due, at the first tick back on.
         // It also waits until the finger has been on the frame DRILL_BEEP_HOLD_MS, clear of the OK tone (D-104).
         if (d.dueAt != null && t >= d.dueAt && st.onRest && t - st.restSinceT >= K.DRILL_BEEP_HOLD_MS) {
+          if (def.reps) {
+            d.rep++; d.phase = 'live';
+            if (d.rep === 1) d.beepT = t;
+            d.cur = { rep: d.rep, beepT: t, shots: [], early: d.earlyPending, alarms: d.alarmsPending };
+            d.earlyPending = 0; d.alarmsPending = 0;
+            // An alarm still sounding at the beep marks the rep; it counts into the run only once per episode, and
+            // into this rep only if it is not already there from between the reps.
+            if (st.alarmActive) {
+              if (!d.alarmCounted) d.alarms++;
+              if (!d.alarmInPending) d.cur.alarms++;
+              d.alarmCounted = true;
+            }
+            d.alarmInPending = false;
+            emit({ type: 'drillBeep', t, drill: d.id, rep: d.rep });
+            return;
+          }
           d.beepT = t; d.rep = 1; d.phase = 'live';
-          if (st.alarmActive) d.alarms++;                 // an alarm (180) still sounding at the beep marks the run
+          // an alarm (180) still sounding at the beep marks the run (once per episode)
+          if (st.alarmActive) { if (!d.alarmCounted) d.alarms++; d.alarmCounted = true; }
           emit({ type: 'drillBeep', t, drill: d.id, rep: 1 });
         }
+      } else if (d.phase === 'finishing' && def.reps) {
+        // Low Ready: cueHoldMs with the finger on the frame after at least shotsPerRep shots (D-98 b); the finger
+        // leaving the frame before it ends restarts it (D-98 c).
+        if (!st.onRest) { d.cueDueAt = null; return; }
+        if (d.cueDueAt == null) d.cueDueAt = t + def.cueHoldMs;
+        if (t < d.cueDueAt) return;
+        const c = d.cur, s = c.shots;
+        d.reps.push({
+          rep: c.rep, beepT: c.beepT, reaction: r4(s[0].t - c.beepT), split: r4(s[1].t - s[0].t),
+          shots: s.map(x => ({ grade: x.grade, dev: x.dev, unsafe: x.unsafe })),
+          early: c.early, alarms: c.alarms, withAlarm: c.alarms > 0,
+        });
+        d.cur = null; d.cueDueAt = null;
+        if (d.rep < def.reps) {
+          const [lo, hi] = def.delayMs;
+          d.dueAt = t + lo + d.rng() * (hi - lo);         // next beep 2–5 s after the cue (D-96)
+          d.phase = 'standby';
+          emit({ type: 'drillCue', t, drill: d.id, cue: 'lowready', rep: d.rep });
+          return;
+        }
+        const clean = d.reps.filter(x => !x.withAlarm).map(x => x.reaction);
+        const res = {
+          drill: d.id, seed: d.seed, beepT: d.reps[0].beepT, reps: d.reps, total: r4(t - d.reps[0].beepT),
+          avgReaction: clean.length ? r4(clean.reduce((a, b) => a + b, 0) / clean.length) : null,
+          bestReaction: clean.length ? Math.min.apply(null, clean) : null,
+          early: d.early, alarms: d.alarms, withAlarm: d.alarms > 0, endT: t,
+        };
+        d.result = res;
+        d.phase = 'ended';
+        st.drillRuns.push(res);
+        emit({ type: 'drillEnd', t, drill: d.id, result: res });
       } else if (d.phase === 'finishing' && st.onRest) {
         const res = d.result;
         res.alarms = d.alarms; res.withAlarm = d.alarms > 0; res.endT = t;
@@ -485,10 +551,21 @@
     }
 
     // Counts alarm episodes from the beep to the end (a move alarm escalating to 180 is one episode).
-    const drillAlarm = () => { if (st.drill && (st.drill.phase === 'live' || st.drill.phase === 'finishing')) st.drill.alarms++; };
+    // Low Ready also counts into the rep in progress, and an episode that starts between reps (standby after rep 1's
+    // beep) into the run and the next rep (carried in alarmsPending to its beep).
+    const drillAlarm = () => {
+      const d = st.drill;
+      if (!d) return;
+      if (d.phase === 'live' || d.phase === 'finishing') { d.alarms++; if (d.cur) d.cur.alarms++; d.alarmCounted = true; }
+      else if (d.phase === 'standby' && d.rep > 0 && DRILL_DEFS[d.id].reps) {
+        d.alarms++; d.alarmsPending++; d.alarmCounted = true; d.alarmInPending = true;
+      }
+    };
 
     function freshRun(d) {
       d.phase = 'standby'; d.dueAt = null; d.beepT = null; d.rep = 0; d.shots = []; d.early = 0; d.alarms = 0; d.result = null;
+      d.reps = []; d.cur = null; d.cueDueAt = null; d.earlyPending = 0;   // Low Ready (a cancel loses the reps, D-98 e)
+      d.alarmsPending = 0; d.alarmCounted = false; d.alarmInPending = false;
       return d;
     }
 
@@ -647,6 +724,7 @@
     if (e.type === 'shot') return [e.t, 'shot', e.shot.grade, r4(e.shot.dev)];
     if (e.type === 'alarmStart') return [e.t, 'alarmStart', e.reason, r4(e.rot), r4(e.lin), r4(e.dev)];
     if (e.type === 'drillBeep') return [e.t, 'drillBeep', e.rep];
+    if (e.type === 'drillCue') return [e.t, 'drillCue', e.cue, e.rep];
     if (e.type === 'drillEnd') return [e.t, 'drillEnd', e.drill, r4(e.result.total)];
     return [e.t, e.type];
   }
