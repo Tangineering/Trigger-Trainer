@@ -31,7 +31,7 @@ updated: 2026-10-25
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | queued | — | alarm |
+| WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | claimed:round-20261025-4 | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 
@@ -52,7 +52,7 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 
 ### WQ-031 — Let only one fresh touch control the engine; ignore later fingers (D-113, D-115)
 
-- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
+- **Status:** claimed:round-20261025-4 · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
 - **Added:** 2026-10-25 by queue-add session (Ricky's request) · **Updated:** 2026-10-25 by the same session (D-115: a
   finger that lands while another controls is ignored for its whole life, not only when it reaches the other zone;
   title, scope and acceptance rewritten); 2026-10-25 by the same session (renumbered from WQ-030 and D-111–D-113: the Transitions drill took WQ-030, D-111 and D-112 on `ccr-8fe231fe-xlcpfb`); 2026-10-25 by the orchestration session at the merge of WQ-030 (Transitions): `engine.js` is now 0.16.0, so this item bumps 0.16.0 → 0.17.0; `restTouch()` is at engine.js:397 still, `updateTrigger()` at engine.js:415 and the state object at engine.js:281ff; the engine now also has `st.drillFree` / `freeOnTrigger()` (a trigger touch keeps the Transitions window open, D-112 d) and `retakeOrigin()` on the trigger object (`minPull`), which an ignored touch must never reach; the 45th recording `synthetic/drill-transitions.json` is single-touch
