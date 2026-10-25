@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-032 — Add a one-line disclaimer and privacy line to the start screen and the README
+
+- **Closed:** 2026-10-25 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff and screenshots and archived · **Round:** round-20261025-5
+- **Commits / PR:** 3addf4a "WQ-032: add disclaimer and privacy line to start screen and README"; merge on the orchestration branch
+
+**What was done.** `index.html`: two `p.tip` lines under the Ko-fi line inside `#startOv`: `#disclaimer` ("A dry, phone-only teaching aid for trigger-finger discipline. Not firearms training; use it with a qualified instructor and never with a real firearm. Provided as is, no warranty (MIT).") and `#privacy` ("Nothing leaves the phone: no accounts, no analytics, no network requests; settings stay in this browser."); no CSS change. `README.md`: the disclaimer sentence as a paragraph after "No install, no accounts, no data collection". `docs/CLASS_USE.md`: a first "Before class" bullet "Tell students what it is: …". `docs/DECISIONS.md`: D-122 (`Claude (proposed)`) records the wording. Screenshots `docs/screenshots/wq-032/` (landscape 852×393 and 667×375, portrait 390×844, each top and scrolled to the bottom).
+
+**Why.** Public-release review (2026-10-25): the public link goes to people outside the classes and nothing on the page said what the tool is not (hard constraint 5) or that nothing leaves the phone (constraint 3); the MIT licence is not read from a phone.
+
+**Deviations.** (1) The acceptance line "without pushing **Start** off screen" was already unmet before the change in landscape: at 852×393 and 667×375 **Start** sits at 500 px from the top and `#startOv` scrolls (scrollHeight 702); the new lines are below **Start** so they move nothing, and **Start** is fully visible in portrait, which is the view before the phone is turned. The agent left the start-screen layout alone (out of the item's scope); see Follow-ups. (2) The disclaimer takes two lines in both landscape sizes and three in portrait; the privacy line one in landscape and two in portrait. (3) Six screenshots (896 KB) rather than three, because each size was captured at the top and at the bottom.
+
+**Verification.** Agent: `npm test` exit 0 (replay "all passed (46 recordings)", smoke "all passed", roundtrip "all passed", no FAIL; the smoke flake did not appear); engine `VERSION` 0.17.0 unchanged; a Playwright script measured the bounding boxes and took the screenshots. Orchestrator: diff read (2 lines in `index.html`, appends elsewhere), the 852×393 bottom screenshot checked by eye, `npm test` on the merged branch (see the round report). Not applicable: real phones.
+
+**Follow-ups.** Pre-existing: in landscape at 375–393 px height **Start** is below the fold of the start screen (a compact landscape start screen would be a small ui item; parking lot). D-122 stays proposed until Ricky ratifies or rewords it.
+
+---
+
+---
+
 ### WQ-035 — Regenerate the stale synthetic recordings
 
 - **Closed:** 2026-10-25 · **Outcome:** done

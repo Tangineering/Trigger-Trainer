@@ -33,7 +33,6 @@ updated: 2026-10-25
 |----|-------|-----|------|--------|------------|-------|
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-032 | Add a one-line disclaimer and privacy line to the start screen and the README | P1 | S | claimed:round-20261025-5 | — | docs |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | claimed:round-20261025-5 | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | queued | — | docs |
@@ -267,47 +266,6 @@ WQ-022.
 
 **Verification.** `npm test`; a Playwright run with `navigator.vibrate` stubbed to return `false` shows
 `vib: false` in the readout after a simulated shot (add it to `tests/smoke.js`).
-
----
-
-### WQ-032 — Add a one-line disclaimer and privacy line to the start screen and the README
-
-- **Status:** claimed:round-20261025-5 · **Priority:** P1 · **Size:** S · **Track:** docs · **Env:** any
-- **Added:** 2026-10-25 by public-release review session · **Updated:** 2026-10-25 by the same session (privacy line folded in at Ricky's request)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** Ricky is sending the public link (`https://tangineering.github.io/Trigger-Trainer/`) to people outside
-his classes. Nothing on the page, in `README.md` or in `docs/CLASS_USE.md` says what the tool is not: a dry,
-phone-only teaching aid, not firearms training and not a substitute for a qualified instructor, offered as is with no
-warranty (the MIT `LICENSE` says the last part, but nobody opens it from a phone). The start screen already carries a
-warning box about loud alarms (`index.html:226`), and the Ko-fi line sits at `index.html:242`; the README's
-corresponding paragraph is `README.md:23`. CLAUDE.md hard constraint 5 ("Not a firearm product") is the project's own
-statement of the same thing, but it is only in the operating manual.
-
-**Scope.**
-- Add one short sentence to the start screen, under the Ko-fi `p.tip` at `index.html:242` in the same `tip` style,
-  along these lines: "A dry, phone-only teaching aid for trigger-finger discipline. Not firearms training; use it with
-  a qualified instructor and never with a real firearm. Provided as is, no warranty (MIT)." Keep it to two lines at
-  667×375 CSS px (check the compact start-screen layout; the start screen is `#startOv`, `index.html:222`).
-- (Updated 2026-10-25) Add a privacy line in the same place on the start screen, after the disclaimer: "Nothing leaves
-  the phone: no accounts, no analytics, no network requests; settings stay in this browser." (hard constraint 3; the
-  README already says it at `README.md:21`). One `p.tip`, two sentences, or two short `p.tip` lines if it reads better.
-- Add the same sentence to `README.md` directly after the "No install, no accounts, no data collection" paragraph
-  (`README.md:21`), and one line at the top of `docs/CLASS_USE.md` "Before class".
-- Log the wording as a `Claude (proposed)` row in `docs/DECISIONS.md` (number from `python scripts/wq.py next`) so
-  Ricky can ratify or reword it.
-- Out of scope: any engine change; the source-code link on the page (WQ-034); the CI workflow (WQ-033). `README.md` is
-  appended to, not rewritten, so this item may run in parallel with WQ-034 if the orchestrator merges the README edits.
-
-**Acceptance.**
-- The start screen shows the disclaimer and the privacy line at 852×393 and 667×375 CSS px landscape and in portrait without pushing
-  **Start** off screen (screenshots in `docs/screenshots/wq-032/`).
-- `README.md` and `docs/CLASS_USE.md` carry the sentence; `docs/DECISIONS.md` has the proposed row.
-- `npm test` passes unchanged (46 recordings; `tests/smoke.js` and `tests/roundtrip.js` all passed), engine `VERSION`
-  unchanged.
-
-**Verification.** `npm test`; Playwright screenshots of `#startOv` at the two landscape sizes and one portrait size;
-record the decision number in the completion entry.
 
 ---
 
