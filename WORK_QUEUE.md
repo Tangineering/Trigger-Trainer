@@ -33,7 +33,6 @@ updated: 2026-10-25
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-029 | Box Drill: five positions, move cue after 2+ shots | P2 | M | claimed:round-20261025-2 | — | drills |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -185,51 +184,6 @@ WQ-022.
 
 ---
 
-### WQ-029 — Box Drill: five positions, move cue after 2+ shots (D-95, D-98)
-
-- **Status:** claimed:round-20261025-2 · **Priority:** P2 · **Size:** M · **Track:** drills · **Env:** any
-- **Added:** 2026-10-24 by drill-planning session · **Updated:** 2026-10-24 by drill-planning session (Ricky accepted D-98) · **Updated:** 2026-10-24 by orchestration session (merged from the drill-planning branch: the planning session numbered this item WQ-024 and its decisions D-85–D-90, IDs that rounds 1–4 of 2026-10-24 had already used on `main`, so it is WQ-029 and the decisions are D-93–D-98 (D-85 → D-93, D-86 → D-94, D-87 → D-95, D-88 → D-96, D-89 → D-97, D-90 → D-98); code anchors refreshed to engine 0.12.6. The `docs/mockups/drills/picker-*.png` mockups the item cites were never committed (`.gitignore` has `*.png`): the SVG strings in `docs/mockups/drills/diagrams.js` are the approved source; render them yourself if a picture helps)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** D-95 (Ricky) defines the Box Drill and D-98 (Claude → Ricky accepted) fills its gaps; read both. The student marks
-four spots, starts at spot 1, goes round and finishes back at spot 1: five shooting positions. The student sets the
-movement pace; the phone cannot know where the student stands, so a position ends when the finger is back on the
-frame after at least two shots there. WQ-027 provides the framework and WQ-028 the three-beep cue `Snd.cue3()` and
-the `drillCue` event, reused here. Approved diagram: `box` in `docs/mockups/drills/diagrams.js`; mockups
-`docs/mockups/drills/picker-*-3-box-drill.png`. Box Drill is third in the picker.
-
-**Scope.**
-- Engine, drill id `'box'` (accept it in `startDrill`):
-  - Standby as in WQ-027, delay uniform 1000–4000 ms (D-98 a), then `drillBeep {rep: 1}`; position 1 is live.
-  - Count shots at the current position. At the first tick with `st.onRest` true after at least two shots there
-    (D-98 b): for positions 1–4 emit `drillCue {t, drill, cue: 'move', rep: position}` immediately and make the next
-    position live (shots after the cue belong to it); at position 5 emit `drillEnd`.
-  - Result per position: `time` (beep or previous cue → first shot there: move plus settle), splits between its
-    shots, shot count, grades, with alarm. Run: total (beep → last shot at position 5), early shots, alarms.
-  - Bump `VERSION` (minor).
-- Page: `onEvent` plays `cue3()` for `cue: 'move'` after the OK tone (about 0.35 s, D-98 g), since it coincides with
-  the finger's return; Box Drill `ready: true` with the `box` diagram; drill line "Spot 3 of 5 · fire 2 or more",
-  "Move to spot 4", "Back at spot 1"; results overlay per position and totals.
-- Recorder label `drill-box`; tests: expectations (`drill-box`: one beep, four move cues, one end), synthetic
-  recording, `tests/smoke.js` (one shot then frame gives no cue; two shots then frame gives the cue at that tick;
-  the fifth position ends the run), roundtrip.
-- Docs: `CLAUDE.md`, `docs/RECORDINGS.md`, `docs/CLASS_USE.md` (how to lay out the four spots).
-- Out of scope: detecting the walk itself, beep-called pacing (D-95: student-paced), spot count as a setting.
-
-**Acceptance.**
-- `npm test` passes; no pre-existing recording changes events.
-- The synthetic `drill-box` recording gives 1 `drillBeep`, 4 `drillCue` (`move`), 1 `drillEnd`; no cue after a single
-  shot.
-- The picker shows all four modes in D-93 order: Freestyle, Low Ready, Box Drill, Bill Drill; screenshots under
-  `docs/screenshots/wq-024/`.
-- *Owner-verifiable* (an iPhone and an Android phone): walking between spots with the finger on the frame does not
-  alarm; touching the trigger while walking does; the move cue is heard after the OK tone; the completion tone plays
-  at the last position.
-
-**Verification.** As WQ-027. Touches `engine.js` and `index.html`: no parallel run with WQ-027 or WQ-028.
-
----
-
 ## Parking lot
 
 Ideas noted but not yet turned into items (an exploratory session may
@@ -242,6 +196,10 @@ promote one with `work-queue-add`):
 - **Timing-sensitive summary checks in `tests/smoke.js`** (WQ-023 agent, 2026-10-24): one `npm test` run under container load
   reported "3 failed", two of them the summary grading checks (a shot Jerked instead of Moved); seven reruns passed. Worth a
   look if it recurs: the simulated motion burst that should grade Moved may cross the Jerked limit when frames are slow.
+  Update (WQ-029, 2026-10-25): it recurs — the same three checks ("trigger reset allows follow-up; drift graded as moved" and the
+  two summary checks) failed in 2 of 6 sequential unloaded smoke runs now that the suite runs over 360 checks; the failing state
+  shows `lastGrade "Jerked"` with `rotEMA` ≈ 12, so the suspect is the CDP motion timing in that old block, not the engine.
+  Promote to an item: make that block measure from rAF frames or drive the motion deterministically.
 - **Auto-switch of the axis mapping with a confidence gate** (proposal 3.6 steps 2–3). The advisory
   readout is WQ-012 (D-57); the switch waits for a second phone's recordings (WQ-006) and a Ricky decision.
 - **Synthetic recordings that can identify an axis mapping** (from WQ-004). `tests/make-synthetic.js` emits
