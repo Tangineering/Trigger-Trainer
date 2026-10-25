@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-031
+next_id: WQ-032
 updated: 2026-10-25
 ```
 
@@ -31,7 +31,7 @@ updated: 2026-10-25
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-030 | Let only one fresh touch control the engine; ignore later fingers (D-111, D-113) | P1 | M | queued | — | alarm |
+| WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | queued | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 
@@ -50,23 +50,23 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 
 ## Items
 
-### WQ-030 — Let only one fresh touch control the engine; ignore later fingers (D-111, D-113)
+### WQ-031 — Let only one fresh touch control the engine; ignore later fingers (D-113, D-115)
 
 - **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
-- **Added:** 2026-10-25 by queue-add session (Ricky's request) · **Updated:** 2026-10-25 by the same session (D-113: a
+- **Added:** 2026-10-25 by queue-add session (Ricky's request) · **Updated:** 2026-10-25 by the same session (D-115: a
   finger that lands while another controls is ignored for its whole life, not only when it reaches the other zone;
-  title, scope and acceptance rewritten)
+  title, scope and acceptance rewritten); 2026-10-25 by the same session (renumbered from WQ-030 and D-111–D-113: the Transitions drill took WQ-030, D-111 and D-112 on `ccr-8fe231fe-xlcpfb`)
 - **Depends on:** — · **Blocks:** —
 
-**Context.** Ricky (2026-10-25, D-111, D-113): the engine must not accept two fingers at once. Today a student can
+**Context.** Ricky (2026-10-25, D-113, D-115): the engine must not accept two fingers at once. Today a student can
 keep one finger flat on the frame strip and press the trigger with another: `updateTrigger()` (`engine.js:409`)
 engages the first touch found in `zoneFor('trigger', vw)` regardless of other touches, and `restTouch()`
 (`engine.js:397`) returns any touch in `ZONES.rest` except the engaged trigger touch (D-75). So the trainer reads
 "safe" and "on the trigger" at the same time, which defeats the drill. The reverse also works: with the trigger
 engaged, a second finger on the frame strip sets `onRest` and silences the off-frame alarm and drift limit (D-56).
-D-113 settles it: **only fresh contact can control the engine state** — a touch that lands while another touch is
-controlling is ignored until it is lifted, even after the controlling finger lifts. D-112 (b)–(d) (Claude, proposed)
-fix the remaining details; D-112 (a) is superseded by D-113. Real recordings contain multi-touch rows (counted
+D-115 settles it: **only fresh contact can control the engine state** — a touch that lands while another touch is
+controlling is ignored until it is lifted, even after the controlling finger lifts. D-114 (b)–(d) (Claude, proposed)
+fix the remaining details; D-114 (a) is superseded by D-115. Real recordings contain multi-touch rows (counted
 2026-10-25 by unpacking every `t` row with `TDT.unpackTouchList`): `pixel-11/tdt-free-2026-10-20-22-40-27.json`
 (813 rows with >1 touch), `pixel-11/tdt-free-2026-10-20-23-27-38.json` (5753),
 `iphone-15/tdt-free-2026-10-21-03-38-03.json` (1); no other recording has any.
@@ -76,18 +76,18 @@ fix the remaining details; D-112 (a) is superseded by D-113. Real recordings con
   (e.g. `st.ignored`, a set of touch ids, created with the state at `engine.js:281`ff; ids no longer in the list are
   dropped on every `touches()` call). Definitions:
   - A touch is **controlling** while it counts as frame contact (in `ZONES.rest`, raw zone test, not the debounced
-    `onRest`, D-112 c) or is the engaged trigger touch (`st.trig.id`).
-  - A touch first seen while another touch is controlling is **ignored** for its whole life (D-113): it never
+    `onRest`, D-114 c) or is the engaged trigger touch (`st.trig.id`).
+  - A touch first seen while another touch is controlling is **ignored** for its whole life (D-115): it never
     counts as frame contact, never engages the trigger, wherever it moves, and stays ignored after the controlling
     touch lifts. This includes a second finger laid on the frame beside the first: when the first lifts, frame
     contact is lost (debounce and off-frame rules as usual) — a deliberate change from today.
-  - At most one touch controls at a time (D-111). A non-ignored touch that did not control when it appeared (e.g. a
+  - At most one touch controls at a time (D-113). A non-ignored touch that did not control when it appeared (e.g. a
     finger on the grip, which is not touch-sensitive) may later take control only while no other touch controls;
     if it enters the frame strip or trigger zone while another touch controls, it becomes ignored too.
-  - One finger sliding from the frame strip into the trigger zone is the same touch and engages as today (D-112 b);
+  - One finger sliding from the frame strip into the trigger zone is the same touch and engages as today (D-114 b);
     D-75 (the trigger touch never counts as frame contact) stays.
   - Several new touches in the same `touches()` call with no controlling touch before: a frame touch wins over a
-    trigger touch (D-112 d); otherwise the first in list order; the rest are ignored.
+    trigger touch (D-114 d); otherwise the first in list order; the rest are ignored.
   - `restTouch()` and `updateTrigger()` skip ignored ids. A pause (`setPaused`) does not clear the set: touches held
     across a pause keep their status, so the decision never depends on tick timing; replays must stay deterministic.
   - Mouse fallback (`onMouse`) is single-pointer; nothing to change there. `index.html` needs no change unless a
@@ -104,8 +104,8 @@ fix the remaining details; D-112 (a) is superseded by D-113. Real recordings con
   contact; (4) two fingers laid on the frame one after the other, the first lifts → frame contact lost; (5) one
   finger sliding from the strip into the trigger zone and pulling still fires. Optionally a synthetic recording in
   `tests/make-synthetic.js` (`two-finger`) with an expectation in `tests/expectations.js`.
-- Docs (hub files, append-only blocks): a `## WQ-030` block in `CLAUDE.md` describing the rule and the ignored set,
-  and one Behavior-spec bullet next to "Trigger wins": "**One finger** (D-111, D-113): only a touch that lands while
+- Docs (hub files, append-only blocks): a `## WQ-031` block in `CLAUDE.md` describing the rule and the ignored set,
+  and one Behavior-spec bullet next to "Trigger wins": "**One finger** (D-113, D-115): only a touch that lands while
   no other touch controls can count; a later finger is ignored until it is lifted." Any further detail decided goes
   in `docs/DECISIONS.md` as `Claude (proposed)`.
 - Out of scope: trigger geometry, zones, pull distance, the frame debounce (`K.REST_LOSS_DEBOUNCE_MS`), the drills,
