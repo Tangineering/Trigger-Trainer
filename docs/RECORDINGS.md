@@ -38,6 +38,7 @@ Nothing is sent anywhere unless you share the file.
 | `180-safe` | Point downrange, tap **Set downrange**, finger on frame. Swing ~70° left, right, up, down, returning each time | No alarm of any kind |
 | `axis-up` | Finger on frame; still 1 s; tilt muzzle **up** ~20°; hold 1 s; stop | Biggest excursion reads as up |
 | `axis-right` | Finger on frame; still 1 s; swing muzzle to **your right** ~20°; hold 1 s; stop | Biggest excursion reads as right |
+| `drill-bill` | Select **Bill Drill** on the start screen first. Finger on frame; wait for the start beep; fire six; finger back on frame | One `drillBeep`, one `drillEnd`, six run shots |
 
 Expectations live in `tests/expectations.js`. For `axis-*` drills the replay also tries every gyro
 mapping and flip, and when a phone has both axis recordings it prints the one mapping that fits both.
@@ -86,11 +87,17 @@ A recording is edited only on a logged Ricky decision, and then its `notes` fiel
                                                         // accelerationIncludingGravity (m/s²), screen angle
     ["t", t, vw, vh, [[id, cx, cy, rx, ry], ...]],      // all current touches, CSS px
     ["f", t],                           // animation frame (engine tick)
-    ["d", t]                            // Set downrange pressed
+    ["d", t],                           // Set downrange pressed
+    ["r", t, drill, seed],              // drill run requested ("bill"); seed for the engine's delay generator
+    ["x", t]                            // drill cancelled (back to the start screen)
   ],
-  "observed": [[t, "armed"], [t, "alarmStart", "move"|"180", rot, lin, dev180], [t, "shot", "Clean", dev], ...]
+  "observed": [[t, "armed"], [t, "alarmStart", "move"|"180", rot, lin, dev180], [t, "shot", "Clean", dev],
+               [t, "drillBeep", rep], [t, "drillEnd", drill, total_ms], [t, "drillCancel"], ...]
 }
 ```
+
+A recording made with a drill selected starts its `log` with an `r` row: the engine draws the random start-beep
+delay from that seed, so the replay beeps at the same moment as the live run. Freestyle recordings have no `r` row.
 
 Values are rounded where they're captured (time 1 µs, sensors 1e-4, touches 0.01 px), and the live engine
 uses the rounded values, so a replay with the same engine version reproduces `observed` exactly. When

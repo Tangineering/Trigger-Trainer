@@ -10,6 +10,8 @@ pistol: keep the index finger flat on the frame while moving; go to the trigger 
 - **Finger back on the frame** → OK tone.
 - **180 rule:** point downrange and tap **Set downrange**; pointing the muzzle more than 90° from it then sounds a
   separate alarm, finger on the frame or not.
+- **Drills:** the start screen's **Drill** picker adds timed drills next to the free trainer (**Freestyle**). The
+  **Bill Drill** times six shots from a random start beep and shows first shot, splits and total.
 
 No install, no accounts, no data collection. Settings stay on the phone.
 
