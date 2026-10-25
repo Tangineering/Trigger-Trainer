@@ -148,6 +148,29 @@
   #sumTable td { padding: 5px 0; border-bottom: 1px solid var(--line); color: #cfd4d9; }
   #sumTable td:last-child { text-align: right; font-weight: 600; color: #fff; padding-left: 16px; white-space: nowrap; }
   #sumPlot { flex: 0 0 auto; text-align: center; }
+  /* --- drills (WQ-027, D-93) --- */
+  #drillLine { font-size: 12px; line-height: 1.3; color: #ffe2b3; white-space: nowrap; overflow: hidden;
+               text-overflow: ellipsis; max-width: 100%; }
+  #drillLine:empty { display: none; }                 /* Freestyle: nothing new on the trainer screen */
+  #drillBtn { display: block; width: 100%; text-align: left; margin: 12px 0 0; line-height: 1.3; }
+  #drillBtn small, .drillOpt small { font-size: 13px; font-weight: 400; color: var(--muted); }
+  #drillOv { z-index: 11; }                           /* over the start screen, which stays behind it */
+  #drillOv .inner, #drillResOv .inner { max-width: 820px; }
+  #drillBody { display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+               grid-template-areas: "list diag" "list how" "list btns"; gap: 8px 16px; align-items: start; }
+  #drillList { grid-area: list; display: flex; flex-direction: column; gap: 8px; }
+  #drillDiagram { grid-area: diag; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  #drillDiagram svg { display: block; width: 100%; height: auto; max-height: 42vh; }
+  #drillHow { grid-area: how; margin: 0; }
+  #drillBtns { grid-area: btns; margin: 4px 0 0; }
+  .drillOpt { text-align: left; line-height: 1.3; width: 100%; }
+  .drillOpt.sel { border-color: var(--safe); background: #1f3a2b; }
+  @media (orientation: portrait) {                    /* diagram on top, list below, buttons last */
+    #drillBody { grid-template-columns: minmax(0, 1fr); grid-template-areas: "diag" "how" "list" "btns"; }
+  }
+  #drillResTable { border-collapse: collapse; font-size: 15px; width: 100%; max-width: 520px; }
+  #drillResTable td { padding: 5px 0; border-bottom: 1px solid var(--line); color: #cfd4d9; }
+  #drillResTable td:last-child { text-align: right; font-weight: 600; color: #fff; padding-left: 16px; }
   #rotateOv { z-index: 20; text-align: center; }
   #rotateOv .inner { padding-top: 30vh; }
   #rotateOv.armed.portrait { display: block; }   /* .portrait is set by tick() once portrait has lasted PORTRAIT_HOLD_MS (D-60) */
@@ -166,6 +189,7 @@
   <div id="readout" data-z="slide">
     <div id="statusBox">
       <div id="status" class="pill">TAP START</div>
+      <div id="drillLine"></div>
       <div class="subrow">
         <div id="stats"></div>
         <button id="recPill" class="ui" hidden>● REC</button>
@@ -201,6 +225,7 @@
       <li>Pull the trigger straight back to fire. Return finger to frame before moving.</li>
     </ol>
     <p class="tip">Left-handed? Settings → Shooting hand.</p>
+    <button class="btn" id="drillBtn" type="button"></button>
     <div class="row">
       <button class="btn primary" id="startBtn">Start</button>
       <button class="btn" id="startSettingsBtn">Settings</button>
@@ -290,6 +315,33 @@
   </div>
 </div>
 
+<div id="drillOv" class="ov ui">
+  <div class="inner">
+    <h1>Choose a drill</h1>
+    <div id="drillBody">
+      <div id="drillList"></div>
+      <div id="drillDiagram"></div>
+      <p id="drillHow"></p>
+      <div class="row" id="drillBtns">
+        <button class="btn primary" id="drillChoose">Choose</button>
+        <button class="btn" id="drillCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="drillResOv" class="ov ui">
+  <div class="inner">
+    <h1 id="drillResTitle">Bill Drill</h1>
+    <div class="row">
+      <button class="btn primary" id="drillAgain">Again</button>
+      <button class="btn" id="drillChange">Change drill</button>
+    </div>
+    <table id="drillResTable"><tbody id="drillResRows"></tbody></table>
+    <p class="help">Nothing is saved or sent: results last until you close the page. Take a screenshot to keep them.</p>
+  </div>
+</div>
+
 <div id="rotateOv" class="ov ui"><div class="inner"><h1>Rotate to landscape</h1><p>Turn the phone sideways to continue.</p></div></div>
 
 <script src="engine.js"></script>
@@ -362,6 +414,10 @@ const Snd = {
     o.start(t); o.stop(t + dur + 0.05);
   },
   ok() { this.tone(660, 0, 0.12); this.tone(990, 0.11, 0.22); },
+  // Drill sounds (D-94, D-98 g), through the master gain, never the alarm node. Start beep: one 2.6 kHz tone,
+  // about 0.3 s, like a shot timer. Completion: a rising C5-E5-G5-C6 arpeggio, about 0.9 s.
+  timerBeep(delay = 0) { this.tone(2600, delay, 0.3, 'square', 0.6); },
+  complete(delay = 0) { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.tone(f, delay + i * 0.18, 0.32)); },
   shot() {
     if (!this.ctx) return;
     const c = this.ctx, t = c.currentTime, n = Math.floor(c.sampleRate * 0.06);
@@ -504,7 +560,96 @@ const DRILLS = [
   { id: '180-safe',        name: '180: stay inside',       hint: 'Point downrange and tap Set downrange, then finger on the frame. Swing to about 70° left, right, up and down, returning each time. Expect: no alarm.' },
   { id: 'axis-up',         name: 'Axis check: muzzle up',  hint: 'Finger on the frame. Hold still 1 s, tilt the muzzle UP about 20°, hold 1 s, stop. Answers the gyro-axis question.' },
   { id: 'axis-right',      name: 'Axis check: muzzle right', hint: 'Finger on the frame. Hold still 1 s, swing the muzzle to YOUR RIGHT about 20°, hold 1 s, stop.' },
+  { id: 'drill-bill',      name: 'Drill: Bill',            hint: 'Select Bill Drill first. Finger on the frame, wait for the beep, fire six, finger back on the frame. Expect: one beep and one drill end.' },
 ];
+
+/* ======================= drills (WQ-027, D-93, D-97, D-98) ======================= */
+// Picker diagrams (360 × 200), ported verbatim from docs/mockups/drills/diagrams.js (D-93); inline: no fetch.
+const DRILL_SVG = {
+  freestyle: `<svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah-safe" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2fbf71"/></marker><marker id="ah-warn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f0a020"/></marker><marker id="ah-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9aa3ad"/></marker><marker id="ah-trig" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="ah-bad" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e5484d"/></marker></defs> <text x="90" y="18" font-size="11" fill="#2fbf71" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">MOVING</text> <g transform="translate(30,75) rotate(0)" opacity="1"> <rect x="0" y="-28" width="120" height="56" rx="8" fill="#24282e" stroke="#4c535c" stroke-width="1.5"/> <line x1="30" y1="-7.840000000000001" x2="110.4" y2="-7.840000000000001" stroke="#2fbf71" stroke-width="2" stroke-dasharray="5 4"/> <circle cx="38.4" cy="5.6000000000000005" r="6.16" fill="none" stroke="#3b82f6" stroke-width="2"/> <rect x="33.6" y="-12.32" width="72" height="8.96" rx="4.48" fill="#d8dde2" opacity=".9"/> <path d="M124,0 l10,0" stroke="#9aa3ad" stroke-width="2" marker-end="url(#ah-muted)"/> </g> <path d="M28,118 q60,22 124,0" fill="none" stroke="#2fbf71" stroke-width="1.6" stroke-dasharray="4 3" marker-start="url(#ah-safe)" marker-end="url(#ah-safe)"/> <text x="90" y="146" font-size="11" fill="#e9ecef" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">Finger flat on the frame</text><text x="90" y="160" font-size="11" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">— move freely</text> <line x1="180" y1="10" x2="180" y2="168" stroke="#2c3138"/> <text x="270" y="18" font-size="11" fill="#3b82f6" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">STILL</text> <g transform="translate(205,75) rotate(0)" opacity="1"> <rect x="0" y="-28" width="120" height="56" rx="8" fill="#24282e" stroke="#4c535c" stroke-width="1.5"/> <line x1="30" y1="-7.840000000000001" x2="110.4" y2="-7.840000000000001" stroke="#2fbf71" stroke-width="2" stroke-dasharray="5 4"/> <circle cx="38.4" cy="5.6000000000000005" r="6.16" fill="none" stroke="#3b82f6" stroke-width="2"/> <rect x="2.4" y="-2.24" width="36" height="8.96" rx="4.48" fill="#d8dde2" opacity=".9" transform="rotate(14 36 2.24)"/> <path d="M124,0 l10,0" stroke="#9aa3ad" stroke-width="2" marker-end="url(#ah-muted)"/> </g> <path d="M252,108 l-20,0" stroke="#3b82f6" stroke-width="2" marker-end="url(#ah-trig)"/><text x="256" y="112" font-size="10" fill="#3b82f6" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">pull back</text> <text x="270" y="146" font-size="11" fill="#e9ecef" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">Sights on, phone still:</text><text x="270" y="160" font-size="11" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">finger to trigger, pull back</text> <rect x="40" y="174" width="280" height="22" rx="6" fill="#2a1416" stroke="#e5484d"/> <text x="180" y="189" font-size="10.5" fill="#e5484d" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">Phone moves with finger off the frame → ALARM</text></svg>`,
+  lr: `<svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah-safe" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2fbf71"/></marker><marker id="ah-warn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f0a020"/></marker><marker id="ah-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9aa3ad"/></marker><marker id="ah-trig" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="ah-bad" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e5484d"/></marker></defs> <g><circle cx="196" cy="44" r="16" fill="none" stroke="#9aa3ad" stroke-width="1.2"/><circle cx="196" cy="44" r="10.56" fill="none" stroke="#9aa3ad" stroke-width="1.2"/><circle cx="196" cy="44" r="5.28" fill="#3a2a2b" stroke="#9aa3ad" stroke-width="1.2"/></g> <line x1="150" y1="44" x2="178" y2="44" stroke="#9aa3ad" stroke-width="1" stroke-dasharray="2 4"/> <g transform="translate(52,44) rotate(0)" opacity="1"> <rect x="0" y="-17" width="84" height="34" rx="8" fill="#24282e" stroke="#4c535c" stroke-width="1.5"/> <line x1="21" y1="-4.760000000000001" x2="77.28" y2="-4.760000000000001" stroke="#2fbf71" stroke-width="2" stroke-dasharray="5 4"/> <circle cx="26.88" cy="3.4000000000000004" r="3.74" fill="none" stroke="#3b82f6" stroke-width="2"/> <rect x="1.68" y="-1.36" width="25.2" height="5.44" rx="2.72" fill="#d8dde2" opacity=".9" transform="rotate(14 25.2 1.36)"/> <path d="M88,0 l10,0" stroke="#9aa3ad" stroke-width="2" marker-end="url(#ah-muted)"/> </g> <g transform="translate(52,140) rotate(0)" opacity="1"> <rect x="0" y="-17" width="84" height="34" rx="8" fill="#24282e" stroke="#4c535c" stroke-width="1.5"/> <line x1="21" y1="-4.760000000000001" x2="77.28" y2="-4.760000000000001" stroke="#2fbf71" stroke-width="2" stroke-dasharray="5 4"/> <circle cx="26.88" cy="3.4000000000000004" r="3.74" fill="none" stroke="#3b82f6" stroke-width="2"/> <rect x="23.520000000000003" y="-7.48" width="50.4" height="5.44" rx="2.72" fill="#d8dde2" opacity=".9"/> <path d="M88,0 l10,0" stroke="#9aa3ad" stroke-width="2" marker-end="url(#ah-muted)"/> </g> <line x1="150" y1="140" x2="178" y2="140" stroke="#9aa3ad" stroke-width="1" stroke-dasharray="2 4"/> <path d="M162,124 L162,70" stroke="#2fbf71" stroke-width="2" marker-end="url(#ah-safe)"/> <path d="M34,66 L34,118" stroke="#9aa3ad" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#ah-muted)"/> <text x="174" y="100" font-size="10" fill="#2fbf71" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">raise</text><text x="40" y="96" font-size="10" fill="#9aa3ad" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">down</text> <text x="94" y="178" font-size="9.5" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">Low ready: muzzle still downrange,</text><text x="94" y="190" font-size="9.5" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">gun lowered, finger on frame</text> <text x="222" y="18" font-size="10.5" fill="#e9ecef" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">1  Low ready, finger on</text> <text x="236" y="32" font-size="10.5" fill="#9aa3ad" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">the frame</text><text x="222" y="48" font-size="10.5" fill="#f0a020" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">2  Beep: raise, fire 2</text> <text x="222" y="64" font-size="10.5" fill="#e9ecef" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">3  Finger back on frame</text> <rect x="236" y="71" width="5" height="12" rx="1.5" fill="#f0a020"/><rect x="245" y="71" width="5" height="12" rx="1.5" fill="#f0a020"/><rect x="254" y="71" width="5" height="12" rx="1.5" fill="#f0a020"/><text x="264" y="81" font-size="10.5" fill="#9aa3ad" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">¾ s later:</text> <text x="236" y="97" font-size="10.5" fill="#f0a020" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">back to low ready</text> <text x="222" y="121" font-size="10.5" fill="#e9ecef" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">4  Next beep in 2–5 s</text> <text x="222" y="145" font-size="10.5" fill="#e9ecef" text-anchor="start" font-weight="700" font-family="system-ui,sans-serif">↻ 5 reps</text> <circle cx="229" cy="166" r="8" fill="none" stroke="#2fbf71" stroke-width="2"/><path d="M225,166 l3,3 l5,-6" fill="none" stroke="#2fbf71" stroke-width="2"/><text x="244" y="170" font-size="10.5" fill="#2fbf71" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">Finish tone after rep 5</text></svg>`,
+  box: `<svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah-safe" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2fbf71"/></marker><marker id="ah-warn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f0a020"/></marker><marker id="ah-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9aa3ad"/></marker><marker id="ah-trig" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="ah-bad" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e5484d"/></marker></defs> <text x="120" y="14" font-size="10" fill="#9aa3ad" text-anchor="middle" font-weight="600" font-family="system-ui,sans-serif">▲ DOWNRANGE</text> <g><circle cx="85" cy="30" r="11" fill="none" stroke="#9aa3ad" stroke-width="1.2"/><circle cx="85" cy="30" r="7.260000000000001" fill="none" stroke="#9aa3ad" stroke-width="1.2"/><circle cx="85" cy="30" r="3.6300000000000003" fill="#3a2a2b" stroke="#9aa3ad" stroke-width="1.2"/></g><g><circle cx="155" cy="30" r="11" fill="none" stroke="#9aa3ad" stroke-width="1.2"/><circle cx="155" cy="30" r="7.260000000000001" fill="none" stroke="#9aa3ad" stroke-width="1.2"/><circle cx="155" cy="30" r="3.6300000000000003" fill="#3a2a2b" stroke="#9aa3ad" stroke-width="1.2"/></g> <line x1="80" y1="62" x2="158" y2="62" stroke="#2fbf71" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah-safe)"/><line x1="180" y1="82" x2="180" y2="136" stroke="#2fbf71" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah-safe)"/><line x1="160" y1="158" x2="82" y2="158" stroke="#2fbf71" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah-safe)"/><line x1="60" y1="138" x2="60" y2="84" stroke="#2fbf71" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah-safe)"/> <circle cx="60" cy="62" r="15" fill="#0f1113" stroke="#f0a020" stroke-width="2"/><text x="60" y="66.5" font-size="10.5" fill="#e9ecef" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">1·5</text><circle cx="180" cy="62" r="15" fill="#0f1113" stroke="#f0a020" stroke-width="2"/><text x="180" y="66.5" font-size="13" fill="#e9ecef" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">2</text><circle cx="180" cy="158" r="15" fill="#0f1113" stroke="#f0a020" stroke-width="2"/><text x="180" y="162.5" font-size="13" fill="#e9ecef" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">3</text><circle cx="60" cy="158" r="15" fill="#0f1113" stroke="#f0a020" stroke-width="2"/><text x="60" y="162.5" font-size="13" fill="#e9ecef" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">4</text> <text x="120" y="106" font-size="10" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">Start at 1, clockwise,</text><text x="120" y="119" font-size="10" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">finish back at 1</text> <circle cx="236" cy="30" r="9" fill="#0f1113" stroke="#f0a020" stroke-width="2"/> <text x="254" y="27" font-size="10.5" fill="#e9ecef" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">At each spot:</text><text x="254" y="40" font-size="10.5" fill="#9aa3ad" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">fire 2 or more</text> <rect x="222" y="66" width="5" height="12" rx="1.5" fill="#f0a020"/><rect x="231" y="66" width="5" height="12" rx="1.5" fill="#f0a020"/><rect x="240" y="66" width="5" height="12" rx="1.5" fill="#f0a020"/> <text x="254" y="69" font-size="10.5" fill="#e9ecef" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">Finger back on frame</text><text x="254" y="82" font-size="10.5" fill="#f0a020" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">→ 3 beeps: move</text> <line x1="222" y1="112" x2="248" y2="112" stroke="#2fbf71" stroke-width="2" stroke-dasharray="6 4"/> <text x="254" y="109" font-size="10.5" fill="#e9ecef" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">Move at your pace,</text><text x="254" y="122" font-size="10.5" fill="#9aa3ad" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">finger on the frame</text> <circle cx="231" cy="152" r="8" fill="none" stroke="#2fbf71" stroke-width="2"/><path d="M227,152 l3,3 l5,-6" fill="none" stroke="#2fbf71" stroke-width="2"/> <text x="254" y="149" font-size="10.5" fill="#e9ecef" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">Back at 1: 2+ shots,</text><text x="254" y="162" font-size="10.5" fill="#2fbf71" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">frame → finish tone</text> <text x="180" y="192" font-size="10" fill="#e5484d" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">Trigger touch while moving → ALARM</text></svg>`,
+  bill: `<svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah-safe" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2fbf71"/></marker><marker id="ah-warn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f0a020"/></marker><marker id="ah-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9aa3ad"/></marker><marker id="ah-trig" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="ah-bad" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e5484d"/></marker></defs> <line x1="20" y1="58" x2="340" y2="58" stroke="#4c535c" stroke-width="2"/> <path d="M22,50 h6 l8,-7 v30 l-8,-7 h-6z" fill="#f0a020"/><path d="M40,50 q5,8 0,16" fill="none" stroke="#f0a020" stroke-width="1.6"/> <text x="32" y="84" font-size="10" fill="#f0a020" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">BEEP</text><text x="32" y="97" font-size="10" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">0.00</text> <line x1="118" y1="44" x2="118" y2="72" stroke="#e5484d" stroke-width="3"/><text x="118" y="38" font-size="11" fill="#e9ecef" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">1</text><line x1="154" y1="44" x2="154" y2="72" stroke="#e5484d" stroke-width="3"/><text x="154" y="38" font-size="11" fill="#e9ecef" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">2</text><line x1="186" y1="44" x2="186" y2="72" stroke="#e5484d" stroke-width="3"/><text x="186" y="38" font-size="11" fill="#e9ecef" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">3</text><line x1="218" y1="44" x2="218" y2="72" stroke="#e5484d" stroke-width="3"/><text x="218" y="38" font-size="11" fill="#e9ecef" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">4</text><line x1="250" y1="44" x2="250" y2="72" stroke="#e5484d" stroke-width="3"/><text x="250" y="38" font-size="11" fill="#e9ecef" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">5</text><line x1="282" y1="44" x2="282" y2="72" stroke="#e5484d" stroke-width="3"/><text x="282" y="38" font-size="11" fill="#e9ecef" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif">6</text> <path d="M50,66 L114,66" stroke="#9aa3ad" stroke-width="1.2" marker-start="url(#ah-muted)" marker-end="url(#ah-muted)"/> <text x="78" y="84" font-size="10" fill="#e9ecef" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">first shot</text><text x="78" y="97" font-size="10" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">1.62 s</text> <text x="136" y="84" font-size="10" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">.31</text><text x="170" y="84" font-size="10" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">.27</text><text x="202" y="84" font-size="10" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">.29</text><text x="234" y="84" font-size="10" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">.26</text><text x="266" y="84" font-size="10" fill="#9aa3ad" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">.28</text> <text x="200" y="97" font-size="10" fill="#e9ecef" text-anchor="middle" font-weight="400" font-family="system-ui,sans-serif">splits (s)</text><text x="330" y="84" font-size="10" fill="#e9ecef" text-anchor="end" font-weight="400" font-family="system-ui,sans-serif">total</text><text x="330" y="97" font-size="10" fill="#9aa3ad" text-anchor="end" font-weight="400" font-family="system-ui,sans-serif">2.03 s</text> <g><circle cx="70" cy="150" r="38" fill="none" stroke="#9aa3ad" stroke-width="1.2"/><circle cx="70" cy="150" r="25.080000000000002" fill="none" stroke="#9aa3ad" stroke-width="1.2"/><circle cx="70" cy="150" r="12.540000000000001" fill="#3a2a2b" stroke="#9aa3ad" stroke-width="1.2"/><circle cx="66" cy="147" r="2.6" fill="#e9ecef"/><circle cx="73" cy="144" r="2.6" fill="#e9ecef"/><circle cx="76" cy="152" r="2.6" fill="#e9ecef"/><circle cx="68" cy="155" r="2.6" fill="#e9ecef"/><circle cx="79" cy="149" r="2.6" fill="#e9ecef"/><circle cx="62" cy="151" r="2.6" fill="#e9ecef"/></g> <text x="124" y="134" font-size="11" fill="#e9ecef" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">On the beep: six shots, one target.</text> <text x="124" y="150" font-size="11" fill="#9aa3ad" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">As fast as you can while the phone</text> <text x="124" y="164" font-size="11" fill="#9aa3ad" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">stays still. Full trigger reset each shot.</text> <circle cx="130" cy="180" r="8" fill="none" stroke="#2fbf71" stroke-width="2"/><path d="M126,180 l3,3 l5,-6" fill="none" stroke="#2fbf71" stroke-width="2"/><text x="144" y="184" font-size="10.5" fill="#2fbf71" text-anchor="start" font-weight="400" font-family="system-ui,sans-serif">Finger back on frame → finish tone</text></svg>`,
+};
+// D-93 order. Not-ready entries stay in the table but are not shown in the picker (WQ-028 / WQ-029 flip `ready`).
+const DRILL_MODES = [
+  { id: 'freestyle', name: 'Freestyle', sub: 'Today’s trainer — no timer',
+    how: 'Finger flat on the frame to move; still and on the trigger to fire.', svg: DRILL_SVG.freestyle, ready: true },
+  { id: 'lowready', name: 'Low Ready', sub: 'Five reps from low ready',
+    how: 'From low ready, finger on the frame. On the beep raise and fire two; finger back on the frame; three beeps: back to low ready.', svg: DRILL_SVG.lr, ready: false },
+  { id: 'box', name: 'Box Drill', sub: 'Four corners, five positions',
+    how: 'Fire two or more at each spot; finger back on the frame; three beeps: move to the next spot. Finish back at spot 1.', svg: DRILL_SVG.box, ready: false },
+  { id: 'bill', name: 'Bill Drill', sub: 'Six shots from the beep',
+    how: 'Finger on the frame. On the beep fire six, as fast as the phone stays still. Finger back on the frame to finish.', svg: DRILL_SVG.bill, ready: true },
+];
+const DRILL_KEY = 'tdt.drill';                        // the selected drill, remembered on the phone (D-98 i); not a setting
+const drillMode = id => DRILL_MODES.find(m => m.id === id && m.ready) || null;
+let drillSel = 'freestyle', pickerHi = 'freestyle', drillCancelled = false;
+try { const v = localStorage.getItem(DRILL_KEY); if (v && drillMode(v)) drillSel = v; } catch (e) {}
+function renderDrillBtn() {
+  const m = drillMode(drillSel) || DRILL_MODES[0];
+  $('drillBtn').innerHTML = `<b>Drill: ${m.name}</b><br><small>${m.sub}</small>`;
+}
+function renderPicker() {
+  $('drillList').replaceChildren(...DRILL_MODES.filter(m => m.ready).map(m => {
+    const b = document.createElement('button');
+    b.className = 'btn drillOpt' + (m.id === pickerHi ? ' sel' : ''); b.type = 'button'; b.dataset.id = m.id;
+    b.innerHTML = `<b>${m.name}</b><br><small>${m.sub}</small>`;
+    b.addEventListener('click', () => { pickerHi = m.id; renderPicker(); });
+    return b;
+  }));
+  const m = drillMode(pickerHi) || DRILL_MODES[0];
+  $('drillDiagram').innerHTML = m.svg;
+  $('drillHow').textContent = m.how;
+}
+function openPicker() { pickerHi = drillSel; renderPicker(); $('drillOv').classList.add('show'); $('drillOv').scrollTop = 0; }
+function closePicker() { $('drillOv').classList.remove('show'); }
+/** Start a run of the selected drill on the current engine (no-op for Freestyle); the 'r' row makes it replayable. */
+function beginDrillRun(t) {
+  drillCancelled = false;
+  if (drillSel === 'freestyle') return;
+  const seed = (Math.random() * 2 ** 32) >>> 0;
+  if (engine.startDrill(t, drillSel, seed)) logRow(['r', t, drillSel, seed]);
+}
+/** Leaving the trainer for the start screen: the run is dropped ('x' row) and the trainer stops. */
+function leaveToStart() {
+  const t = now();
+  engine.cancelDrill(t); logRow(['x', t]);
+  running = false;
+  $('rotateOv').classList.remove('armed');
+  buildSettings(); renderDrillBtn(); $('startOv').classList.add('show');
+}
+const secs2 = ms => (ms / 1000).toFixed(2);
+function showDrillResult(r) {
+  const m = DRILL_MODES.find(x => x.id === r.drill);
+  $('drillResTitle').textContent = m ? m.name : r.drill;
+  const clean = engine.state.drillRuns.filter(x => x.drill === r.drill && !x.withAlarm).map(x => x.total);
+  const rows = [
+    ['First shot', secs2(r.first) + ' s'],
+    ['Splits', r.splits.map(x => secs2(x).replace(/^0(?=\.)/, '')).join(' · ') + ' s'],
+    ['Total', secs2(r.total) + ' s'],
+    ['Shots', r.shots.map(x => x.unsafe ? 'alarm' : x.grade).join(' · ')],   // D-45: shots in an alarm are not graded
+  ];
+  if (r.early > 0) rows.push(['Early shots (before the beep)', r.early]);
+  if (r.withAlarm) rows.push(['With alarm', `${r.alarms} alarm${r.alarms === 1 ? '' : 's'} during the run`]);
+  rows.push(['Best clean total this session', clean.length ? secs2(Math.min(...clean)) + ' s' : '—']);
+  $('drillResRows').replaceChildren(...rows.map(([k, v]) => {
+    const tr = document.createElement('tr');
+    [k, v].forEach(x => { const td = document.createElement('td'); td.textContent = x; tr.appendChild(td); });
+    return tr;
+  }));
+  $('drillResOv').classList.add('show'); $('drillResOv').scrollTop = 0;
+}
+function drillLineText(s) {
+  const d = s.drill;
+  if (!d) return '';
+  const m = DRILL_MODES.find(x => x.id === d.id), name = m ? m.name : d.id;
+  if (d.phase === 'standby') return drillCancelled ? `${name} · run cancelled, finger on the frame to restart`
+                                                   : `${name} · finger on the frame, wait for the beep`;
+  if (d.phase === 'live') return d.shots.length ? `Shot ${d.shots.length} of ${TDT.DRILL_DEFS[d.id].shots}` : 'Go';
+  if (d.phase === 'finishing') return 'Finger back on the frame';
+  return 'Done';
+}
 
 function newEngine() {
   engine = TDT.createEngine(S, { onEvent });
@@ -525,6 +670,10 @@ function onEvent(e) {
       break;
     }
     case 'downrangeLost': Snd.tone(330, 0, 0.25, 'triangle'); break;
+    case 'drillBeep': drillCancelled = false; Snd.timerBeep(); buzz(80); break;
+    // The completion tone starts as the OK tone of the same tick ends (D-98 g).
+    case 'drillEnd': Snd.complete(0.35); buzz([60, 60, 60]); renderStats(); showDrillResult(e.result); break;
+    case 'drillCancel': drillCancelled = true; break;                          // no sound: status line only
   }
 }
 const logRow = row => { if (rec) rec.log.push(row); };
@@ -543,6 +692,7 @@ function startRecording() {
     device: { ua: navigator.userAgent, ios: isIOS, dpr: window.devicePixelRatio || 1, w: innerWidth, h: innerHeight },
     settings: Object.assign({}, S), t0: now(), log: [], observed: [],
   };
+  beginDrillRun(now());                          // the fresh engine has no run: start it, 'r' row first in the log
   lastRec = null;
   $('recPill').hidden = false;
   updateRecUi();
@@ -648,11 +798,12 @@ function tick() {
   const settingsOpen = $('settingsOv').classList.contains('show');
   if (settingsOpen) { renderLive(); drawAxis(); }
   const summaryOpen = $('summaryOv').classList.contains('show');
+  const drillResOpen = $('drillResOv').classList.contains('show');
   if (!isPortrait()) { portraitT0 = null; portraitHeld = false; }
   else if (portraitT0 === null) portraitT0 = t;
   else if (t - portraitT0 >= PORTRAIT_HOLD_MS) portraitHeld = true;
   $('rotateOv').classList.toggle('portrait', portraitHeld);
-  setEnginePaused(!running || settingsOpen || summaryOpen || portraitHeld || document.visibilityState !== 'visible', t);
+  setEnginePaused(!running || settingsOpen || summaryOpen || drillResOpen || portraitHeld || document.visibilityState !== 'visible', t);
   logRow(['f', t]);
   engine.tick(t);
   if (rec) {
@@ -676,6 +827,8 @@ function render(t) {
   else if (s.onRest) setStatus('safe', 'SAFE');
   else if (s.trig) setStatus('trig', s.trig.fired ? 'SHOT — RESET OR RETURN TO FRAME' : 'ON TRIGGER — HOLD STILL');
   else setStatus('warn', 'OFF FRAME — HOLD STILL');
+  const dtx = drillLineText(s), dle = $('drillLine');
+  if (dle.textContent !== dtx) dle.textContent = dtx;
 
   if (running && startedAt && t - startedAt > 2000 && s.motionEvents === 0) {
     $('warnLine').textContent = 'No motion sensor data — movement alarm and aim trace inactive.';
@@ -728,6 +881,7 @@ function renderDebug(s) {
     `drift off frame ${s.devOff.toFixed(1)}° (limit ${S.offFrameDeg})\n` +
     `trigger ${s.trig ? 'pull ' + s.trig.pull.toFixed(0) + '/' + S.pullPx + 'px' + (s.trig.fired ? ' FIRED' : '') : '-'}\n` +
     `vib: ${vibLast}${vibPat ? ` (pattern ${vibPat})` : ''}\n` +
+    (s.drill ? `drill ${s.drill.id} ${s.drill.phase}\n` : '') +
     `touches:\n${tl || '  none'}`;
 }
 
@@ -864,7 +1018,7 @@ function bindSettings() {
   $('debugChk').addEventListener('change', e => { S.debug = e.target.checked; save(); layout(); });
   $('axisZero').addEventListener('click', () => { axisZero = { h: engine.state.aimH, v: engine.state.aimV }; });
   $('resetStats').addEventListener('click', () => { engine.resetStats(); sessionT0 = running ? now() : 0; renderStats(); drawTarget(engine.state); });
-  $('resetDefaults').addEventListener('click', () => { S = Object.assign({}, DEFAULTS); clearSaved(); newEngine(); buildSettings(); Snd.setVolume(S.volume); layout(); });
+  $('resetDefaults').addEventListener('click', () => { S = Object.assign({}, DEFAULTS); clearSaved(); newEngine(); if (running) beginDrillRun(now()); buildSettings(); Snd.setVolume(S.volume); layout(); });
 
   $('recLabel').innerHTML = DRILLS.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
   const showHint = () => { $('recHint').textContent = (DRILLS.find(d => d.id === $('recLabel').value) || {}).hint || ''; };
@@ -919,6 +1073,7 @@ async function start() {
   }
   requestWakeLock();
   running = true; startedAt = now();
+  beginDrillRun(startedAt);
   if (!sessionT0) sessionT0 = startedAt;
   $('startOv').classList.remove('show');
   $('rotateOv').classList.add('armed');
@@ -1031,15 +1186,22 @@ $('sumBack').addEventListener('click', () => {
 });
 $('sumNew').addEventListener('click', () => {
   engine.resetStats(); sessionT0 = 0; renderStats(); drawTarget(engine.state);
-  running = false;
-  $('rotateOv').classList.remove('armed');
   $('summaryOv').classList.remove('show');
-  buildSettings(); $('startOv').classList.add('show');
+  leaveToStart();
 });
+$('drillBtn').addEventListener('click', openPicker);
+$('drillChoose').addEventListener('click', () => {
+  if (drillMode(pickerHi)) drillSel = pickerHi;
+  try { localStorage.setItem(DRILL_KEY, drillSel); } catch (e) {}
+  renderDrillBtn(); closePicker();
+});
+$('drillCancelBtn').addEventListener('click', closePicker);
+$('drillAgain').addEventListener('click', () => { $('drillResOv').classList.remove('show'); beginDrillRun(now()); });
+$('drillChange').addEventListener('click', () => { $('drillResOv').classList.remove('show'); leaveToStart(); });
 
 $('versionLine').textContent = `Engine ${TDT.VERSION}`;
 
-newEngine(); bindSettings(); buildSettings(); layout(); renderStats();
+newEngine(); bindSettings(); buildSettings(); renderDrillBtn(); layout(); renderStats();
 requestAnimationFrame(tick);
 
 // Test hooks (read-only).
@@ -1049,7 +1211,11 @@ window.__tdt = () => {
     shots: s.shots.length, lastGrade: s.shots.length ? s.shots[s.shots.length - 1].grade : null,
     trig: s.trig ? { pull: s.trig.pull, fired: s.trig.fired } : null, rotEMA: s.rotEMA, aimH: s.aimH, aimV: s.aimV,
     recording: !!rec, alarmSound: Snd.alarm ? Snd.alarm.kind : null, paused: enginePaused, portraitHeld, refSet: s.refSet, alarmReason: s.alarmReason, dev180: s.dev180, devOff: s.devOff, breaks180: s.breaks180, inPress: s.inPress, axisEst: s.axisEst ? Object.assign({}, s.axisEst) : null,
-    summary: TDT.summarize(s), summaryOpen: $('summaryOv').classList.contains('show') };
+    summary: TDT.summarize(s), summaryOpen: $('summaryOv').classList.contains('show'),
+    drill: s.drill ? { id: s.drill.id, phase: s.drill.phase, shots: s.drill.shots.length, early: s.drill.early,
+                       result: s.drill.result ? JSON.parse(JSON.stringify(s.drill.result)) : null } : null,
+    drillRuns: s.drillRuns.length, drillSel, drillResOpen: $('drillResOv').classList.contains('show'),
+    pickerOpen: $('drillOv').classList.contains('show') };
 };
 })();
 </script>
