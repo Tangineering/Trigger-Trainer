@@ -87,6 +87,8 @@ How the queue and the other documents fit together:
   total). A pause cancels the run; results are session-only.
 - **Trigger wins** (D-75, WQ-016): a touch that engaged the trigger counts as on the trigger until it is lifted,
   wherever it moves; it never counts as frame contact, even inside the frame strip.
+- **One finger** (D-113, D-115): only a touch that lands while no other touch controls can count; a later finger is
+  ignored until it is lifted.
 
 Additions made in the prototype (Claude, proposed — see DECISIONS): aim-drift trace and shot grading on a
 mini target, trigger reset for follow-up shots, handedness mirror, grace period, settings panel, axis-check
@@ -402,3 +404,31 @@ shared Early shots / With alarm rows and "Best clean total this session". `windo
 `st.drillFree`. Recorder label `drill-transitions`.
 Q18 (whether anything besides the 180 rule should guard the muzzle inside the window, and whether a mid-swing lift
 should get a grace) is resolved by D-119: leave as built.
+
+## WQ-031 — one finger controls the engine (D-113, D-114 b–d, D-115, D-120)
+
+**Rule.** At most one touch controls the engine. A touch *wants control* while it is the engaged trigger touch
+(`st.trig.id`) or lies in `ZONES.rest` or the trigger zone (raw zone tests, not the debounced `onRest`). The controller
+(`st.ctrl`, a touch id or `null`) keeps control while it wants it and is present; a controller that slides out of every
+zone gives it up. A touch first seen while a touch controls is **ignored** for its whole life (`st.ignored`, a `Set` of
+ids), wherever it moves and after the controller lifts, and so is a touch already down (a finger on the grip) that
+enters a zone while another controls. With no controller, the first touch wanting control takes it (a frame touch
+before a trigger touch, D-114 d; otherwise list order) and the other new touches of that call are ignored. So a second
+finger laid on the frame beside the first does not keep frame contact when the first lifts. One finger sliding from the
+strip into the trigger is one touch and engages as before (D-114 b); D-75 stays.
+
+**Engine** (`engine.js` 0.17.0). `touches()` (the only place a new id is first seen) records the previous call's ids,
+rebuilds `st.touches` and calls `resolveControl(seen)` before `updateTrigger`; ids no longer present leave
+`st.ignored`. The decision runs whether or not the engine is paused, and `setPaused` keeps both fields, so it never
+depends on tick timing and replays stay deterministic. `restTouch()` and `updateTrigger()` skip ignored ids, so an ignored
+touch never becomes `st.trig` and never sets `onRest`: `freeOnTrigger()` / `st.drillFree` (Transitions) and
+`retakeOrigin()` only ever see the controller. The iOS portrait hold (D-68) re-feeds the last landscape touch list:
+the same ids, so nothing is new and nothing changes. All 45 recordings replay to byte-identical events (the
+multi-touch rows in the three `free` recordings are grip fingers while the frame finger controls).
+
+**Page / tests.** `window.__tdt()` adds `ignored` (`st.ignored.size`) and `restContact`. CDP's
+`Input.dispatchTouchEvent` keeps a point down until a `touchEnd` lists it (`touchEnd []` lifts all), so the drill
+sections' smoke press helpers, whose `touchStart [TRG]` used to add a second finger beside the frame finger, now lift
+every point first; the `WQ-031` smoke section covers
+the five scenarios of the item.
+
