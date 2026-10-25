@@ -418,7 +418,7 @@
         for (const [id, tc] of st.touches) {
           if (inZone(tc, zoneFor('trigger', vw))) {
             st.trig = { id, base: rearPx(tc), pull: 0, fired: false, breakT: 0, breakIdx: -1,
-                        oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0, pressOrig: false };
+                        oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0, minPull: 0 };
             emit({ type: 'trigOn', t });
             break;
           }
@@ -430,18 +430,27 @@
       let pull = rearPx(tc) - tr.base;
       if (pull < 0 && !tr.fired) { tr.base = rearPx(tc); pull = 0; }   // slid forward: re-zero
       tr.pull = Math.max(0, pull);
+      if (tr.pull < tr.minPull) tr.minPull = tr.pull;                    // lowest pull of this press attempt
       // Transitions (D-112 i): while the run is live a shot is graded from where the muzzle pointed when the press
-      // started (pull >= PULL_START_FRACTION), once per press, so the swing to the target is not graded.
-      if (!tr.fired && !tr.pressOrig && st.drill && DRILL_DEFS[st.drill.id].onTriggerFree && st.drill.phase === 'live'
-          && tr.pull >= S.pullPx * K.PULL_START_FRACTION) {
-        tr.pressOrig = true; tr.oh = st.aimH; tr.ov = st.aimV; tr.trace = [];
-      }
+      // started. Until the pull has risen PULL_START_FRACTION above its lowest point of this attempt (a reset ridden
+      // between targets, an aborted partial press), the origin and trace follow the muzzle on every update; once it
+      // has, they freeze; dropping back below resumes the re-take. The swing to the target is not graded. Re-taken
+      // on every touch update and every tick (a finger held still on the trigger sends no touch events while the
+      // phone swings).
+      retakeOrigin(tr);
       if (!tr.fired && pull >= S.pullPx) fire(t);
       else if (tr.fired && pull <= S.pullPx * K.RESET_FRACTION) {      // trigger reset -> follow-up
         st.lastTrace = tr;
         st.trig = Object.assign({}, tr, { fired: false, breakT: 0, breakIdx: -1, oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0,
-                                             pressOrig: false });
+                                             minPull: tr.pull });
         emit({ type: 'reset', t });
+      }
+    }
+
+    function retakeOrigin(tr) {
+      if (!tr.fired && st.drill && DRILL_DEFS[st.drill.id].onTriggerFree && st.drill.phase === 'live'
+          && tr.pull < tr.minPull + S.pullPx * K.PULL_START_FRACTION) {
+        tr.oh = st.aimH; tr.ov = st.aimV; tr.trace = [];
       }
     }
 
@@ -635,11 +644,19 @@
       return d;
     }
 
+    // A run replaced or dropped inside the Transitions window: re-take the drift reference (as at a lift, D-112 f) so
+    // the swing already made does not alarm at the next tick, and clear the window flag.
+    function closeWindow() {
+      if (freeOnTrigger() && st.qOff) st.qOff = st.q.slice();
+      st.drillFree = false;
+    }
+
     /** Start a run of drill `id` (a ready DRILL_DEFS key) with generator seed `seed`. Returns false and changes
      *  nothing for an unknown or not-yet-built drill. A run already in progress is cancelled first. */
     function startDrill(t, id, seed) {
       const def = Object.prototype.hasOwnProperty.call(DRILL_DEFS, id) ? DRILL_DEFS[id] : null;
       if (!def || !def.ready) return false;
+      closeWindow();
       if (drillActive(st.drill)) emit({ type: 'drillCancel', t, drill: st.drill.id });
       st.drill = freshRun({ id, seed: seed >>> 0, rng: mulberry32(seed) });
       return true;
@@ -648,6 +665,7 @@
     /** Back to Freestyle: cancel any run in progress (event) and drop the drill. */
     function cancelDrill(t) {
       if (!st.drill) return;
+      closeWindow();
       if (drillActive(st.drill)) emit({ type: 'drillCancel', t, drill: st.drill.id });
       st.drill = null;
     }
@@ -731,6 +749,7 @@
       if (st.drill) tickDrill(t);
 
       const tr = st.trig;
+      if (tr) retakeOrigin(tr);                       // Transitions grading origin (D-112 i); no-op otherwise
       if (tr && (!tr.fired || t - tr.breakT < K.FOLLOW_THROUGH_MS) && tr.trace.length < K.TRACE_MAX) {
         tr.trace.push([st.aimH - tr.oh, st.aimV - tr.ov]);
       }
@@ -744,7 +763,7 @@
       if (p) {
         if (st.alarmActive) { st.alarmActive = false; st.alarmReason = null; emit({ type: 'alarmStop', t }); }
         st.armed = false; st.onRest = st.wasOnRest = false; st.restLostAt = null; st.restContact = false;
-        st.qOff = null; st.devOff = 0;
+        st.qOff = null; st.devOff = 0; st.drillFree = false;
         if (st.trig) endTrigger(t);
         // A pause cancels a run without the completion tone; the drill waits in a fresh standby (D-98 e).
         // The generator carries on, so the next run's delay is still decided by the seed.

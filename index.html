@@ -168,6 +168,15 @@
   @media (orientation: portrait) {                    /* diagram on top, list below, buttons last */
     #drillBody { grid-template-columns: minmax(0, 1fr); grid-template-areas: "diag" "how" "list" "btns"; }
   }
+  @media (orientation: landscape) and (max-height: 430px) {   /* five drills, diagram and buttons in one phone screen */
+    #drillOv .inner { padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: 10px; }
+    #drillOv h1 { font-size: 18px; margin: 0 0 6px; }
+    #drillList { gap: 5px; }
+    #drillOv .drillOpt { font-size: 14px; padding: 6px 12px; line-height: 1.25; }
+    #drillOv .drillOpt small { font-size: 12px; }
+    #drillOv #drillHow { font-size: 13px; line-height: 1.35; }
+    #drillOv #drillBtns .btn { padding: 9px 18px; }
+  }
   #drillResTable { border-collapse: collapse; font-size: 15px; width: 100%; max-width: 520px; }
   #drillResTable td { padding: 5px 0; border-bottom: 1px solid var(--line); color: #cfd4d9; }
   #drillResTable td:last-child { text-align: right; font-weight: 600; color: #fff; padding-left: 16px; }
