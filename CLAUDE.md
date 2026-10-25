@@ -17,7 +17,9 @@ with `work-queue-run`; size-L code items are implemented with `orchestrated-feat
 each dispatched agent runs on is fixed by `.claude/skills/work-queue-run/MODELS.md` (overrides, with reasons,
 go in that `PROJECT.md`). Never mark an item done inside the queue — it is moved to the archive by the run
 skill. Queue edits get their own `queue:` commits, never bundled into feature commits. `scripts/wq.py`
-(stdlib Python; on Ricky's PC `C:\Users\ricky\.local\bin\python.exe`) does the mechanical edits.
+(stdlib Python; on Ricky's PC `C:\Users\ricky\.local\bin\python.exe`) does the mechanical edits. **Numbers (`WQ-`, `D-`,
+`Q`, `I-`) are assigned across all branches** (D-116): take them from `python scripts/wq.py next`, never from your
+own copy of a file; `check` fails when `next_id` is behind any branch.
 
 How the queue and the other documents fit together:
 - A queue item is *work*; `OPEN_QUESTIONS.md` holds the *question* behind a `blocked:user` or

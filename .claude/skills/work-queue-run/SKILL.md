@@ -201,7 +201,9 @@ round ends (so a surviving `claimed:` row fails):
 - `WORK_QUEUE.md` contains only outstanding work: no `claimed:` status
   survives the round, no item has an archived twin.
 - Every ID appears in exactly one of the two files.
-- `next_id` is greater than every ID in either file.
+- `next_id` is greater than every ID in either file, on every local and
+  remote branch (`check` fetches and scans them; `--no-branches` only where
+  git is unavailable). `python scripts/wq.py next` prints the free numbers.
 - Each `WORK_COMPLETED.md` entry has all eight fields (Closed, Executed
   by, Commits / PR, What was done, Why, Deviations, Verification,
   Follow-ups).

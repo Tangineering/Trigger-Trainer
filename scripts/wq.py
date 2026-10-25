@@ -10,12 +10,22 @@ documents (default: the current directory, then its parents).
     python scripts/wq.py archive WQ-001 --entry entry.md   # cut the item, drop its
                                                             # index row, prepend the entry
     python scripts/wq.py archive WQ-001 --print            # just print the item's section
+    python scripts/wq.py next                              # next free WQ / D / Q / I numbers across
+                                                            # every branch (fetches first)
 
 Why this exists: hand-edited regexes against the index table are how an
 orchestration session spliced two rows together (an unanchored `| WQ-005 |`
 matched inside another row's "Depends on" cell). Every edit here is
 anchored to a line start, and `check` is what `work-queue-run` tells the
 orchestrator to run before every `queue:` commit.
+
+Numbers are assigned across branches, not per branch: exploratory side
+sessions add items and decisions on their own branches before anything is
+merged, and two of them picking "next_id" from their own copy of the file
+collided more than once (WQ-030 and D-111/D-112 were each taken twice on
+2026-10-25). `next` scans every local and remote ref for the four numbered
+files, and `check` fails when `next_id` is not above every WQ id found on any
+branch (`--no-branches` skips the scan, e.g. without git).
 
 The script edits ONLY the mechanical parts (status cells, index rows,
 section cut/paste, `updated:`). Writing an item or a completion entry is
@@ -94,6 +104,66 @@ def _bump_updated(q):
     return re.sub(r"^updated: .*$", f"updated: {today}", q, count=1, flags=re.M)
 
 
+# Numbered records: file -> (label, regex for a record's number at a line start)
+NUMBERED = {
+    QUEUE: ("WQ", r"^### WQ-(\d+) "),
+    DONE: ("WQ", r"^### WQ-(\d+) "),
+    "docs/DECISIONS.md": ("D", r"^\| D-(\d+) \|"),
+    "OPEN_QUESTIONS.md": ("Q", r"^\| Q-?(\d+) \|"),
+    "docs/IDEAS.md": ("I", r"^\| I-(\d+) \|"),
+}
+
+
+def _git(root, *a):
+    import subprocess
+    r = subprocess.run(["git", "-C", root, *a], capture_output=True, text=True)
+    return r.returncode, r.stdout
+
+
+def _scan_branches(root, fetch=True):
+    """{label: (max_number, ref)} over every local and remote ref plus the working tree.
+    Returns None when git is unavailable (not a repo, no git binary)."""
+    try:
+        if fetch:
+            _git(root, "fetch", "--quiet", "--all")
+        rc, out = _git(root, "for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes")
+    except OSError:
+        return None
+    if rc:
+        return None
+    refs = [r for r in out.split() if not r.endswith("/HEAD")]
+    top = {}
+    def note(label, n, ref):
+        if n > top.get(label, (0, ""))[0]:
+            top[label] = (n, ref)
+    for ref in refs:
+        for rel, (label, rx) in NUMBERED.items():
+            rc, text = _git(root, "show", f"{ref}:{rel}")
+            if rc:
+                continue
+            for m in re.finditer(rx, text, re.M):
+                note(label, int(m.group(1)), ref)
+    for rel, (label, rx) in NUMBERED.items():
+        p = os.path.join(root, rel)
+        if os.path.isfile(p):
+            for m in re.finditer(rx, _read(p), re.M):
+                note(label, int(m.group(1)), "working tree")
+    return top
+
+
+def cmd_next(root, args):
+    top = _scan_branches(root, fetch=not args.no_fetch)
+    if top is None:
+        print("FAIL: git unavailable; cannot scan branches")
+        return 1
+    for label in ("WQ", "D", "Q", "I"):
+        n, ref = top.get(label, (0, "nowhere"))
+        sep = "" if label == "Q" else "-"
+        width = 3 if label == "WQ" else 2
+        print(f"next {label}{sep}{n + 1:0{width}d}   (highest {label}{sep}{n:0{width}d} on {ref})")
+    return 0
+
+
 def cmd_check(root, args):
     q = _read(os.path.join(root, QUEUE))
     c = _read(os.path.join(root, DONE)) if os.path.isfile(os.path.join(root, DONE)) else ""
@@ -116,6 +186,14 @@ def cmd_check(root, args):
         top = max([int(x[3:]) for x in set(qi) | set(qs) | set(cs)] or [0])
         if nxt <= top:
             errors.append(f"next_id WQ-{nxt:03d} is not greater than the highest id WQ-{top:03d}")
+        if not args.no_branches:
+            top_b = _scan_branches(root, fetch=not args.no_fetch)
+            if top_b is None:
+                print("WARN: git unavailable; branch scan skipped")
+            elif "WQ" in top_b and nxt <= top_b["WQ"][0]:
+                n, ref = top_b["WQ"]
+                errors.append(f"next_id WQ-{nxt:03d} is not greater than WQ-{n:03d} found on {ref} "
+                              "(numbers are assigned across all branches)")
     claimed = re.findall(r"^\| (WQ-\d+) \|[^\n]*\| claimed:", q, re.M)
     if claimed and not args.allow_claimed:
         errors.append(f"claimed items present (a round is open): {claimed}")
@@ -214,12 +292,16 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("check"); s.add_argument("--allow-claimed", action="store_true",
                                                  help="do not fail on claimed: rows (mid-round)")
+    s.add_argument("--no-branches", action="store_true", help="skip the cross-branch next_id check")
+    s.add_argument("--no-fetch", action="store_true", help="scan branches without fetching first")
+    s = sub.add_parser("next"); s.add_argument("--no-fetch", action="store_true",
+                                               help="scan branches without fetching first")
     s = sub.add_parser("claim"); s.add_argument("round"); s.add_argument("ids", nargs="+")
     s = sub.add_parser("unclaim"); s.add_argument("id"); s.add_argument("--status", default="queued")
     s = sub.add_parser("archive"); s.add_argument("id"); s.add_argument("--entry"); s.add_argument("--print", action="store_true")
     args = ap.parse_args(argv)
     root = _find_root(args.root or os.getcwd())
-    return {"check": cmd_check, "claim": cmd_claim, "unclaim": cmd_unclaim, "archive": cmd_archive}[args.cmd](root, args)
+    return {"check": cmd_check, "claim": cmd_claim, "unclaim": cmd_unclaim, "archive": cmd_archive, "next": cmd_next}[args.cmd](root, args)
 
 
 if __name__ == "__main__":
