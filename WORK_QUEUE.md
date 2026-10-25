@@ -35,11 +35,11 @@ updated: 2026-10-25
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | queued | — | docs |
-| WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | queued | — | hygiene |
-| WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | queued | — | ui |
+| WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | claimed:round-20261025-6 | — | docs |
+| WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | claimed:round-20261025-6 | — | hygiene |
+| WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | claimed:round-20261025-6 | — | ui |
 | WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | queued | — | docs |
-| WQ-040 | Add a browser-support and known-issues section to the README | P2 | S | queued | — | docs |
+| WQ-040 | Add a browser-support and known-issues section to the README | P2 | S | claimed:round-20261025-6 | — | docs |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | queued | WQ-037 | platform |
 | WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
@@ -271,7 +271,7 @@ WQ-022.
 
 ### WQ-034 — Link the page to its source and add contributing notes to the README
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
+- **Status:** claimed:round-20261025-6 · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
 - **Added:** 2026-10-25 by public-release review session · **Updated:** 2026-10-25 by the same session (recording consent, code of conduct, security policy folded in at Ricky's request)
 - **Depends on:** — · **Blocks:** —
 
@@ -319,7 +319,7 @@ are the ground truth or that Ricky owns scope. There is no `CONTRIBUTING.md`, no
 
 ### WQ-036 — Make the trigger-reset smoke block deterministic
 
-- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** hygiene · **Env:** browser
+- **Status:** claimed:round-20261025-6 · **Priority:** P2 · **Size:** M · **Track:** hygiene · **Env:** browser
 - **Added:** 2026-10-25 by public-release review session (promoted from the parking lot: WQ-023 agent 2026-10-24,
   WQ-029 2026-10-25)
 - **Depends on:** — · **Blocks:** —
@@ -358,7 +358,7 @@ left in the block.
 
 ### WQ-037 — Add PNG home-screen icons for iOS and Android
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
+- **Status:** claimed:round-20261025-6 · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
 - **Added:** 2026-10-25 by public-release review session
 - **Depends on:** — · **Blocks:** WQ-043
 
@@ -426,7 +426,7 @@ the way (fix in CLAUDE.md only if trivially wrong, else report).
 
 ### WQ-040 — Add a browser-support and known-issues section to the README
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
+- **Status:** claimed:round-20261025-6 · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
 - **Added:** 2026-10-25 by public-release review session
 - **Depends on:** — · **Blocks:** —
 
