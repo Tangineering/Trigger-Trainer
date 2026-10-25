@@ -429,6 +429,275 @@ const check = (name, cond, state) => {
     await p3.close();
   }
 
+  // WQ-027: drills (D-93, D-97, D-98). Fresh context so localStorage and touches start clean.
+  {
+    const fs = require('fs');
+    const shotDir = path.resolve(__dirname, '..', 'docs', 'screenshots', 'wq-027');
+    fs.mkdirSync(shotDir, { recursive: true });
+    const dctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+    const dp = await dctx.newPage();
+    dp.on('pageerror', e => errors.push('drill page: ' + e.message));
+    await dp.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await dp.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await dp.reload();
+    const dst = () => dp.evaluate(() => window.__tdt());
+    const dcdp = await dctx.newCDPSession(dp);
+    const dtouch = (type, pts) => dcdp.send('Input.dispatchTouchEvent', {
+      type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 25, radiusY: 25 })) });
+    const dmotion = async (n = 1) => {
+      for (let i = 0; i < n; i++) {
+        await dp.evaluate(() => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+          rotationRate: { alpha: 0, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })));
+        await dp.waitForTimeout(16);
+      }
+    };
+    const lsDrill = () => dp.evaluate(() => { try { return localStorage.getItem('tdt.drill'); } catch (e) { return 'ERR'; } });
+    const lineText = () => dp.textContent('#drillLine');
+    // One full press: touch the trigger, pull 70 px back, lift. The phone stays still.
+    const press = async () => {
+      await dtouch('touchStart', [TRG]); await dmotion(3);
+      for (let dx = 20; dx <= 70; dx += 25) { await dtouch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await dmotion(1); }
+      await dmotion(2); await dtouch('touchEnd', []); await dmotion(3);
+    };
+    // Page-side frame observer: timestamps taken from performance.now() in the frame that first shows the state,
+    // not from the engine's dueAt.
+    const observe = () => dp.evaluate(() => {
+      window.__obs = { armT: null, beepT: null };
+      if (window.__obsOn) return; window.__obsOn = true;
+      const f = () => {
+        const s = window.__tdt(), n = performance.now(), o = window.__obs;
+        if (s.armed && o.armT == null) o.armT = n;
+        if (s.drill && s.drill.phase === 'live' && o.beepT == null) o.beepT = n;
+        requestAnimationFrame(f);
+      };
+      requestAnimationFrame(f);
+    });
+    const waitPhase = async (phase, maxMs) => {
+      const t0 = Date.now(); let s;
+      while (Date.now() - t0 < maxMs) { await dmotion(1); s = await dst(); if (s.drill && s.drill.phase === phase) return s; }
+      return s;
+    };
+    // Bounding-box reachability: scrolled into view, fully inside the viewport, not clipped horizontally.
+    const inView = async (sel, vw, vh) => {
+      const h = await dp.$(sel); await h.scrollIntoViewIfNeeded();
+      const b = await h.boundingBox();
+      return b && b.width > 0 && b.height > 0 && b.x >= 0 && b.x + b.width <= vw + 0.5 && b.y >= 0 && b.y + b.height <= vh + 0.5 ? true : b;
+    };
+
+    // --- 1. start screen and picker
+    check('WQ-027: Drill button reads Freestyle by default', /Freestyle/.test(await dp.textContent('#drillBtn')), await dp.textContent('#drillBtn'));
+    check('WQ-027: no tdt.drill stored yet', await lsDrill() === null, await lsDrill());
+    await dp.click('#drillBtn');
+    check('WQ-027: tapping Drill opens the picker', (await dst()).pickerOpen === true);
+    const ids = await dp.$$eval('#drillList .drillOpt', els => els.map(e => e.dataset.id));
+    check("WQ-027: picker lists exactly ['freestyle','bill'] in D-93 order (Low Ready, Box Drill hidden)", JSON.stringify(ids) === '["freestyle","bill"]', ids);
+    check('WQ-027: the picker highlights the current selection (Freestyle) and shows an <svg> diagram',
+      await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'freestyle' && await dp.$eval('#drillDiagram', e => !!e.querySelector('svg')));
+    await dp.click('#drillList .drillOpt[data-id="bill"]');
+    check('WQ-027: highlighting Bill moves .sel and changes the how-to line',
+      await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'bill' && /beep/i.test(await dp.textContent('#drillHow')), await dp.textContent('#drillHow'));
+    const svgBill = await dp.$eval('#drillDiagram', e => e.innerHTML);
+    await dp.click('#drillList .drillOpt[data-id="freestyle"]');
+    check('WQ-027: the diagram differs between Freestyle and Bill', svgBill !== await dp.$eval('#drillDiagram', e => e.innerHTML));
+    await dp.click('#drillList .drillOpt[data-id="bill"]');
+    await dp.click('#drillCancelBtn');
+    check('WQ-027: Cancel closes the picker, stores nothing and keeps Freestyle',
+      !(await dst()).pickerOpen && await lsDrill() === null && /Freestyle/.test(await dp.textContent('#drillBtn')) && (await dst()).drillSel === 'freestyle', [await lsDrill(), await dp.textContent('#drillBtn')]);
+
+    // --- 2. Freestyle run: no drill at all
+    await dp.click('#startBtn'); await dp.waitForTimeout(150);
+    await dtouch('touchStart', [REST]); await dmotion(5);
+    let d = await dst();
+    check('WQ-027: Freestyle run: drill is null, the drill line is empty and the page still arms', d.drill === null && d.armed && (await lineText()) === '', [d, await lineText()]);
+    await dtouch('touchEnd', []); await dmotion(2);
+    await dp.reload();
+
+    // --- 3. choose Bill
+    await dp.click('#drillBtn');
+    check('WQ-027: reopening the picker after a reload highlights Freestyle', await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'freestyle');
+    await dp.click('#drillList .drillOpt[data-id="bill"]');
+    await dp.click('#drillChoose');
+    check("WQ-027: Choose Bill stores tdt.drill === 'bill' and the button names Bill Drill",
+      await lsDrill() === 'bill' && /Bill Drill/.test(await dp.textContent('#drillBtn')) && !(await dst()).pickerOpen, [await lsDrill(), await dp.textContent('#drillBtn')]);
+    await dp.reload();
+    check('WQ-027: the choice survives a reload', /Bill Drill/.test(await dp.textContent('#drillBtn')) && (await dst()).drillSel === 'bill');
+    await dp.click('#drillBtn');
+    check('WQ-027: reopened picker has Bill highlighted', await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'bill');
+    await dp.click('#drillCancelBtn');
+
+    // --- 4. Bill run end to end
+    await dp.click('#startBtn'); await dp.waitForTimeout(150);
+    await observe();
+    d = await dst();
+    check('WQ-027: Bill: after Start the drill is in standby with no shots', d.drill && d.drill.id === 'bill' && d.drill.phase === 'standby' && d.drill.shots === 0 && d.drillRuns === 0, d);
+    const line0 = await lineText();
+    check('WQ-027: Bill: the drill line names Bill Drill and the wait for the beep', /Bill Drill/.test(line0) && /beep/i.test(line0), line0);
+    await dmotion(15);
+    d = await dst();
+    check('WQ-027: Bill: with no finger on the frame the delay has not started (still standby)', d.drill.phase === 'standby' && !d.armed, d);
+    await dtouch('touchStart', [REST]);
+    d = await waitPhase('live', 4600);
+    const obs = await dp.evaluate(() => window.__obs);
+    check('WQ-027: Bill: the beep arrived (phase live) within 4.6 s of arming', d.drill && d.drill.phase === 'live', d);
+    const gap = obs.beepT - obs.armT;
+    check(`WQ-027: Bill: beep 1000-4000 ms (+ one frame) after arming, from page timestamps (${Math.round(gap)} ms)`,
+      obs.armT != null && obs.beepT != null && gap >= 1000 - 17 && gap <= 4000 + 17, obs);
+    const line1 = await lineText();
+    check('WQ-027: Bill: the drill line changed at the beep ("Go")', line1 !== line0 && /go/i.test(line1), [line0, line1]);
+    for (let i = 1; i <= 6; i++) {
+      await press(); d = await dst();
+      if (i < 6) check(`WQ-027: Bill: after press ${i} the drill has ${i} shot${i > 1 ? 's' : ''} and is live`, d.drill.phase === 'live' && d.drill.shots === i, d);
+    }
+    check('WQ-027: Bill: after the sixth shot the phase is finishing, no results yet', d.drill.phase === 'finishing' && d.drill.shots === 6 && !d.drillResOpen && !d.alarmActive, d);
+    check('WQ-027: Bill: the drill line asks for the finger back on the frame', /finger/i.test(await lineText()), await lineText());
+    await dtouch('touchStart', [REST]); await dmotion(4); d = await dst();
+    check('WQ-027: Bill: finger back on the frame ends the run: results open, 1 run, engine paused',
+      d.drillResOpen === true && d.drillRuns === 1 && d.paused === true && d.drill.phase === 'ended', d);
+    const rows = await dp.$$eval('#drillResRows tr', trs => trs.map(tr => [...tr.children].map(td => td.textContent)));
+    const rowOf = k => (rows.find(r => r[0] === k) || [])[1];
+    check('WQ-027: results table has First shot, Splits and Total with 2-decimal seconds',
+      /^\d+\.\d\d s$/.test(rowOf('First shot') || '') && /^\d*\.\d\d( · \d*\.\d\d){4} s$/.test(rowOf('Splits') || '') && /^\d+\.\d\d s$/.test(rowOf('Total') || ''), rows);
+    check('WQ-027: results table has no Early or With alarm row after a clean run',
+      !rows.some(r => /Early/.test(r[0])) && !rows.some(r => /alarm/i.test(r[0] === 'Shots' ? '' : r[0])), rows);
+    const res = d.drill.result;
+    check('WQ-027: result.total >= result.first and total = first + the five splits (within rounding)',
+      res && res.total >= res.first && Math.abs(res.total - (res.first + res.splits.reduce((a, b) => a + b, 0))) < 0.01 && res.splits.length === 5 && res.shots.length === 6, res);
+    check('WQ-027: the shown First shot / Total match the result in seconds',
+      rowOf('First shot') === (res.first / 1000).toFixed(2) + ' s' && rowOf('Total') === (res.total / 1000).toFixed(2) + ' s', [rows, res.first, res.total]);
+    check('WQ-027: result.first is at least the beep-to-first-press time and no early shot', res.first > 0 && res.early === 0 && res.withAlarm === false, res);
+    check('WQ-027: Best clean total this session equals this run (first clean run)', rowOf('Best clean total this session') === (res.total / 1000).toFixed(2) + ' s', rows);
+    const landscapeResShot = path.join(shotDir, 'results-landscape.png');
+    await dp.screenshot({ path: landscapeResShot });
+    for (const sel of ['#drillAgain', '#drillChange']) {
+      const r = await inView(sel, W, H);
+      check(`WQ-027: ${sel} is inside the 844x390 viewport on the results overlay`, r === true, r);
+    }
+
+    // --- 5. portrait screenshots of the results overlay, then landscape back
+    await dp.evaluate(() => document.fullscreenElement ? document.exitFullscreen() : null); await dp.waitForTimeout(200);   // Start went fullscreen
+    await dp.setViewportSize({ width: H, height: W }); await dp.waitForTimeout(250);
+    for (const sel of ['#drillAgain', '#drillChange']) {
+      const r = await inView(sel, H, W);
+      check(`WQ-027: ${sel} is inside the 390x844 viewport on the results overlay`, r === true, r);
+    }
+    await dp.$eval('#drillResOv', e => { e.scrollTop = 0; });
+    await dp.screenshot({ path: path.join(shotDir, 'results-portrait.png') });
+    await dp.setViewportSize({ width: W, height: H }); await dp.waitForTimeout(250);
+
+    // --- 6. Again
+    await dtouch('touchEnd', []);
+    await dp.click('#drillAgain'); await dp.waitForTimeout(100);
+    d = await dst();
+    check('WQ-027: Again hides the results and starts a new run in standby; the run count stays 1',
+      !d.drillResOpen && d.drill.phase === 'standby' && d.drill.shots === 0 && d.drillRuns === 1 && d.running, d);
+    check('WQ-027: Again: the engine is no longer paused', (await dmotion(3), (await dst()).paused === false));
+
+    // --- 7. early shot: one press right after arming, before the beep
+    await observe();
+    await dtouch('touchStart', [REST]); await dmotion(2);
+    await dtouch('touchEnd', []); await dmotion(1);
+    const shots0 = (await dst()).shots;
+    await press();
+    d = await dst();
+    const obsE = await dp.evaluate(() => window.__obs);
+    const sinceArm = await dp.evaluate(a => performance.now() - a, obsE.armT);
+    check(`WQ-027: early shot: a press ${Math.round(sinceArm)} ms after arming (before any possible beep) counts as early, not as a run shot`,
+      sinceArm < 1000 && d.drill.phase === 'standby' && d.drill.early === 1 && d.drill.shots === 0 && d.shots === shots0 + 1, [sinceArm, d]);
+    await dtouch('touchStart', [REST]);
+    d = await waitPhase('live', 4600);
+    check('WQ-027: early shot: the run still gets its beep afterwards and keeps early === 1', d.drill.phase === 'live' && d.drill.early === 1 && d.drill.shots === 0, d);
+    for (let i = 0; i < 6; i++) await press();
+    await dtouch('touchStart', [REST]); await dmotion(4); d = await dst();
+    const rows2 = await dp.$$eval('#drillResRows tr', trs => trs.map(tr => [...tr.children].map(td => td.textContent)));
+    check('WQ-027: early shot: the run ends with an Early row of 1 in the results',
+      d.drillResOpen && d.drillRuns === 2 && d.drill.result.early === 1 && rows2.some(r => /Early/.test(r[0]) && r[1] === '1'), [d.drillRuns, rows2]);
+    check('WQ-027: early shot: six run shots, the early one not counted', d.drill.result.shots.length === 6, d.drill.result);
+
+    // --- 8. pause cancels: standby, then live
+    await dtouch('touchEnd', []);
+    await dp.click('#drillAgain'); await dp.waitForTimeout(100);
+    await dtouch('touchStart', [REST]); await dmotion(3);
+    await dp.click('#gear'); await dp.waitForTimeout(120);
+    d = await dst();
+    check('WQ-027: gear in standby: settings open, drill back in standby with no shots, engine paused',
+      await dp.$eval('#settingsOv', e => e.classList.contains('show')) && d.drill.phase === 'standby' && d.drill.shots === 0 && d.paused, d);
+    await dp.click('#doneBtn'); await dp.waitForTimeout(100);
+    check('WQ-027: after Resume the drill line says the run was cancelled and to restart',
+      /cancel/i.test(await lineText()) && /restart/i.test(await lineText()), await lineText());
+    await dtouch('touchEnd', []); await dmotion(2);
+    await observe();
+    await dtouch('touchStart', [REST]);
+    d = await waitPhase('live', 4600);
+    check('WQ-027: after a cancel the next run beeps again', d.drill.phase === 'live', d);
+    await press(); await press();
+    d = await dst();
+    check('WQ-027: live run with two shots fired before pausing', d.drill.shots === 2, d);
+    await dtouch('touchStart', [REST]); await dmotion(2);
+    await dp.click('#gear'); await dp.waitForTimeout(120);
+    d = await dst();
+    check('WQ-027: gear mid-run cancels it: standby, 0 shots, early 0, no result, run count unchanged',
+      d.drill.phase === 'standby' && d.drill.shots === 0 && d.drill.early === 0 && d.drill.result === null && d.drillRuns === 2, d);
+    await dp.click('#doneBtn'); await dp.waitForTimeout(100);
+    check('WQ-027: the drill line mentions the cancel after Resume', /cancel/i.test(await lineText()), await lineText());
+    await dtouch('touchStart', [REST]);
+    d = await waitPhase('live', 4600);
+    check('WQ-027: the beep clears the cancelled note ("Go")', /go/i.test(await lineText()) && !/cancel/i.test(await lineText()), await lineText());
+
+    // --- 9. finish this run, then Change drill
+    for (let i = 0; i < 6; i++) await press();
+    await dtouch('touchStart', [REST]); await dmotion(4);
+    d = await dst();
+    check('WQ-027: third run ends with the results open', d.drillResOpen && d.drillRuns === 3, d);
+    await dtouch('touchEnd', []);
+    await dp.click('#drillChange'); await dp.waitForTimeout(100);
+    d = await dst();
+    check('WQ-027: Change drill: trainer stopped, start screen shown, results closed, drill is null',
+      d.running === false && d.drill === null && !d.drillResOpen && await dp.$eval('#startOv', e => e.classList.contains('show')), d);
+    check('WQ-027: Change drill keeps the stored selection', await lsDrill() === 'bill');
+    // A Freestyle run after Bill: no drill, drill line empty.
+    await dp.click('#drillBtn'); await dp.click('#drillList .drillOpt[data-id="freestyle"]'); await dp.click('#drillChoose');
+    check('WQ-027: choosing Freestyle again stores tdt.drill === freestyle', await lsDrill() === 'freestyle', await lsDrill());
+    await dp.click('#startBtn'); await dp.waitForTimeout(150); await dtouch('touchStart', [REST]); await dmotion(5);
+    d = await dst();
+    check('WQ-027: Freestyle after Bill: no drill, empty drill line, armed', d.drill === null && (await lineText()) === '' && d.armed, [d, await lineText()]);
+    await dtouch('touchEnd', []);
+
+    // --- 10. not-ready drills are rejected by the engine
+    const rej = await dp.evaluate(() => { const e = TDT.createEngine(TDT.DEFAULTS, {}); return [e.startDrill(0, 'lowready', 1), e.startDrill(0, 'box', 1), e.startDrill(0, 'nope', 1), e.state.drill]; });
+    check("WQ-027: engine rejects lowready, box and unknown ids and leaves state.drill null", JSON.stringify(rej) === '[false,false,false,null]', rej);
+    const acc = await dp.evaluate(() => { const e = TDT.createEngine(TDT.DEFAULTS, {}); return [e.startDrill(0, 'bill', 7), e.state.drill.phase, e.state.drill.id]; });
+    check("WQ-027: engine accepts bill and starts in standby", JSON.stringify(acc) === '[true,"standby","bill"]', acc);
+    await dp.reload();
+    await dp.evaluate(() => { try { localStorage.setItem('tdt.drill', 'box'); } catch (e) {} });
+    await dp.reload();
+    check('WQ-027: a stored not-ready drill id falls back to Freestyle', (await dst()).drillSel === 'freestyle' && /Freestyle/.test(await dp.textContent('#drillBtn')));
+    await dp.evaluate(() => { try { localStorage.setItem('tdt.drill', 'bill'); } catch (e) {} });
+    await dp.reload();
+
+    // --- 11. screenshots and reachability: start screen and picker, both orientations
+    for (const [name, vw, vh] of [['landscape', W, H], ['portrait', H, W]]) {
+      await dp.setViewportSize({ width: vw, height: vh }); await dp.waitForTimeout(250);
+      await dp.$eval('#startOv', e => { e.scrollTop = 0; e.querySelector('.inner').scrollTop = 0; });
+      await dp.screenshot({ path: path.join(shotDir, `start-${name}.png`) });
+      const startReach = await inView('#startBtn', vw, vh);
+      const drillBtnReach = await inView('#drillBtn', vw, vh);
+      check(`WQ-027: ${vw}x${vh}: #startBtn and #drillBtn are fully inside the viewport`, startReach === true && drillBtnReach === true, [startReach, drillBtnReach]);
+      await dp.$eval('#startOv', e => { e.scrollTop = 0; });
+      await dp.click('#drillBtn'); await dp.waitForTimeout(150);
+      check(`WQ-027: ${vw}x${vh}: picker open with Bill highlighted`, (await dst()).pickerOpen && await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'bill');
+      await dp.$eval('#drillOv', e => { e.scrollTop = 0; });
+      await dp.screenshot({ path: path.join(shotDir, `picker-${name}.png`) });
+      const reach = [];
+      for (const sel of ['#drillChoose', '#drillCancelBtn']) reach.push(await inView(sel, vw, vh));
+      check(`WQ-027: ${vw}x${vh}: #drillChoose and #drillCancelBtn are reachable and not clipped`, reach.every(r => r === true), reach);
+      const noHScroll = await dp.evaluate(() => { const o = document.getElementById('drillOv'); return o.scrollWidth <= o.clientWidth + 1; });
+      check(`WQ-027: ${vw}x${vh}: the picker has no horizontal overflow`, noHScroll);
+      await dp.click('#drillCancelBtn');
+    }
+    await dp.setViewportSize({ width: W, height: H });
+    await dp.close(); await dctx.close();
+  }
+
   check('no page errors', errors.length === 0, errors);
   await browser.close();
   console.log(failures ? `\n${failures} failed` : '\nall passed');

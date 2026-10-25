@@ -59,6 +59,19 @@ const S = {
       : between(t, 2.5, 3.0) ? { a: 100, b: -100, g: 0 } : between(t, 3.0, 3.5) ? { a: -100, b: 100, g: 0 }
       : between(t, 3.6, 4.6) ? { a: 0, b: 0, g: 180 } : { a: tiny(t), b: 0, g: 0 },
   },
+  // Bill Drill (WQ-027): drillAt 0 logs an 'r' row (fixed seed) right after the opening 'p' row. Finger on the frame from
+  // 0 s, the beep falls 1-4 s after arming, so six presses start at 5.2 s (touch the trigger, slide 70 px rearward over
+  // 0.25 s, lift at +0.35 s, next press 0.5 s after the last one started), then the finger goes back on the frame.
+  'drill-bill': {
+    dur: 9.6, drillAt: 0, drillSeed: 20261025,
+    touches: t => {
+      if (t < 5.2) return [REST];
+      const i = Math.floor((t - 5.2) / 0.5), u = (t - 5.2) - i * 0.5;
+      if (i >= 6) return t >= 8.2 ? [REST] : [];
+      return u < 0.35 ? [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (u - 0.05) / 0.25)) * 70 })] : [];
+    },
+    rot: t => ({ a: tiny(t), b: tiny(t + 2), g: 0 }),
+  },
   'axis-up': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 40, b: 0, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
   'axis-right': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 0, b: -40, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
 };
@@ -67,6 +80,7 @@ const out = path.join(__dirname, 'recordings', 'synthetic');
 fs.mkdirSync(out, { recursive: true });
 for (const [label, sc] of Object.entries(S)) {
   const log = [['p', T0, 0]];
+  if (sc.drillAt != null) log.push(['r', TDT.rt(T0 + sc.drillAt * 1000), 'bill', sc.drillSeed]);
   let lastTouchKey = '';
   for (let i = 0; i * FRAME <= sc.dur * 1000; i++) {
     const t = TDT.rt(T0 + i * FRAME), ts = (t - T0) / 1000;

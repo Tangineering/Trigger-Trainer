@@ -124,6 +124,61 @@ const check = (name, cond, extra) => {
     JSON.stringify(recH.observed) === JSON.stringify(resH.packed), { live: recH.observed, replay: resH.packed });
   check('High preset: the same log under the default limits does not alarm',
     !TDT.replay(recH, { moveDps: 25, moveAcc: 1.5, offFrameDeg: 5 }).events.some(e => e.type === 'alarmStart'));
+  check('WQ-027: a Freestyle recording has no r or x row and no drill event',
+    !rec.log.some(r => r[0] === 'r' || r[0] === 'x') && !recH.log.some(r => r[0] === 'r' || r[0] === 'x') &&
+    !rec.observed.concat(recH.observed).some(o => /^drill/.test(o[1])));
+
+  // WQ-027: a Bill Drill run recorded in the page replays with identical events; the log starts the run with an 'r' row.
+  await touch('touchEnd', []);
+  await page.reload();
+  await page.evaluate(() => { navigator.canShare = undefined; });
+  await page.click('#drillBtn');
+  await page.click('#drillList .drillOpt[data-id="bill"]');
+  await page.click('#drillChoose');
+  check('WQ-027: Bill selected in the picker', await page.evaluate(() => window.__tdt().drillSel) === 'bill');
+  await page.click('#startSettingsBtn');
+  check('WQ-027: the recorder offers the drill-bill label', await page.$$eval('#recLabel option', os => os.some(o => o.value === 'drill-bill')));
+  await page.selectOption('#recLabel', 'drill-bill');
+  await page.fill('#recNotes', 'roundtrip test, Bill Drill');
+  await page.click('#recStart'); await page.waitForTimeout(100);
+  check('WQ-027: Bill recording started with the drill in standby', await page.evaluate(() => {
+    const t = window.__tdt(); return t.recording && t.drill && t.drill.id === 'bill' && t.drill.phase === 'standby'; }));
+  await page.waitForTimeout(150);
+  const press = async () => {
+    await touch('touchStart', [TRG]); await motion(0, 0, 3);
+    for (let dx = 20; dx <= 70; dx += 25) { await touch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await motion(0, 0, 1); }
+    await motion(0, 0, 2); await touch('touchEnd', []); await motion(0, 0, 3);
+  };
+  await touch('touchStart', [REST]);
+  let t0 = Date.now(), ph = null;
+  while (Date.now() - t0 < 4800) { await motion(0, 0, 1); ph = await page.evaluate(() => window.__tdt().drill && window.__tdt().drill.phase); if (ph === 'live') break; }
+  check('WQ-027: the beep came within 4.8 s of putting the finger on the frame', ph === 'live', ph);
+  for (let i = 0; i < 6; i++) await press();
+  await touch('touchStart', [REST]); await motion(0, 0, 4);
+  const liveB = await page.evaluate(() => window.__tdt());
+  check('WQ-027: Bill run finished live (results open, one run)', liveB.drillResOpen && liveB.drillRuns === 1, liveB);
+  await touch('touchEnd', []);
+  await page.click('#drillChange');                       // leaves the trainer: logs an x row while recording
+  const [dl4] = await Promise.all([page.waitForEvent('download'), page.$eval('#recPill', el => el.click())]);   // the start screen covers the pill
+  const recB = JSON.parse(fs.readFileSync(await dl4.path(), 'utf8'));
+  const resB = TDT.replay(recB);
+  const firstRow = recB.log[0], runRow = firstRow;
+  check("WQ-027: Bill recording: label drill-bill and the first log row is ['r', t, 'bill', seed]",
+    recB.label === 'drill-bill' && runRow[0] === 'r' && runRow[2] === 'bill' && Number.isInteger(runRow[3]) && runRow[3] >= 0 && runRow[3] < 2 ** 32, [firstRow, runRow]);
+  check('WQ-027: Bill recording: exactly one r row', recB.log.filter(r => r[0] === 'r').length === 1);
+  check('WQ-027: Bill recording: observed has one drillBeep and one drillEnd',
+    recB.observed.filter(o => o[1] === 'drillBeep').length === 1 && recB.observed.filter(o => o[1] === 'drillEnd').length === 1, recB.observed.filter(o => /drill/.test(o[1])));
+  check('WQ-027: Bill recording: Change drill logged an x row and the page cancelled nothing live',
+    recB.log.some(r => r[0] === 'x') && !recB.observed.some(o => o[1] === 'drillCancel'), recB.observed.filter(o => /drill/.test(o[1])));
+  check(`WQ-027: Bill recording: replay reproduces the live events exactly (${recB.observed.length} events)`,
+    JSON.stringify(recB.observed) === JSON.stringify(resB.packed), { live: recB.observed, replay: resB.packed });
+  const endB = recB.observed.find(o => o[1] === 'drillEnd');
+  check('WQ-027: Bill recording: the replayed result total matches the live drillEnd total',
+    resB.state.drillRuns.length === 1 && Math.abs(resB.state.drillRuns[0].total - endB[3]) < 0.001 && endB[2] === 'bill', [resB.state.drillRuns, endB]);
+  check('WQ-027: Bill recording: a different seed changes the beep time',
+    (() => { const r2 = JSON.parse(JSON.stringify(recB)); const i = r2.log.findIndex(r => r[0] === 'r'); r2.log[i][3] = (r2.log[i][3] + 777) >>> 0;
+      const b1 = resB.events.find(e => e.type === 'drillBeep'), b2 = TDT.replay(r2).events.find(e => e.type === 'drillBeep');
+      return b1 && (!b2 || b2.t !== b1.t); })());
   check('no page errors', errors.length === 0, errors);
 
   await browser.close();

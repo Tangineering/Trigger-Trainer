@@ -35,6 +35,12 @@ function summarize(res) {
     alarms: ev.filter(e => e.type === 'alarmStart').length,                      // any reason
     alarmsMove: ev.filter(e => e.type === 'alarmStart' && e.reason === 'move').length,
     b180: ev.filter(e => e.type === 'alarmStart' && e.reason === '180').length,
+    drillBeeps: ev.filter(e => e.type === 'drillBeep').length,
+    drillEnds: ev.filter(e => e.type === 'drillEnd').length,
+    drillCancels: ev.filter(e => e.type === 'drillCancel').length,
+    firstArmedT: (ev.find(e => e.type === 'armed') || {}).t,
+    beepT: (ev.find(e => e.type === 'drillBeep') || {}).t,
+    shotTimes: ev.filter(e => e.type === 'shot').map(e => e.t),
     finalAlarm: res.state.alarmActive,
     maxDev: Math.max(0, ...res.path.map(p => p[3] || 0)),
     shots: ev.filter(e => e.type === 'shot').map(e => e.shot),
@@ -77,7 +83,8 @@ for (const f of files) {
   const sum = summarize(res);
   const dur = rec.t1 && rec.t0 ? ((rec.t1 - rec.t0) / 1000).toFixed(1) + ' s' : '';
   console.log(`\n${rel}  [${rec.label}${rec.synthetic ? ', synthetic' : ''}] ${dur}` +
-    `  shots ${sum.shots.length} (${sum.shots.map(s => s.grade[0]).join('') || '-'})  alarms ${sum.alarmsMove}  180s ${sum.b180} (max ${sum.maxDev.toFixed(0)}°)`);
+    `  shots ${sum.shots.length} (${sum.shots.map(s => s.grade[0]).join('') || '-'})  alarms ${sum.alarmsMove}  180s ${sum.b180} (max ${sum.maxDev.toFixed(0)}°)` +
+    (sum.drillBeeps || sum.drillEnds || sum.drillCancels ? `  drill: beeps ${sum.drillBeeps} ends ${sum.drillEnds} cancels ${sum.drillCancels}` : ''));
 
   const check = EXPECT[rec.label];
   if (!check) { console.log(`  WARN  unknown label "${rec.label}" — no expectations`); }
@@ -114,6 +121,34 @@ for (const f of files) {
     const dev = `${path.basename(path.dirname(f))}: ${(rec.device && rec.device.ua) || 'unknown'}`;
     (byDevice[dev] = byDevice[dev] || []).push({ label: rec.label, ok, rec, rel });
   }
+}
+
+// WQ-027: the synthetic Bill Drill replays deterministically; the seed in the 'r' row decides the beep time;
+// first / splits / total are the shot times minus the beep time.
+const billFile = files.find(f => f.endsWith(path.join('synthetic', 'drill-bill.json')));
+if (billFile) {
+  console.log('\nBill Drill determinism (synthetic/drill-bill.json, in memory)');
+  const t = (desc, pass) => { console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${desc}`); if (!pass) failures++; };
+  const rec = JSON.parse(fs.readFileSync(billFile, 'utf8'));
+  const a = TDT.replay(rec), b = TDT.replay(rec);
+  t('replaying twice gives identical packed events', JSON.stringify(a.packed) === JSON.stringify(b.packed) && a.packed.length > 0);
+  const rIdx = rec.log.findIndex(r => r[0] === 'r');
+  t('the log carries one r row, right after the opening p row', rec.log.filter(r => r[0] === 'r').length === 1 && rIdx === 1 && rec.log[rIdx][2] === 'bill');
+  const other = JSON.parse(JSON.stringify(rec));
+  other.log[rIdx][3] = (rec.log[rIdx][3] + 12345) >>> 0;
+  const c = TDT.replay(other);
+  const beepOf = res => (res.events.find(e => e.type === 'drillBeep') || {}).t;
+  t(`a different seed gives a different beep time (${beepOf(a)} vs ${beepOf(c)})`, beepOf(c) !== undefined && beepOf(a) !== undefined && beepOf(c) !== beepOf(a));
+  const run = a.state.drillRuns[0], shots = a.events.filter(e => e.type === 'shot').map(e => e.t), beep = beepOf(a);
+  t('one finished run in state.drillRuns', a.state.drillRuns.length === 1 && !!run);
+  const near = (x, y) => Math.abs(x - y) < 0.01;   // result values are rounded to 4 decimals (r4)
+  t(`result.first equals shot 1 minus the beep (${run && run.first})`, !!run && near(run.first, shots[0] - beep));
+  t('result.splits equal the five shot gaps', !!run && run.splits.length === 5 && run.splits.every((x, i) => near(x, shots[i + 1] - shots[i])));
+  t(`result.total equals shot 6 minus the beep (${run && run.total}) and first + splits`, !!run && near(run.total, shots[5] - beep) && near(run.total, run.first + run.splits.reduce((x, y) => x + y, 0)));
+  const endEv = a.events.find(e => e.type === 'drillEnd');
+  t('drillEnd carries the same total', !!endEv && near(endEv.result.total, run.total));
+  const seeds = [1, 2, 3, 4, 5, 99, 123456, 4294967295].map(sd => { const r2 = JSON.parse(JSON.stringify(rec)); r2.log[rIdx][3] = sd; return beepOf(TDT.replay(r2)) - a.events.find(e => e.type === 'armed').t; });
+  t(`beep falls 1000-4000 ms (+1 frame) after arming for 8 seeds (${seeds.map(x => Math.round(x)).join(', ')})`, seeds.every(x => x >= 1000 && x <= 4000 + 17));
 }
 
 for (const [ua, list] of Object.entries(byDevice)) {

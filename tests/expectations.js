@@ -51,6 +51,18 @@ module.exports = {
     ['no 180 alarm while within 90° of downrange', r.b180 === 0],
     ['no alarm at all (finger stays on the frame)', r.alarms === 0],
   ],
+  // WQ-027: Bill Drill. The log starts a run ('r' row) with the finger already on the frame, so the beep comes
+  // 1000-4000 ms after the first armed event (plus up to one 17 ms frame); six presses follow, finger back at the end.
+  'drill-bill': r => [
+    ['exactly one start beep', r.drillBeeps === 1],
+    ['exactly one drill end', r.drillEnds === 1],
+    ['no drill cancel', r.drillCancels === 0],
+    ['at least six shots', r.shots.length >= 6],
+    ['no alarm', r.alarms === 0],
+    ['the beep falls 1000-4000 ms (+ one frame) after the first armed event',
+      r.beepT !== undefined && r.firstArmedT !== undefined && r.beepT - r.firstArmedT >= 1000 && r.beepT - r.firstArmedT <= 4000 + 17],
+    ['every one of the six run shots comes after the beep', r.shotTimes.length >= 6 && r.shotTimes.slice(0, 6).every(t => t > r.beepT)],
+  ],
   'axis-up': r => [
     ['largest excursion reads as muzzle UP', dominant(r.peak, 'v', +1)],
   ],
