@@ -1363,7 +1363,7 @@ const check = (name, cond, state) => {
     const fr = (k, pred) => pick(lo.ev, k, pred);
     const beepN = fr('beep').n, cueN = k => fr('cue', e => e.rep === k).n, shotN = (rp, i) => fr('shot', e => e.rep === rp && e.i === i).n;
     const startN = rp => rp === 1 ? beepN : cueN(rp - 1);
-    const parse = v => { const m = /^time (\d+\.\d\d) s · (?:split (\d*\.\d\d) s|splits ((?:\d*\.\d\d)(?: · \d*\.\d\d)+)) · (.*)$/.exec(v || ''); return m && { time: +m[1], splits: (m[2] ? [m[2]] : m[3].split(' · ')).map(Number), grades: m[4] }; };
+    const parse = v => { const m = /^time (\d+\.\d\d) s · (?:split (\d*\.\d\d) s|splits ((?:\d*\.\d\d)(?: · \d*\.\d\d)+) s) · (.*)$/.exec(v || ''); return m && { time: +m[1], splits: (m[2] ? [m[2]] : m[3].replace(/ s$/, '').split(' · ')).map(Number), grades: m[4] }; };
     const nShots = { 1: 2, 2: 3, 3: 2, 4: 2, 5: 2 };
     for (let rp = 1; rp <= 5; rp++) {
       const label = rp === 5 ? 'Spot 1 (last)' : `Spot ${rp}`, p = parse(rowOf(label));
@@ -1372,7 +1372,12 @@ const check = (name, cond, state) => {
         !!p && Math.abs(p.time - expT) <= 0.04 && p.splits.length === nShots[rp] - 1 && p.splits.every((x, i) => Math.abs(x - expS[i]) <= 0.04), [rowOf(label), expT, expS]);
     }
     check('WQ-029: spot 2 lists three grades; spot 3 (one-shot return) two; a single split is written "split .xx s", two splits "splits .xx · .xx"',
-      /Clean, Clean, Clean$/.test(rowOf('Spot 2')) && /^time \d+\.\d\d s · splits \d*\.\d\d · \d*\.\d\d · /.test(rowOf('Spot 2')) && /^time \d+\.\d\d s · split \d*\.\d\d s · Clean, Clean$/.test(rowOf('Spot 3')), rows);
+      /Clean, Clean, Clean$/.test(rowOf('Spot 2')) && /^time \d+\.\d\d s · splits \d*\.\d\d · \d*\.\d\d s · /.test(rowOf('Spot 2')) && /^time \d+\.\d\d s · split \d*\.\d\d s · Clean, Clean$/.test(rowOf('Spot 3')), rows);
+    check('WQ-029: a split under 1 s drops the leading zero (".32", never "0.32") and a split of 1 s or more reads 1.xx: spot 1 "split .xx s", spot 2 "splits .xx · .xx s", spot 3 (1.2 s hold) "split 1.xx s"',
+      /^time \d+\.\d\d s · split \.\d\d s · Clean, Clean$/.test(rowOf('Spot 1')) && /^time \d+\.\d\d s · splits \.\d\d · \.\d\d s · /.test(rowOf('Spot 2')) &&
+      /^time \d+\.\d\d s · split 1\.\d\d s · Clean, Clean$/.test(rowOf('Spot 3')), rows);
+    check('WQ-029: the status texts are rendered from the def: "shot 1 of 2" / "fire 2 or more" appear with the def\'s shotsPerRep',
+      await bp.evaluate(() => TDT.DRILL_DEFS.box.shotsPerRep) === 2 && lines1.some(x => /^Spot 2 · shot 1 of 2$/.test(x)) && lines1.some(x => /^Move to spot 2 · fire 2 or more$/.test(x)), lines1);
     check('WQ-029: spot 4 ends with "alarm" and lists alarm for both shots; spots 1, 2, 3 and 1 (last) carry no alarm mark and are graded',
       /alarm, alarm · alarm$/.test(rowOf('Spot 4')) && ['Spot 1', 'Spot 2', 'Spot 3', 'Spot 1 (last)'].every(k => !/alarm/.test(rowOf(k)) && /(Clean|Moved|Jerked)/.test(rowOf(k))), rows);
     const lastN = shotN(5, 2);

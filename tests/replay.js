@@ -397,6 +397,45 @@ if (boxFile) {
     c.until(() => d().rep === 1, 7000); c.press(); c.press(); c.eng.touches(c.T, REST, W, H); c.until(() => d().reps.length === 1, 500);
     t('a shot before the beep is early: counted in the run and in position 1, not in the position\'s shots', d().early === 1 && d().reps[0].early === 1 && d().reps[0].shots.length === 2);
   }
+  // A 180 alarm that spans cue 1 (D-107): position 1 and position 2 are marked, position 3 (after the alarm cleared) is not;
+  // the run counts the one episode once.
+  {
+    const c = mk(3), d = c.d, eng = c.eng;
+    c.run(100); eng.setDownrange(c.T); c.run(100);
+    for (let n = 0; eng.state.dev180 < 95 && n < 400; n++) c.step(-120);
+    eng.touches(c.T, REST, W, H);
+    c.until(() => d().rep === 1, 7000);
+    c.press(); c.press(); eng.touches(c.T, REST, W, H);
+    t('cue 1 with the 180 alarm still sounding: position 2 opens already marked (cur.alarms 1), the run still counts 1',
+      c.until(() => d().reps.length === 1, 1000) && eng.state.alarmActive && d().rep === 2 && d().cur.alarms === 1 && d().alarms === 1);
+    for (let n = 0; eng.state.dev180 > 30 && n < 600; n++) c.step(120);        // back downrange with the finger on the frame: the alarm clears
+    c.run(200);
+    t(`the alarm clears once back downrange (dev ${eng.state.dev180.toFixed(0)} deg)`, !eng.state.alarmActive);
+    c.press(); c.press(); eng.touches(c.T, REST, W, H); c.until(() => d().reps.length === 2, 1000);
+    c.run(500); c.press(); c.press(); eng.touches(c.T, REST, W, H); c.until(() => d().reps.length === 3, 1000);
+    const rp = d().reps;
+    t(`spanning alarm: positions 1 and 2 withAlarm, position 3 not; the run counts one alarm, one alarmStart (${rp.map(x => x.alarms)})`,
+      rp.length === 3 && rp[0].withAlarm && rp[1].withAlarm && !rp[2].withAlarm && d().alarms === 1 && c.of('alarmStart').length === 1);
+  }
+  // A third shot at position 5 before the finger returns joins the position and the total runs to that third shot.
+  {
+    const c = mk(21), d = c.d; c.eng.touches(10, REST, W, H); c.until(() => d().rep === 1, 6000);
+    for (let n = 1; n <= 4; n++) { c.press(); c.press(); c.eng.touches(c.T, REST, W, H); c.until(() => d().reps.length === n, 1000); c.run(300); }
+    c.press(); c.press(); c.press(); c.eng.touches(c.T, REST, W, H); c.until(() => c.of('drillEnd').length === 1, 1000);
+    const run = c.eng.state.drillRuns[0], sh = c.of('shot').map(e => e.t), beep = c.of('drillBeep')[0].t;
+    t(`third shot at position 5: 11 shots, position 5 has 3, total = shot 11 minus the beep (${run && run.total}), not shot 10`,
+      !!run && sh.length === 11 && run.reps[4].shots.length === 3 && Math.abs(run.total - (sh[10] - beep)) < 0.01 && run.total > sh[9] - beep + 100);
+  }
+  // A cancel in finishing: two shots fired at position 3, finger not yet back, then a pause.
+  {
+    const c = mk(23), d = c.d; c.eng.touches(10, REST, W, H); c.until(() => d().rep === 1, 6000);
+    for (let n = 1; n <= 2; n++) { c.press(); c.press(); c.eng.touches(c.T, REST, W, H); c.until(() => d().reps.length === n, 1000); c.run(300); }
+    c.eng.touches(c.T, [], W, H); c.run(100); c.press(); c.press();
+    t('position 3 finishing (two shots, finger off the frame), two positions done', d().rep === 3 && d().phase === 'finishing' && d().reps.length === 2 && d().cur.shots.length === 2);
+    c.eng.setPaused(true, c.T + 1);
+    t('pausing in finishing: one drillCancel, standby at rep 0, positions and current position lost, no cue after the pause',
+      c.of('drillCancel').length === 1 && d().phase === 'standby' && d().rep === 0 && d().reps.length === 0 && d().cur === null && d().cueDueAt === null && c.of('drillCue').length === 2 && c.of('drillEnd').length === 0);
+  }
 }
 
 for (const [ua, list] of Object.entries(byDevice)) {

@@ -110,6 +110,7 @@ module.exports = {
       ['avgReaction / bestReaction = mean / min of the per-rep reactions from the events',
         !!run && okRep && near(run.avgReaction, cleanReact.reduce((a, b) => a + b, 0) / 5) && near(run.bestReaction, Math.min(...cleanReact))],
       ['run-level early 0, alarms 0, withAlarm false', !!run && run.early === 0 && run.alarms === 0 && run.withAlarm === false],
+      ['Low Ready reps carry reaction / split and no Box fields (no time, no splits, no startT)', !!run && run.reps.every(p => !('time' in p) && !('splits' in p) && !('startT' in p) && 'reaction' in p && 'split' in p)],
     ];
   },
   // WQ-029: Box Drill, five positions (adaptive synthetic recording, see make-synthetic.js). Position 2 fires three shots (the
@@ -152,6 +153,7 @@ module.exports = {
         !!run && run.reps.map(p => p.shots.length).join() === '2,3,2,2,2' && run.reps.every(p => p.early === 0 && p.alarms === 0 && p.withAlarm === false)],
       ['total = last shot of position 5 - beep (not the end event)', !!run && okPos && near(run.total, lastShot - B[0].t) && near(run.endT, endT) && near(run.beepT, B[0].t) && run.total < endT - B[0].t - 10],
       ['run-level early 0, alarms 0, withAlarm false', !!run && run.early === 0 && run.alarms === 0 && run.withAlarm === false],
+      ['Box positions carry time / splits and no Low Ready fields (no reaction, no split)', !!run && run.reps.every(p => !('reaction' in p) && !('split' in p) && 'time' in p && Array.isArray(p.splits)) && !('avgReaction' in run)],
     ];
   },
   'axis-up': r => [
