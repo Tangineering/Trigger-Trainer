@@ -20,6 +20,8 @@ pistol: keep the index finger flat on the frame while moving; go to the trigger 
 
 No install, no accounts, no data collection. Settings stay on the phone.
 
+A dry, phone-only teaching aid for trigger-finger discipline. Not firearms training; use it with a qualified instructor and never with a real firearm. Provided as is, no warranty (MIT).
+
 Free to use. If you want to support this work, [buy Ricky a coffee](https://ko-fi.com/rickytan4) on Ko-fi; the
 tool never asks for it and nothing is unlocked by it.
 
