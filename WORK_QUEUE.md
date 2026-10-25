@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-045
+next_id: WQ-048
 updated: 2026-10-25
 ```
 
@@ -33,7 +33,8 @@ updated: 2026-10-25
 |----|-------|-----|------|--------|------------|-------|
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-032 | Add a one-line disclaimer to the start screen and the README | P1 | S | queued | — | docs |
+| WQ-032 | Add a one-line disclaimer and privacy line to the start screen and the README | P1 | S | queued | — | docs |
+| WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | queued | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-033 | Run the replay suite in GitHub Actions and pin Playwright | P2 | S | queued | — | hygiene |
 | WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | queued | — | docs |
@@ -44,6 +45,8 @@ updated: 2026-10-25
 | WQ-040 | Add a browser-support and known-issues section to the README | P2 | S | queued | — | docs |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | queued | WQ-037 | platform |
+| WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
+| WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | WQ-033 | hygiene |
 | WQ-035 | Regenerate the stale synthetic recordings | P3 | S | queued | — | recordings |
 | WQ-041 | Put two screenshots in the README | P3 | S | queued | — | docs |
 | WQ-044 | Accessibility pass on the page (D-121) | P3 | S | queued | — | ui |
@@ -270,10 +273,10 @@ WQ-022.
 
 ---
 
-### WQ-032 — Add a one-line disclaimer to the start screen and the README
+### WQ-032 — Add a one-line disclaimer and privacy line to the start screen and the README
 
 - **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** docs · **Env:** any
-- **Added:** 2026-10-25 by public-release review session
+- **Added:** 2026-10-25 by public-release review session · **Updated:** 2026-10-25 by the same session (privacy line folded in at Ricky's request)
 - **Depends on:** — · **Blocks:** —
 
 **Context.** Ricky is sending the public link (`https://tangineering.github.io/Trigger-Trainer/`) to people outside
@@ -289,6 +292,9 @@ statement of the same thing, but it is only in the operating manual.
   along these lines: "A dry, phone-only teaching aid for trigger-finger discipline. Not firearms training; use it with
   a qualified instructor and never with a real firearm. Provided as is, no warranty (MIT)." Keep it to two lines at
   667×375 CSS px (check the compact start-screen layout; the start screen is `#startOv`, `index.html:222`).
+- (Updated 2026-10-25) Add a privacy line in the same place on the start screen, after the disclaimer: "Nothing leaves
+  the phone: no accounts, no analytics, no network requests; settings stay in this browser." (hard constraint 3; the
+  README already says it at `README.md:21`). One `p.tip`, two sentences, or two short `p.tip` lines if it reads better.
 - Add the same sentence to `README.md` directly after the "No install, no accounts, no data collection" paragraph
   (`README.md:21`), and one line at the top of `docs/CLASS_USE.md` "Before class".
 - Log the wording as a `Claude (proposed)` row in `docs/DECISIONS.md` (number from `python scripts/wq.py next`) so
@@ -297,7 +303,7 @@ statement of the same thing, but it is only in the operating manual.
   appended to, not rewritten, so this item may run in parallel with WQ-034 if the orchestrator merges the README edits.
 
 **Acceptance.**
-- The start screen shows the disclaimer at 852×393 and 667×375 CSS px landscape and in portrait without pushing
+- The start screen shows the disclaimer and the privacy line at 852×393 and 667×375 CSS px landscape and in portrait without pushing
   **Start** off screen (screenshots in `docs/screenshots/wq-032/`).
 - `README.md` and `docs/CLASS_USE.md` carry the sentence; `docs/DECISIONS.md` has the proposed row.
 - `npm test` passes unchanged (46 recordings; `tests/smoke.js` and `tests/roundtrip.js` all passed), engine `VERSION`
@@ -312,7 +318,7 @@ record the decision number in the completion entry.
 
 - **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
 - **Added:** 2026-10-25 by public-release review session
-- **Depends on:** — · **Blocks:** —
+- **Depends on:** — · **Blocks:** WQ-047
 
 **Context.** The repo is public and about to get outside readers, but the only workflow that runs on GitHub is the
 Pages build (`pages build and deployment`, 49 runs, all on `main`). `tests/replay.js` needs no browser and takes a few
@@ -741,6 +747,116 @@ and physical, so this is a bounded pass, not a WCAG programme.
 
 ---
 
+### WQ-045 — Tell the user when no motion data arrives after Start
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** platform · **Env:** any
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** `start()` (`index.html:1194`–1211) awaits `DeviceMotionEvent.requestPermission()` inside a try/catch and
+ignores the result, binds `onMotion` (`index.html:886`) and starts the trainer. If the student taps **Don't Allow** on
+iPhone, has Motion & Orientation Access off in Safari settings, opens the page on a laptop or over plain HTTP, no
+`devicemotion` sample ever arrives: the movement alarm, the drift limit and the 180 rule are silently inert, the
+drills still beep and count shots, and the only hint is the debug readout's "no motion data yet" line
+(`index.html:1168`). iOS remembers a denial for the site until the tab is closed (or Safari's site settings are
+reset), so the student cannot fix it by tapping Start again. The page already has an overlay pattern for a blocking
+condition (`#rotateOv`, `index.html:354`) and a status pill (`#status`, `index.html:200`).
+
+**Scope.**
+- Track the time of the last `devicemotion` sample in `index.html` (page state, not the engine). From Start, if no
+  sample has arrived within 2 s while the page is visible and landscape, show a non-modal banner over the slide:
+  "No motion data. The alarms cannot work." plus the platform-specific fix chosen by feature checks, not user agent
+  (D-53): where `DeviceMotionEvent.requestPermission` exists, "Close this tab, reopen the link and tap Allow; or
+  Settings → Safari → Motion & Orientation Access"; otherwise "Open the page over HTTPS on a phone". Hide it at the
+  first sample. Do not pause the engine (a laptop demo with the mouse fallback must keep working): the banner informs.
+- Also show the banner when samples stop for more than 5 s while running (a tab moved to the background and back
+  without motion on some Android builds); hide on the next sample.
+- Put the same state into the status pill text ("NO MOTION") while the banner shows, and into `window.__tdt()` as
+  `motionSeen` and `motionBannerOpen`.
+- `docs/CLASS_USE.md` "Student setup" gets the iPhone fix as a one-line note (append).
+- Out of scope: engine changes; the recorder; changing the permission flow itself (the prompt can only be shown once
+  per tab by iOS). Touches `index.html`: not in parallel with WQ-032, WQ-034, WQ-037, WQ-043, WQ-044.
+
+**Acceptance.**
+- Agent-verifiable: a `tests/smoke.js` section starts the trainer with no `DeviceMotionEvent` dispatched and sees the
+  banner and the pill after 2 s; dispatches one sample and sees both clear; the existing sections (which dispatch
+  motion within 2 s of Start) are unchanged and still pass. `npm test` passes; recordings unchanged; engine
+  `VERSION` unchanged.
+- Owner-verifiable: on the iPhone 15, tap **Don't Allow**: the banner appears with the Safari instructions; follow
+  them and the trainer works. On an Android phone the banner never appears in normal use.
+
+**Verification.** The smoke section; owner check recorded in the completion entry.
+
+---
+
+### WQ-046 — Deploy the public page from a release branch instead of main (Q19)
+
+- **Status:** blocked:user · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** GitHub Pages serves `main` from the root (README "Deploy", `README.md:31`–35; the Pages workflow runs on
+every push to `main`, 49 runs so far). Every merged item is therefore live at once, before its owner-verifiable half:
+WQ-031 (one-finger rule) reached the public page on 2026-10-25 with its iPhone and Android checks still open. With
+the link now public, "merged" and "released" should be different states.
+
+**Owner decision needed.** (Q19 in `OPEN_QUESTIONS.md`) Which of these:
+- (a) A `release` branch: Pages serves `release`; you fast-forward it to `main` after the phone pass (one command, or
+  a button in a tiny manual workflow). Simple, visible in the branch list, no tags required.
+- (b) Tags: Pages deploys via a GitHub Actions workflow triggered by pushing a `vX.Y.Z` tag (WQ-038's convention),
+  so a release is exactly a tag. Cleaner history, one more workflow file, and the Pages source switches from
+  "branch" to "GitHub Actions".
+- (c) Keep deploying `main` and accept that the phone pass happens on the live page (status quo).
+One line answers it; (a) is the smaller change.
+
+**Scope.** (once decided; written for (a), adjust for (b))
+- Create `release` from the current `main` and switch Pages to it (owner: repository Settings → Pages → Branch;
+  record the step in the completion entry).
+- README "Deploy" and `docs/CLASS_USE.md` "Before class" (append): the public page follows `release`; `main` is the
+  development branch; how to release (`git push origin main:release` after the owner check).
+- `.claude/skills/work-queue-run/SKILL.md`: the archive step notes whether an item is on `release` yet, so the
+  completion entry says when it reached the phones (append one bullet).
+- Out of scope: branch protection (WQ-047); the tag convention itself (WQ-038); any page change.
+
+**Acceptance.**
+- The Pages workflow runs for pushes to the chosen source and not for `main`; the live page serves the engine
+  version of that source (owner reads the `Engine x.y.z` line in Settings).
+- README and the run skill describe the flow.
+
+**Verification.** Actions run list after one release push; owner confirms the version line.
+
+---
+
+### WQ-047 — Protect main: require a pull request and the replay check
+
+- **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** owner-machine
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** WQ-033 · **Blocks:** —
+
+**Context.** `main` has no protection: any push lands and deploys. Once WQ-033 gives the repository a `replay` check
+on pull requests, a branch rule can require it. Repository settings are the owner's; the queue's own flow (merge
+commits from item branches, `queue:` commits straight to `main` by orchestration sessions) has to keep working, so
+the rule must allow the owner's own pushes.
+
+**Scope.** (owner, Settings → Rules → Rulesets → New branch ruleset, target `main`)
+- Require status check `replay` (the WQ-033 job name) to pass before merging.
+- Require a pull request before merging, 0 approvals (you are the only maintainer), with a bypass for the
+  repository admin so orchestration sessions can still push `queue:` commits and merge item branches directly.
+- Block force pushes and deletion of `main`.
+- Then update `.claude/skills/work-queue-run/SKILL.md` (append): outside contributors' work arrives as pull
+  requests and needs the check green; the orchestrator's merges use the bypass.
+- Out of scope: required reviews from others; protecting `release` (fold in when WQ-046 lands: same rule, no PR
+  requirement).
+
+**Acceptance.**
+- Owner-verifiable: a pull request from a fork with a failing replay suite cannot be merged; the owner's direct push
+  of a `queue:` commit still lands.
+
+**Verification.** Owner reports the ruleset; the next orchestration round confirms its `queue:` push works and
+records it in this item's completion entry.
+
+---
+
 ## Parking lot
 
 Ideas noted but not yet turned into items (an exploratory session may
@@ -764,5 +880,8 @@ promote one with `work-queue-add`):
 - **Dial cap derived from the guard's front edge** (from WQ-020): `layout()` reserves a fixed 160 px beside the dial
   so Set downrange clears the guard; computing it from the measured guard rectangle would survive future
   `TRIGGER_FWD_PX` changes. Needs a Ricky decision.
+- **Move the planning files (`WORK_QUEUE.md`, `WORK_COMPLETED.md`, `OPEN_QUESTIONS.md`, `CLAUDE.md`, `.claude/`) out of
+  the repository root** so a GitHub visitor sees the product files first. Waiting on Q20 (`OPEN_QUESTIONS.md`): every
+  skill, `scripts/wq.py` and the manuals cite the root paths, so it is one careful commit once Ricky decides.
 - **`CLAUDE.md` says recordings go "one folder per phone"** — the 2026-10-20 set has been moved to
   `pixel-11/`; nothing left to do unless a second Pixel appears.
