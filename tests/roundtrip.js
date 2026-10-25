@@ -369,6 +369,11 @@ const check = (name, cond, extra) => {
   check('WQ-030: Transitions recording: the replayed run has ten shots, five pair splits and four transitions; its total matches the live drillEnd total and is shot 10 minus the beep',
     resT.state.drillRuns.length === 1 && resT.state.drillRuns[0].shots.length === 10 && resT.state.drillRuns[0].pairSplits.length === 5 && resT.state.drillRuns[0].transitions.length === 4 &&
     Math.abs(resT.state.drillRuns[0].total - endT[3]) < 0.001 && Math.abs(endT[3] - (obsT('shot')[9][0] - obsT('drillBeep')[0][0])) < 0.01, [resT.state.drillRuns.length, endT]);
+  {
+    const asBill = JSON.parse(JSON.stringify(recT)); asBill.log.find(r => r[0] === 'r')[2] = 'bill';
+    const ab = TDT.replay(asBill).events.filter(e => e.type === 'alarmStart');
+    check(`WQ-030: Transitions recording: the same recorded log replayed as a Bill run alarms (${ab.length} alarmStart): the recorded swings are strong enough, and only the window keeps the Transitions run quiet`, ab.length >= 1, ab.length);
+  }
   check('WQ-030: Transitions recording: the results overlay paused the engine (no drillCancel observed)', trLast.paused === true && obsT('drillCancel').length === 0);
   check('no page errors', errors.length === 0, errors);
 

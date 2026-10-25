@@ -87,7 +87,7 @@ for (const f of files) {
   if (rec.format !== 'tdt-recording') { console.log(`SKIP  ${rel}: not a tdt recording`); continue; }
 
   const res = TDT.replay(rec);
-  const sum = summarize(res);
+  const sum = summarize(res); sum.synthetic = !!rec.synthetic;
   const dur = rec.t1 && rec.t0 ? ((rec.t1 - rec.t0) / 1000).toFixed(1) + ' s' : '';
   console.log(`\n${rel}  [${rec.label}${rec.synthetic ? ', synthetic' : ''}] ${dur}` +
     `  shots ${sum.shots.length} (${sum.shots.map(s => s.grade[0]).join('') || '-'})  alarms ${sum.alarmsMove}  180s ${sum.b180} (max ${sum.maxDev.toFixed(0)}°)` +
@@ -645,6 +645,76 @@ if (trFile) {
     const tshot = run('transitions'), bshot = run('bill');
     t(`grading: Transitions grades the shot after the 40 deg swing from the press start: Clean, dev ${tshot && tshot.shot.dev}`, !!tshot && tshot.shot.grade === 'Clean' && tshot.shot.dev < 0.5);
     t(`grading: the same sequence in Bill counts the swing: dev ${bshot && bshot.shot.dev.toFixed(1)} deg, not Clean (${bshot && bshot.shot.grade})`, !!bshot && bshot.shot.dev > 5 && bshot.shot.grade !== 'Clean');
+  }
+  // (F) the stimulus itself: the recording's four swings are real (>= 80 deg/s for >= 0.45 s, >= 35 deg) and nothing else moves
+  {
+    const ms = rec.log.filter(r => r[0] === 'm'), mag = r => Math.hypot(r[2], r[3], r[4]);
+    const stretches = []; let cur = null;
+    ms.forEach((r, i) => {
+      const hi = mag(r) >= 79.9;
+      if (hi) { if (!cur) { cur = { t0: r[1], t1: r[1], deg: 0 }; stretches.push(cur); } const dt = i ? (r[1] - ms[i - 1][1]) / 1000 : 0; cur.deg += mag(r) * dt; cur.t1 = r[1]; }
+      else cur = null;
+    });
+    t(`(F) the recording holds exactly four swings (${stretches.length}), each >= 80 deg/s for >= 0.45 s and integrating to >= 35 deg (${stretches.map(x => `${((x.t1 - x.t0) / 1000 + 1 / 60).toFixed(2)} s/${x.deg.toFixed(0)} deg`).join(', ')})`,
+      stretches.length === 4 && stretches.every(x => (x.t1 - x.t0) / 1000 + 1 / 60 >= 0.45 && x.deg >= 35));
+    t('(F) no other stretch of the recording exceeds moveDps (25 deg/s): the only fast turning is the four swings',
+      ms.every(r => mag(r) >= 79.9 || mag(r) <= TDT.DEFAULTS.moveDps));
+  }
+  // (A) grading origin follows the muzzle until the pull has risen 15 % above its lowest point of the attempt
+  {
+    const pull2 = c => { for (const dx of [20, 45, 70]) { c.eng.touches(c.T, TOUCH(dx), W, H); c.run(40); } };   // a pull with no return: the touch stays at 70 px
+    const seq = (id, how, ride) => {
+      const c = mk(5, id); c.go(); c.on(); c.run(600); c.fire(); c.run(300);                              // shot 1, touch kept at base
+      if (ride) { pull2(c); c.run(100); } else { c.fire(); c.run(300); }                                  // shot 2: held at 70 px (ride) or returned to base
+      how(c);
+      c.eng.touches(c.T, TOUCH(45), W, H); c.run(40); c.eng.touches(c.T, TOUCH(70), W, H); c.run(60);
+      return c;
+    };
+    const ride = c => { c.eng.touches(c.T, TOUCH(25), W, H);   // the broken trigger rides forward to 25 px: that is the reset, minPull 25
+      c.run(100); c.swing(40); c.run(300); };      // hold the reset at ~40 % pull, swing, the phone still
+    const abort = c => { c.eng.touches(c.T, TOUCH(18), W, H); c.run(100); c.eng.touches(c.T, TOUCH(0), W, H); c.run(100); c.swing(40); c.run(300); };   // 30 % and back
+    for (const [name, how, rd] of [['A1 reset-ride (held at 25 px = 42 %)', ride, true], ['A2 aborted press (30 % and back to 0)', abort, false]]) {
+      const tc = seq('transitions', how, rd), bc = seq('bill', how, rd);
+      const ts = tc.d().shots[2], bs = bc.d().shots[2];
+      t(`(${name}) Transitions: shot 3 grades from the press start: dev ${ts && ts.dev.toFixed(2)} (< 1), Clean, no alarm`, tc.d().shots.length === 3 && ts.grade === 'Clean' && ts.dev < 1 && tc.alarms().length === 0, ts);
+      t(`(${name}) vacuity, same sequence in Bill: the swing is in the deviation: dev ${bs && bs.dev.toFixed(1)} (about 40), not Clean`, bc.d().shots.length === 3 && bs.dev > 30 && bs.dev < 50 && bs.grade !== 'Clean', bs);
+    }
+    // a press that rises through the freeze point and falls back below it re-takes again (the origin follows a hold at the low point only)
+    const c = mk(5); c.go(); c.on(); c.run(600); c.fire(); c.run(300);
+    c.eng.touches(c.T, TOUCH(30), W, H); c.run(60); c.swing(20); c.run(100);                              // above 15 % of base 0: origin frozen at the 30 px moment
+    c.eng.touches(c.T, TOUCH(0), W, H); c.run(100); c.swing(-20); c.run(200);                              // back to the low point, then another swing: origin follows
+    c.eng.touches(c.T, TOUCH(45), W, H); c.run(40); c.eng.touches(c.T, TOUCH(70), W, H); c.run(60);
+    t(`(A3) press rising, falling back below the freeze point, swinging, then firing: the shot grades from the last low point (dev ${c.d().shots[1] && c.d().shots[1].dev.toFixed(2)} < 1)`, c.d().shots.length === 2 && c.d().shots[1].dev < 1);
+  }
+  // (B) a run replaced or dropped un-paused inside the window: cancel event, drift reference re-taken, window closed
+  for (const [name, act] of [['cancelDrill', c => c.eng.cancelDrill(c.T)], ["startDrill('bill')", c => c.eng.startDrill(c.T, 'bill', 9)]]) {
+    const c = mk(5); c.go(); c.on(); c.run(600); c.fire(); c.run(600); c.swing(40); c.run(100);
+    t(`(B) ${name}: setup: window open after a 40 deg swing, no alarm`, c.eng.state.drillFree === true && c.alarms().length === 0 && c.eng.state.devOff > 30);
+    act(c);
+    const freeAtOnce = c.eng.state.drillFree; c.run(20);
+    t(`(B) ${name}: one drillCancel (transitions), drillFree false at once, drift reference re-taken (devOff ${c.eng.state.devOff.toFixed(2)} at the next tick)`,
+      c.of('drillCancel').length === 1 && c.of('drillCancel')[0].drill === 'transitions' && freeAtOnce === false && c.eng.state.devOff < 1);
+    c.run(800);
+    t(`(B) ${name}: no alarmStart over the next 800 ms with the phone still (without the re-take the 40 deg drift would alarm); window still closed`, c.alarms().length === 0 && c.eng.state.drillFree === false);
+    c.rate(10, 1000);
+    t(`(B) ${name}: ... and the normal drift rule is live afterwards (a slow 10 deg alarms)`, c.alarms().length === 1 && c.alarms()[0].reason === 'move');
+  }
+  // (C) a pause mid-window closes the window at once
+  {
+    const c = mk(5); c.go(); c.on(); c.run(600); c.fire(); c.run(300);
+    t('(C) setup: window open', c.eng.state.drillFree === true);
+    c.eng.setPaused(true, c.T + 1);
+    t('(C) setPaused(true) mid-window: drillFree is false immediately, with no tick in between', c.eng.state.drillFree === false && c.of('drillCancel').length === 1);
+  }
+  // (I) a shot before the beep is early and opens no window
+  {
+    const c = mk(5); c.eng.touches(10, REST, W, H); c.run(700); c.on(); c.run(500); c.fire(); c.run(300);
+    t('(I) a shot in standby before the beep: early 1, phase standby, no run shot, drillFree false', c.d().phase === 'standby' && c.d().early === 1 && c.d().shots.length === 0 && c.eng.state.drillFree === false && c.of('shot').length === 1);
+    c.swing(40);
+    t('(I) ... and a swing then alarms (no window was opened by that shot)', c.alarms().length === 1 && c.alarms()[0].reason === 'move');
+    c.frame(); c.run(100);
+    c.until(() => c.d().phase === 'live', 7000);
+    t('(I) the beep still comes after the early shot; the early shot is not one of the ten (shots 0, early 1)', c.d().phase === 'live' && c.d().shots.length === 0 && c.d().early === 1);
   }
 }
 

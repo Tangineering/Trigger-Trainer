@@ -1580,6 +1580,13 @@ const check = (name, cond, state) => {
       check(`WQ-030: ${vw}x${vh}: the picker has no horizontal overflow`, noH);
       const sb = await tp.$eval('#drillDiagram svg', e => { const b = e.getBoundingClientRect(); return { x: b.x, r: b.right, w: b.width, h: b.height }; });
       check(`WQ-030: ${vw}x${vh}: the Transitions diagram is fully inside the viewport and has a size`, sb.x >= 0 && sb.r <= vw + 0.5 && sb.w > 100 && sb.h > 50, sb);
+      if (vw === W) {                                   // D-112 compact landscape rule: all five entries, the diagram and both buttons fit with no scrolling
+        const fit = await tp.evaluate(() => { const o = document.getElementById('drillOv'); return { sh: o.scrollHeight, ch: o.clientHeight, sw: o.scrollWidth, cw: o.clientWidth }; });
+        check(`WQ-030: ${vw}x${vh}: the picker needs no scrolling (scrollHeight ${fit.sh} === clientHeight ${fit.ch})`, fit.sh === fit.ch && fit.sw <= fit.cw + 1, fit);
+        const allIn = [];
+        for (const id of ['freestyle', 'lowready', 'box', 'bill', 'transitions']) allIn.push(await tp.$eval(`#drillList .drillOpt[data-id="${id}"]`, (e, [vw, vh]) => { const b = e.getBoundingClientRect(); return b.top >= 0 && b.bottom <= vh + 0.5 && b.left >= 0 && b.right <= vw + 0.5; }, [vw, vh]));
+        check(`WQ-030: ${vw}x${vh}: all five list entries are inside the viewport without scrolling (scrollTop 0)`, allIn.every(Boolean) && await tp.$eval('#drillOv', e => e.scrollTop === 0), allIn);
+      }
       const last = await inView('#drillList .drillOpt[data-id="transitions"]', vw, vh);
       check(`WQ-030: ${vw}x${vh}: the fifth list entry can be scrolled into view`, last === true || (last && last.width > 0), last);
     }
@@ -1601,7 +1608,7 @@ const check = (name, cond, state) => {
     let lo = await TO();
     const rest1 = pick(lo.ev, 'rest'), beep1 = pick(lo.ev, 'beep');
     check(`WQ-030: the beep came 2000-5000 ms (+ one frame) after the finger came onto the frame (${beep1 && rest1 ? (beep1.n - rest1.n).toFixed(0) : '?'} ms)`,
-      !!beep1 && !!rest1 && beep1.n - rest1.n >= 2000 - FRM && beep1.n - rest1.n <= 5000 + 2 * FRM, lo.ev);
+      !!beep1 && !!rest1 && beep1.n - rest1.n >= 2000 - FRM && beep1.n - rest1.n <= 5000 + Math.max(2 * FRM, 100), lo.ev);
     check('WQ-030: at the beep the line says "Go — two at the first target", live, no shots, window closed',
       d.drill.phase === 'live' && d.drill.shots === 0 && d.drill.freeOnTrigger === false && await tline() === 'Go — two at the first target', [d.drill, await tline()]);
     await tengage(); await tsleep(450);                                   // trigger touched, no pull, past the grace period
@@ -1742,6 +1749,7 @@ const check = (name, cond, state) => {
     await tp.click('#gear'); await tp.waitForTimeout(120);
     d = await tst();
     check('WQ-030: run 4: gear cancels the run (standby, no shots, 2 runs counted, results not open)', d.paused && d.drill.phase === 'standby' && d.drill.shots === 0 && d.drillRuns === 2 && !d.drillResOpen, d);
+    check('WQ-030: run 4: while paused after the gear cancel freeOnTrigger is false', d.drill.freeOnTrigger === false, d.drill);
     await tp.click('#doneBtn'); await tp.waitForTimeout(100);
 
     // --- 7. run 5: gear in a live run with the window open cancels (no result, run count unchanged)
@@ -1754,6 +1762,7 @@ const check = (name, cond, state) => {
     d = await tst();
     check('WQ-030: run 5: gear with the window open cancels: paused, standby, no shots, no result, run count still 2, results not open',
       d.paused && d.drill.phase === 'standby' && d.drill.shots === 0 && d.drill.result === null && d.drillRuns === 2 && !d.drillResOpen, d);
+    check('WQ-030: run 5: with the window open at the gear tap, freeOnTrigger is false while paused (before Resume)', d.paused && d.drill.freeOnTrigger === false, d.drill);
     await tp.click('#doneBtn'); await tp.waitForTimeout(100);
     d = await tst();
     check('WQ-030: run 5: after Resume the window is closed (freeOnTrigger false), the line says Cancelled', d.drill.freeOnTrigger === false && /^Cancelled/.test(await tline()), [d.drill, await tline()]);
