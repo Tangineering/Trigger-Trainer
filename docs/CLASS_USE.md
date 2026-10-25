@@ -48,7 +48,10 @@ All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 
   the finger before then restarts the wait; with only one shot fired there are no beeps, fire again). 2–5 s after
   the three beeps the next rep's start beep sounds. After rep 5 the completion tone plays instead and the results
   open: for each rep the reaction (beep to first shot), the split (first to second shot) and the grades, then the
-  total (first beep to the end) and the average and best reaction over the reps with no alarm.
+  total (first beep to the end), the average and best reaction over the reps with no alarm, early shots, "With
+  alarm" (an alarm during a rep, between reps or still sounding at a beep marks the run and that rep; its reaction
+  is left out of the average), and the best average reaction of the session among runs with no alarm. **Again**
+  starts a new five-rep run; **Change drill** goes back to the start screen.
 - **Bill Drill results:** first shot (beep to first shot), the five splits, total (beep to sixth shot), the grade of each
   shot, early shots (fired before the beep; not timed), "With alarm" if an alarm went off during the run or was
   still sounding at the beep (shots fired during an alarm show as "alarm", not graded), and the best total of the session among runs with no alarm.
