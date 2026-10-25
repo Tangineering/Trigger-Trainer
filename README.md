@@ -14,7 +14,9 @@ pistol: keep the index finger flat on the frame while moving; go to the trigger 
   **Bill Drill** times six shots from a random start beep and shows first shot, splits and total; **Low Ready** runs
   five reps of two shots from low ready, with a three-beep cue between reps, and shows each rep's reaction and split;
   **Box Drill** is the movement drill: two or more shots at each corner of a four-spot box, a three-beep cue to move
-  on, finishing back at spot 1, and shows each position's time and splits and the total.
+  on, finishing back at spot 1, and shows each position's time and splits and the total; **Transitions** starts from
+  low ready with one beep and runs five pairs of shots at two or three targets, the only drill where the phone may move
+  with the finger on the trigger (from the first shot to the tenth), and shows the pair splits and the transitions.
 
 No install, no accounts, no data collection. Settings stay on the phone.
 

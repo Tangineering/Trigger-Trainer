@@ -41,6 +41,7 @@ Nothing is sent anywhere unless you share the file.
 | `drill-bill` | Select **Bill Drill** on the start screen first. Finger on frame; wait for the start beep; fire six; finger back on frame | One `drillBeep`, one `drillEnd`, six run shots |
 | `drill-low-ready` | Select **Low Ready** on the start screen first. Finger on frame; on each beep raise and fire two, finger back on frame, wait for the three beeps, back to low ready. Five reps | Five `drillBeep`, four `drillCue`, one `drillEnd` |
 | `drill-box` | Select **Box Drill** on the start screen first. Finger on frame; on the beep fire two or more, finger back on frame, three beeps, move to the next spot (finger on the frame); five positions ending back at spot 1 | One `drillBeep`, four `drillCue` (`move`), one `drillEnd` |
+| `drill-transitions` | Select **Transitions** on the start screen first. Finger on frame; wait for the start beep; fire two at a target, swing to the next with the finger on the trigger, fire two; ten shots; finger back on frame | One `drillBeep`, no `alarmStart` between the first and the tenth shot, one `drillEnd` |
 
 Expectations live in `tests/expectations.js`. For `axis-*` drills the replay also tries every gyro
 mapping and flip, and when a phone has both axis recordings it prints the one mapping that fits both.
@@ -90,7 +91,7 @@ A recording is edited only on a logged Ricky decision, and then its `notes` fiel
     ["t", t, vw, vh, [[id, cx, cy, rx, ry], ...]],      // all current touches, CSS px
     ["f", t],                           // animation frame (engine tick)
     ["d", t],                           // Set downrange pressed
-    ["r", t, drill, seed],              // drill run requested ("bill", "lowready", "box"); seed for the engine's delay generator
+    ["r", t, drill, seed],              // drill run requested ("bill", "lowready", "box", "transitions"); seed for the engine's delay generator
     ["x", t]                            // drill cancelled (back to the start screen)
   ],
   "observed": [[t, "armed"], [t, "alarmStart", "move"|"180", rot, lin, dev180], [t, "shot", "Clean", dev],
