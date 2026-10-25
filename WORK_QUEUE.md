@@ -33,7 +33,7 @@ updated: 2026-10-25
 |----|-------|-----|------|--------|------------|-------|
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | claimed:round-20261025-5 | — | platform |
+| WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | queued | — | docs |
 | WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | queued | — | hygiene |
@@ -596,8 +596,8 @@ and physical, so this is a bounded pass, not a WCAG programme.
 
 ### WQ-045 — Tell the user when no motion data arrives after Start
 
-- **Status:** claimed:round-20261025-5 · **Priority:** P1 · **Size:** S · **Track:** platform · **Env:** any
-- **Added:** 2026-10-25 by public-release review session
+- **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** S · **Track:** platform · **Env:** any
+- **Added:** 2026-10-25 by public-release review session · **Updated:** 2026-10-25 by the orchestration session (round-20261025-5, execution agent on opus): the agent half landed in 7d4cdc3 (merged on the orchestration branch): `index.html` records `lastMotionT` on the page clock in `onMotion` (an all-null `devicemotion` event does not count, D-123 e), `updateMotionBanner(t)` in `tick()` opens `#motionBanner` (rear ~46 % of the slide, `pointer-events: none`, D-123 a) after 2 s with no sample since Start or 5 s with no sample while running, visible and landscape, the first sample hides it, the engine is never paused; the fix line follows the feature check (Safari steps where `DeviceMotionEvent.requestPermission` exists in a secure context, else "Open the page over HTTPS on a phone"); the pill reads "NO MOTION · <state>" (D-124); `__tdt()` adds `motionSeen`, `motionBannerOpen`; the old `#warnLine` "No motion sensor data" text is gone (D-123 d); smoke block `// WQ-045` (10 checks); `docs/CLASS_USE.md` note; `CLAUDE.md` block. `npm test` exit 0 in the worktree (replay 46 recordings, smoke incl. the new block, roundtrip; 0 FAIL), engine `VERSION` 0.17.0 unchanged, no recording changed. Remaining, owner half: (1) iPhone 15, Safari: open the deployed page, tap Start, tap **Don't Allow** on the motion prompt → after about 2 s the banner "No motion data. The alarms cannot work." with the Safari steps, and the pill prefixed NO MOTION; follow the steps (close the tab, reopen, Allow) → no banner and the alarms work. (2) Pixel 11 or S20+, Chrome: normal use → the banner never appears, including after a return from the background. Report both in a chat line
 - **Depends on:** — · **Blocks:** —
 
 **Context.** `start()` (`index.html:1194`–1211) awaits `DeviceMotionEvent.requestPermission()` inside a try/catch and
