@@ -21,6 +21,9 @@
 WQ-045: if a **No motion data** banner appears over the slide on an iPhone, the alarms cannot work: close the tab, reopen
 the link and tap **Allow** (or turn on Settings → Safari → Motion & Orientation Access).
 
+WQ-040: the shot is a click and a flash. On iPhone the page cannot vibrate. If there is no sound, turn Silent mode off
+(it can mute the page on some iOS versions).
+
 ## Drills
 - **Ready and move:** finger on the frame, move between "targets" around the room. No alarm should sound.
 - **Finger off = freeze:** lift the finger to the trigger only when the phone is still. Any movement → alarm.

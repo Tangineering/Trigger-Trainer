@@ -30,6 +30,26 @@ tool never asks for it and nothing is unlocked by it.
 Open **https://tangineering.github.io/Trigger-Trainer/** on a phone, tap **Start**, and turn the phone sideways. On iPhone, allow motion
 access when asked and turn off Silent mode if there's no sound. See `docs/CLASS_USE.md`.
 
+### Supported browsers
+
+iPhone Safari 17 or newer and Android Chrome. Tested on an iPhone 15 (iOS 18.7), a Pixel 11 and a Galaxy S20+ (both
+Chrome 155). Other phones and browsers may work but have not been checked.
+
+### Known limitations
+
+- **HTTPS only.** Motion sensors work only on the https link; a file opened from disk or plain HTTP gets no motion data.
+- **Laptops and desktops** get a mouse demo with no motion data, so the alarms cannot work. A **No motion data**
+  banner appears a couple of seconds after Start when no motion arrives (also on an iPhone if you tap **Don't Allow**).
+- **No vibration on iPhone**, and the shot vibration has not been felt on the Android phones tried so far. The shot is
+  a click and a flash.
+- **Silent mode on iPhone** can mute the page on some iOS versions. If there is no sound, turn Silent mode off.
+- **The 180 check is off until you tap Set downrange.** Everything else works without it. Set it again if the page
+  goes to the background.
+- **180 drift:** the muzzle direction is worked out from the gyro and can drift a few degrees over minutes, so set
+  downrange again now and then in a long session.
+- **Portrait swings on iPhone:** in a hard swing Safari can report portrait for up to about 4 seconds. The page waits
+  3 seconds before it pauses and shows **Rotate to landscape**, so a very hard swing can still pause it.
+
 ## Deploy (GitHub Pages)
 
 1. Push this repo to GitHub.
