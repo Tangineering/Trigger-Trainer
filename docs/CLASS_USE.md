@@ -33,7 +33,7 @@
 - **180:** turn and move freely with the finger on the frame. Past 90° from downrange a lower "wail" alarm
   sounds even with the finger on the frame. "Muzzle N° from downrange" under the muzzle shows how close they are.
 
-## Timed drills (Bill Drill, Low Ready)
+## Timed drills (Bill Drill, Low Ready, Box Drill)
 The **Drill** button on the start screen (above **Start**) opens the drill picker. **Freestyle** is the trainer
 described above, with no timer. Pick a drill, check the diagram, tap **Choose**; the phone remembers the choice.
 All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 rule.
@@ -52,6 +52,17 @@ All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 
   alarm" (an alarm during a rep, between reps or still sounding at a beep marks the run and that rep; its reaction
   is left out of the average), and the best average reaction of the session among runs with no alarm. **Again**
   starts a new five-rep run; **Change drill** goes back to the start screen.
+- **Box Drill** (five positions, student-paced movement): mark four spots on the floor, for example the corners of a
+  2–3 m square, numbered 1 to 4 going round. Every position faces downrange: the student walks sideways, forwards or
+  backwards, never turns the muzzle off the range, and keeps the finger flat on the frame while walking (touching the
+  trigger while walking alarms). Tap **Start** at spot 1, finger on the frame. After a random 1–4 s the start beep
+  sounds: fire two or more, then put the finger back on the frame. Three short beeps (just after the OK tone) mean
+  "move to the next spot". The phone cannot see the walk: the cue comes when the finger is back on the frame after two
+  or more shots, so with only one shot there are no beeps, fire again. Spots 2, 3, 4, then back at spot 1: after two or
+  more shots there and the finger on the frame the completion tone plays and the results open: for each position the
+  time (from the beep or the previous cue to the first shot there: the move plus the settle), the split(s) and
+  grades, then the total (beep to the last shot), early shots, "With alarm", and the best total of the session among
+  runs with no alarm. **Again** starts a new run; **Change drill** goes back to the start screen.
 - **Bill Drill results:** first shot (beep to first shot), the five splits, total (beep to sixth shot), the grade of each
   shot, early shots (fired before the beep; not timed), "With alarm" if an alarm went off during the run or was
   still sounding at the beep (shots fired during an alarm show as "alarm", not graded), and the best total of the session among runs with no alarm.
