@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-037
+next_id: WQ-045
 updated: 2026-10-25
 ```
 
@@ -38,7 +38,15 @@ updated: 2026-10-25
 | WQ-033 | Run the replay suite in GitHub Actions and pin Playwright | P2 | S | queued | — | hygiene |
 | WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | queued | — | docs |
 | WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | queued | — | hygiene |
+| WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | queued | — | ui |
+| WQ-038 | Start a user-facing CHANGELOG and a version-tag convention | P2 | S | queued | — | docs |
+| WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | queued | — | docs |
+| WQ-040 | Add a browser-support and known-issues section to the README | P2 | S | queued | — | docs |
+| WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
+| WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | queued | WQ-037 | platform |
 | WQ-035 | Regenerate the stale synthetic recordings | P3 | S | queued | — | recordings |
+| WQ-041 | Put two screenshots in the README | P3 | S | queued | — | docs |
+| WQ-044 | Accessibility pass on the page (D-121) | P3 | S | queued | — | ui |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -343,7 +351,7 @@ session); run `npm test` locally; record the pinned version and the run URL in t
 ### WQ-034 — Link the page to its source and add contributing notes to the README
 
 - **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
-- **Added:** 2026-10-25 by public-release review session
+- **Added:** 2026-10-25 by public-release review session · **Updated:** 2026-10-25 by the same session (recording consent, code of conduct, security policy folded in at Ricky's request)
 - **Depends on:** — · **Blocks:** —
 
 **Context.** The repo (`Tangineering/Trigger-Trainer`, MIT) is public with issues enabled, but the page never names
@@ -366,13 +374,22 @@ are the ground truth or that Ricky owns scope. There is no `CONTRIBUTING.md`, no
   the README.
 - Add `.github/ISSUE_TEMPLATE/bug_report.md` asking for phone model, OS version, browser, engine version (the
   `Engine x.y.z` line in Settings, `index.html:1332`), what happened, and a recording if possible.
+- (Updated 2026-10-25) Recording consent: `CONTRIBUTING.md` and `docs/RECORDINGS.md` say that a contributed recording
+  is committed under the MIT licence, that it contains the phone's user-agent string, motion samples and touch
+  positions and nothing else, and that the notes field must carry no names (phone model, grip and hand are enough).
+- (Updated 2026-10-25) Add `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1, contact: GitHub issues or the Ko-fi page's
+  message form; no e-mail address in the repo) and a three-line `SECURITY.md`: the page makes no network calls and
+  stores only settings on the phone; report anything suspicious as a GitHub issue; there is no bounty.
 - Out of scope: the disclaimer sentence (WQ-032); the CI workflow (WQ-033); a release tag (owner's call: suggest
-  `v0.17.0` in the completion entry, do not push tags); moving the planning files out of the root.
+  `v0.17.0` in the completion entry, do not push tags); moving the planning files out of the root; the
+  changelog (WQ-038), the architecture page (WQ-039) and the known-issues section (WQ-040), which append to
+  `README.md` as this item does.
 
 **Acceptance.**
 - The start screen shows the source link next to the Ko-fi line at 852×393 and 667×375 CSS px without layout change
   elsewhere (screenshots in `docs/screenshots/wq-034/`).
-- `CONTRIBUTING.md`, the README paragraph and the issue template exist and name only files that exist.
+- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, the README paragraph and the issue template exist and name
+  only files that exist; `docs/RECORDINGS.md` carries the consent paragraph.
 - `npm test` passes unchanged; engine `VERSION` unchanged.
 
 **Verification.** `npm test`; Playwright screenshots; `git ls-files` shows the new files; completion entry lists them.
@@ -450,6 +467,277 @@ This block is also why WQ-033 keeps the browser suites out of CI.
 
 **Verification.** The ten-run loops above; `npm test`; diff of `tests/smoke.js` reviewed for timing-dependent waits
 left in the block.
+
+---
+
+### WQ-037 — Add PNG home-screen icons for iOS and Android
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** WQ-043
+
+**Context.** The page ships one icon, `icon.svg` (512-unit viewBox: dark rounded square, grey slide, green frame strip,
+trigger guard), linked at `index.html:11` and as the only `icons` entry in `manifest.webmanifest:10`–12. iOS Safari
+takes no SVG for the home-screen icon and there is no `apple-touch-icon` link, so **Add to Home Screen** on an iPhone
+shows a page screenshot; Android Chrome wants 192 and 512 px PNGs (and a `maskable` entry) for the install prompt and
+the launcher. Hard constraint 1 (CLAUDE.md line 40) names the static companions; PNG icons are new companions.
+
+**Scope.**
+- Render `icon.svg` to `icon-180.png` (apple-touch-icon), `icon-192.png` and `icon-512.png` with a script that is
+  committed under `scripts/` or `tests/` (Playwright can rasterise the SVG; no new dependency). Keep the SVG as the
+  source; note the command in `README.md` "Develop".
+- Add `<link rel="apple-touch-icon" href="icon-180.png">` next to `index.html:11`; add the two PNG entries to the
+  manifest, the 512 one also with `"purpose": "maskable"` if the artwork survives the safe zone (check against the
+  maskable circle; pad the SVG for the maskable render if it does not).
+- Append the new files to CLAUDE.md hard constraint 1's companion list and the "Layout of this repo" block (append
+  only) and log a `Claude (proposed)` decision row for the new companions.
+- Out of scope: any change to the artwork itself; a service worker or install prompt (WQ-043); `index.html` changes
+  beyond the one link. Touches `index.html`: do not run in parallel with WQ-032, WQ-034, WQ-043 or WQ-044.
+
+**Acceptance.**
+- Agent-verifiable: the three PNGs exist, are referenced as above, `npm test` passes, engine `VERSION` unchanged; a
+  Playwright check that `GET` of each icon from a static server returns 200 and the manifest parses.
+- Owner-verifiable: **Add to Home Screen** on the iPhone 15 shows the trainer icon, not a screenshot; Chrome on a
+  Pixel 11 or S20+ shows it in the install prompt and the launcher.
+
+**Verification.** `npm test`; the icon fetch check; owner screenshots of the two home screens recorded in the
+completion entry.
+
+---
+
+### WQ-038 — Start a user-facing CHANGELOG and a version-tag convention
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** The only history is `WORK_COMPLETED.md` (98 KB, 28 archived items, written for the project's own
+bookkeeping) and the engine `VERSION` constant (`engine.js:15`, 0.17.0 today), which bumps whenever outputs change.
+The repo has no tags (`git tag` is empty) and no releases. A user who reports "it alarms during Transitions" cannot
+say which version they had beyond the `Engine x.y.z` line in Settings, and nobody can see from GitHub what changed
+when.
+
+**Scope.**
+- Add `CHANGELOG.md` in Keep-a-Changelog form, one section per engine version from 0.13.0 (drill framework) to the
+  current one, two to five user-facing lines each, written from `WORK_COMPLETED.md` and the `VERSION` bump commits
+  (`git log -S"const VERSION" -- engine.js`); earlier versions collapsed into one "0.12.3 and before" section. Each
+  section names the drills or rules it added in the words of `docs/CLASS_USE.md`, not WQ numbers.
+- Add the convention to CLAUDE.md "Working rules" (append one bullet) and to `CONTRIBUTING.md` if WQ-034 has landed
+  (else to the README "Develop" section): every `VERSION` bump adds a CHANGELOG section in the same commit, and the
+  owner tags `vX.Y.Z` on `main` after the merge. Agents never push tags.
+- Link the CHANGELOG from the README (append one line).
+- Out of scope: pushing any tag (owner's action: suggest `v0.17.0` on the current `main` in the completion entry);
+  rewriting `WORK_COMPLETED.md`; GitHub Releases.
+
+**Acceptance.**
+- `CHANGELOG.md` exists with a section per version 0.13.0 → current, each line checkable against `WORK_COMPLETED.md`.
+- CLAUDE.md working rules and the README name the convention.
+- `npm test` unchanged.
+
+**Verification.** Cross-read each section against the archive; completion entry lists the versions covered.
+
+---
+
+### WQ-039 — Write docs/ARCHITECTURE.md for contributors and a documentation map in the README
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** The clearest description of how the trainer works is CLAUDE.md "Architecture" (line 97: the engine /
+page split, every input carries its timestamp, the state machine) and "Known platform facts" (line 157), written as
+an operating manual for agents and sprinkled with queue and decision numbers. `README.md` "Develop" (line 40) says
+only "`index.html` is the UI; `engine.js` is the logic" and never lists `docs/` (`CLASS_USE.md`, `RECORDINGS.md`,
+`DECISIONS.md`, `IDEAS.md`, `PROPOSAL_2026-10-20.md`). A contributor has to find CLAUDE.md and read 42 KB.
+
+**Scope.**
+- Add `docs/ARCHITECTURE.md` (one to two screens): the two-file split and why (replayable recordings, D-17), the
+  input/event contract of `createEngine` (the table in CLAUDE.md "Architecture" condensed), the state machine
+  paragraph, the zones and axis-mapping summary, how a recording becomes a test (pointer to `docs/RECORDINGS.md`),
+  and how to add a drill (where `DRILL_DEFS`, `DRILL_MODES`, `drillLineText` and `showDrillResult` live). Plain
+  prose, no WQ/D numbers except as "see DECISIONS.md D-nn" asides. Do not move text out of CLAUDE.md; the manual
+  stays the source of truth for agents and may say "contributor version: docs/ARCHITECTURE.md".
+- Append a "Documentation" list to `README.md` naming every file in `docs/` with one line each, plus
+  `CONTRIBUTING.md` and `CHANGELOG.md` when they exist.
+- Out of scope: changing any behaviour; editing CLAUDE.md beyond the one pointer; the known-issues section (WQ-040).
+
+**Acceptance.**
+- `docs/ARCHITECTURE.md` exists; every function, constant and file it names exists (`grep` each one).
+- The README documentation list names every file in `docs/` that exists at merge time.
+- `npm test` unchanged.
+
+**Verification.** The grep pass over the names; completion entry lists any CLAUDE.md statement found to be stale on
+the way (fix in CLAUDE.md only if trivially wrong, else report).
+
+---
+
+### WQ-040 — Add a browser-support and known-issues section to the README
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Hard constraint 4 (iPhone Safari and Android Chrome) and the platform facts in CLAUDE.md line 157 are not
+public. Users about to open the link will meet: no vibration on iPhone and none felt yet on Android (WQ-023);
+iPhone Silent mode muting the page on older iOS; iPhone Safari reporting portrait for up to 4 s in a hard swing (the
+page tolerates 3 s, D-60); gyro drift of a few degrees in the 180 orientation over minutes (Q10); the 180 check being
+off until **Set downrange**; laptops and desktops getting a mouse demo with no motion data; the page needing HTTPS.
+None of it is in `README.md` or `docs/CLASS_USE.md`.
+
+**Scope.**
+- Append a "Supported browsers" paragraph (iPhone Safari 17+, Android Chrome; tested on iPhone 15 iOS 18.7, Pixel 11
+  and Galaxy S20+ Chrome 155, from the recordings folders) and a "Known limitations" bullet list covering the items
+  above to `README.md`, each bullet one or two lines in user language, after "Use it" (`README.md:26`–29).
+- Add the two user-relevant ones (Silent mode, no vibration) to `docs/CLASS_USE.md` "Student setup" if not already
+  there (Silent mode is at line 4; vibration is not mentioned, keep it that way per WQ-023 until it is understood,
+  but say "the shot is a click and a flash").
+- Out of scope: fixing any of them; the architecture page (WQ-039); the disclaimer (WQ-032).
+
+**Acceptance.**
+- `README.md` has both sections; every limitation stated is backed by a CLAUDE.md platform fact or a decision number
+  (cite the source in the completion entry, not in the README).
+- `npm test` unchanged.
+
+**Verification.** Cross-check each bullet against CLAUDE.md "Known platform facts"; completion entry lists the
+sources.
+
+---
+
+### WQ-041 — Put two screenshots in the README
+
+- **Status:** queued · **Priority:** P3 · **Size:** S · **Track:** docs · **Env:** browser
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** `README.md` is text only. `docs/screenshots/` holds per-item Playwright captures (latest
+`docs/screenshots/wq-030/start-landscape.png`, `picker-landscape.png`, `results-landscape.png`), none referenced
+anywhere. `.gitignore` excludes `*.png` globally, so those files were force-added; new ones need `git add -f` or a
+`!docs/screenshots/**` exception.
+
+**Scope.**
+- Capture two fresh 852×393 CSS px screenshots with Playwright from the current `index.html`: the trainer armed with
+  the finger on the frame (green strip, trace visible) and the drill picker, into `docs/screenshots/readme/`. Keep
+  them under 200 KB each.
+- Add `!docs/screenshots/**` to `.gitignore` (rewrites a hub file: say so in the commit; it is a one-line append).
+- Embed both at the top of `README.md` after the first paragraph with alt text.
+- Out of scope: real-phone photos (owner may replace later); any page change.
+
+**Acceptance.**
+- The README renders both images on GitHub; the files are tracked; `git status` clean after `git add .` (the
+  gitignore exception works).
+
+**Verification.** View the README on the pushed branch; completion entry notes the sizes.
+
+---
+
+### WQ-042 — Set the GitHub repository description, topics, website and social preview
+
+- **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** owner-machine
+- **Added:** 2026-10-25 by public-release review session
+- **Depends on:** — · **Blocks:** —
+
+**Context.** The repository `Tangineering/Trigger-Trainer` is public with Pages enabled, but the GitHub API shows no
+description, no topics and no homepage, and no social preview image is set (checked 2026-10-25). Search and link
+previews therefore show a bare name. These are repository settings only the owner can change; no agent tool in this
+project writes them.
+
+**Scope.** (owner, about five minutes, on github.com → repository → ⚙ next to About, and Settings → General → Social
+preview)
+- Description: "Free phone-based trigger-finger discipline trainer for pistol classes. No install, no accounts, no
+  data collection."
+- Website: `https://tangineering.github.io/Trigger-Trainer/` (tick "Use your GitHub Pages website").
+- Topics: `firearms-training`, `dry-fire`, `trigger-discipline`, `pwa`, `devicemotion`, `static-site`,
+  `github-pages`, `javascript`, `training-aid`.
+- Social preview: a 1280×640 image; the WQ-041 start-screen screenshot on the dark background will do until a
+  designed one exists.
+- Out of scope: branch protection (decide once WQ-033's check exists); GitHub Discussions.
+
+**Acceptance.**
+- Owner-verifiable: the About box shows description, website and topics; a pasted repo link previews with the image.
+
+**Verification.** Owner reports done; the archiving session confirms via the GitHub API (`search_repositories`
+with `minimal_output: false` shows `description`, `homepage`, `topics`).
+
+---
+
+### WQ-043 — Offline use: cache the page with a service worker (D-121)
+
+- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** platform · **Env:** any
+- **Added:** 2026-10-25 by public-release review session (Ricky promoted idea I-11, D-121)
+- **Depends on:** WQ-037 · **Blocks:** —
+
+**Context.** Ranges and training halls often have no signal. After the first load the page needs nothing from the
+network (hard constraint 3), yet a reload with no connection fails, and the iOS home-screen app shows the Safari
+error page. D-121 (Ricky, 2026-10-25) adds a service worker to the static companions, relaxing hard constraint 1's
+file list; constraints 2 and 3 are untouched (the worker only caches the site's own files, no network calls
+elsewhere). The manifest already declares `display: fullscreen`, `orientation: landscape` and `start_url ./`.
+
+**Scope.**
+- Add `sw.js` at the repo root (same scope as the page): install caches `./`, `index.html`, `engine.js`,
+  `manifest.webmanifest`, `icon.svg` and the WQ-037 PNGs under a cache name that embeds the engine `VERSION`
+  (read by fetching `engine.js`? No: the worker cannot `require` it; instead the page registers the worker with
+  `?v=<TDT.VERSION>` and the worker takes the version from its own URL, so a version bump produces a new cache and
+  the old one is deleted on activate). Strategy: network first with cache fallback for `index.html` and `engine.js`
+  (so a deploy reaches the phone when online), cache first for the icons.
+- Register from `index.html` after Start, inside a feature check (`'serviceWorker' in navigator`) and a try/catch;
+  failure changes nothing. No update prompt UI; a short note in Settings' version line ("offline ready") once the
+  worker controls the page is enough, in the existing `versionLine` element (`index.html:1332`).
+- Document: README "Use it" gets one line ("after the first load the page works without a connection"); CLAUDE.md
+  hard constraint 1 companion list and "Layout of this repo" get `sw.js` (append); `docs/ARCHITECTURE.md` (WQ-039)
+  gets a paragraph if it exists.
+- Out of scope: caching anything cross-origin (nothing is loaded cross-origin; keep it so); background sync,
+  push, periodic update checks; any engine change. Touches `index.html`: not in parallel with WQ-032, WQ-034,
+  WQ-037, WQ-044.
+
+**Acceptance.**
+- Agent-verifiable: a Playwright test (new section in `tests/smoke.js` or a small `tests/offline.js` served from a
+  local static server) loads the page, waits for the worker to control it, switches the context offline, reloads and
+  finds `#startOv` rendered and `TDT.VERSION` the same; after changing the registered version string the old cache
+  is gone. `npm test` passes; recordings unchanged; engine `VERSION` unchanged (the page's outputs for the same
+  inputs are identical; the worker is outside the engine).
+- Owner-verifiable: on the iPhone 15 (home-screen app and Safari tab) and an Android phone, load once online, enable
+  flight mode, reopen: the trainer starts and drills run; after a deploy, the next online open picks up the new
+  version within two loads.
+
+**Verification.** The offline test in the suite; owner check recorded in the completion entry with the engine
+versions seen before and after a deploy.
+
+---
+
+### WQ-044 — Accessibility pass on the page (D-121)
+
+- **Status:** queued · **Priority:** P3 · **Size:** S · **Track:** ui · **Env:** browser
+- **Added:** 2026-10-25 by public-release review session (Ricky promoted idea I-12, D-121)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** `index.html` carries three `aria-` attributes in total, `user-scalable=no` in the viewport meta
+(`index.html:5`), and a full-screen white flash on every shot (`#flash`, `index.html:103`–105, 0.75 → 0 opacity in
+120 ms) with no `prefers-reduced-motion` or reduced-flash handling. The alarms are loud by design and the start
+screen warns about them (`index.html:226`), but nothing warns about the flash. A motion drill is inherently visual
+and physical, so this is a bounded pass, not a WCAG programme.
+
+**Scope.**
+- Add one sentence about the shot flash to the start screen's warning box (`index.html:226`) and honour
+  `prefers-reduced-motion: reduce` by replacing the full-screen flash with a brief border or trigger highlight
+  (keep the `shot` sound unchanged).
+- Add a Settings toggle **Shot flash** (default on; stored only when changed, D-64) so a photosensitive student can
+  turn it off without changing the system setting. Keep the audible and vibration cues.
+- Label the interactive controls: `aria-label` on icon-only buttons (**● REC**, Set downrange, the picker's
+  Choose/Cancel if they are icon-only), `role="dialog"` + `aria-modal` on the overlays (`#startOv`, Settings,
+  summary, `#drillOv`, `#drillResOv`), `aria-live="polite"` on `#drillLine` and the status pill so a screen reader
+  announces the phase. Keep `user-scalable=no` (the drill needs a stable layout) but document why in a comment.
+- Check colour contrast of the status pill texts and the `tip` class against the dark background with a contrast
+  checker; fix anything under 4.5:1 that is text.
+- Out of scope: engine changes; keyboard operation of the drill itself (it is a touch and motion drill); redesign.
+  Touches `index.html`: not in parallel with WQ-032, WQ-034, WQ-037, WQ-043.
+
+**Acceptance.**
+- With `prefers-reduced-motion: reduce` emulated in Playwright, a shot produces no `#flash.go` opacity animation;
+  with the toggle off the same holds under normal motion settings; with both default the flash is unchanged.
+- The ARIA attributes are present (Playwright assertions); contrast figures recorded.
+- `npm test` passes; engine `VERSION` unchanged; the setting round-trips through `localStorage` only when changed.
+
+**Verification.** New smoke checks; contrast numbers and screenshots in the completion entry.
 
 ---
 
