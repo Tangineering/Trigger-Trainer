@@ -414,10 +414,22 @@ const Snd = {
     o.start(t); o.stop(t + dur + 0.05);
   },
   ok() { this.tone(660, 0, 0.12); this.tone(990, 0.11, 0.22); },
-  // Drill sounds (D-94, D-98 g), through the master gain, never the alarm node. Start beep: one 2.6 kHz tone,
-  // about 0.3 s, like a shot timer. Completion: a rising C5-E5-G5-C6 arpeggio, about 0.9 s.
+  // Drill sounds (D-94, D-98 g), through the master gain, never the alarm node. Start beep (D-109): one sustained
+  // 1750 Hz tone, 300 ms at full level (10 ms attack, 20 ms release), like a shot timer; tone()'s decaying envelope
+  // is not used for it. Completion: a rising C5-E5-G5-C6 arpeggio, about 0.9 s.
   // Cue (Low Ready: back to low ready; Box Drill: move to the next spot): three 70 ms beeps at 1.76 kHz, 120 ms apart.
-  timerBeep(delay = 0) { this.tone(2600, delay, 0.3, 'square', 0.6); },
+  timerBeep(delay = 0) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime + delay, dur = 0.3, peak = 0.6;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = 'square'; o.frequency.value = 1750;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.01);
+    g.gain.setValueAtTime(peak, t + dur - 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t + dur + 0.05);
+  },
   cue3(delay = 0) { [0, 0.12, 0.24].forEach(o => this.tone(1760, delay + o, 0.07, 'square', 0.6)); },
   complete(delay = 0) { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.tone(f, delay + i * 0.18, 0.32)); },
   shot() {

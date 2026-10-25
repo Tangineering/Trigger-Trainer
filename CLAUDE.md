@@ -279,8 +279,8 @@ Rows: `['r', t, drill, seed]` → `startDrill`, `['x', t]` → `cancelDrill`. Pa
 (`openPicker`, `renderPicker`; **Choose** stores, **Cancel** reverts; landscape list left / diagram right, portrait
 diagram on top). `beginDrillRun(t)` (from `start()`, `startRecording()`, **Again**, Restore defaults while running)
 calls `engine.startDrill` with a `Math.random` seed and logs the `r` row; Freestyle does nothing. `leaveToStart()`
-(results **Change drill**, summary **New session**) calls `cancelDrill` and logs `x` only when a drill existed. `Snd.timerBeep()` (2.6 kHz,
-0.3 s) on `drillBeep`; `Snd.complete(0.35)` (C5–E5–G5–C6) on `drillEnd`, then `showDrillResult()` opens `#drillResOv`,
+(results **Change drill**, summary **New session**) calls `cancelDrill` and logs `x` only when a drill existed. `Snd.timerBeep()` (a sustained 1750 Hz
+tone, 300 ms, D-109) on `drillBeep`; `Snd.complete(0.35)` (C5–E5–G5–C6) on `drillEnd`, then `showDrillResult()` opens `#drillResOv`,
 which pauses the engine while open. `#drillLine` under the status pill shows the run's phase (empty in Freestyle).
 `window.__tdt()` adds `drill {id, phase, shots, early, result}`, `drillRuns`, `drillSel`, `drillResOpen`, `pickerOpen`.
 Recorder label `drill-bill`.
