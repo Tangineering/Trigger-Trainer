@@ -12,7 +12,9 @@ pistol: keep the index finger flat on the frame while moving; go to the trigger 
   separate alarm, finger on the frame or not.
 - **Drills:** the start screen's **Drill** picker adds timed drills next to the free trainer (**Freestyle**). The
   **Bill Drill** times six shots from a random start beep and shows first shot, splits and total; **Low Ready** runs
-  five reps of two shots from low ready, with a three-beep cue between reps, and shows each rep's reaction and split.
+  five reps of two shots from low ready, with a three-beep cue between reps, and shows each rep's reaction and split;
+  **Box Drill** is the movement drill: two or more shots at each corner of a four-spot box, a three-beep cue to move
+  on, finishing back at spot 1, and shows each position's time and splits and the total.
 
 No install, no accounts, no data collection. Settings stay on the phone.
 

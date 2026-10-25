@@ -72,7 +72,12 @@ How the queue and the other documents fit together:
 - **Drills** (D-93, D-94, D-97, D-98, WQ-027): the start screen's **Drill** picker chooses **Freestyle** (the trainer as
   above, no timer, the default) or a timed drill; all Freestyle rules stay on during a drill. **Bill Drill**: finger on
   the frame → a random 1–4 s later the start beep → six shots (timer stops at the sixth) → finger back on the frame →
-  completion tone and results (first shot, splits, total). A pause cancels the run; results are session-only.
+  completion tone and results (first shot, splits, total). **Low Ready** (D-96): five reps from low ready, each a
+  start beep → two shots → finger back on the frame → 750 ms later a three-beep cue (back to low ready), the next beep
+  2–5 s later; after rep 5 the completion tone. **Box Drill** (D-95): five positions round four marked spots (1, 2, 3,
+  4, back to 1); after the beep, two or more shots and the finger back on the frame give the three-beep move cue, the
+  student walks to the next spot at their own pace with the finger on the frame, and the last position ends with the
+  completion tone. A pause cancels the run; results are session-only.
 - **Trigger wins** (D-75, WQ-016): a touch that engaged the trigger counts as on the trigger until it is lifted,
   wherever it moves; it never counts as frame contact, even inside the frame strip.
 
@@ -135,7 +140,8 @@ for the due time and for the finger on the frame ≥ `DRILL_BEEP_HOLD_MS` 350 ms
 `finishing` (sixth shot; timer stopped) → `ended` (finger on the frame: `drillEnd`); a pause in live, finishing or a
 started standby emits `drillCancel` and returns to a fresh standby. Low Ready loops `standby → live → finishing` once per
 rep (finishing: two shots, then 750 ms with the finger on the frame → `drillCue` and the next beep due 2–5 s later, or
-`drillEnd` after rep 5).
+`drillEnd` after rep 5); Box Drill uses the same loop with no hold and no new beep (two or more shots, the first tick on
+the frame → `drillCue` `move` and the next position live at once, or `drillEnd` after position 5).
 
 ## Known platform facts and unknowns
 
@@ -246,11 +252,12 @@ jerkMs).
 ## WQ-027 — drill framework and Bill Drill (D-93, D-94, D-97, D-98)
 
 **Engine** (`engine.js` 0.13.0). `mulberry32(seed)` is the drill generator (exported, D-98 h); `DRILL_DEFS` (exported)
-holds each drill's start-beep delay range and `ready` flag (`bill` and `lowready` ready; `box` reserved and rejected
-until WQ-029). `startDrill(t, id, seed)` returns `false` and changes nothing for an unknown or not-ready id;
+holds each drill's start-beep delay range and `ready` flag (all three ready since WQ-029; a not-ready def would be
+rejected: the `ready: false` paths in `startDrill` and in the page's picker / stored-selection loader are unused until
+a future drill). `startDrill(t, id, seed)` returns `false` and changes nothing for an unknown or not-ready id;
 otherwise it cancels a run in progress (`drillCancel`) and sets `st.drill = {id, seed, rng, phase, dueAt, beepT, rep,
-shots, early, alarms, result, reps, cur, cueDueAt, earlyPending, alarmsPending, alarmCounted}` (the last six for Low
-Ready, WQ-028; `alarmInPending` too). Phases `standby → live → finishing → ended`, advanced by `tickDrill(t)` at the end of
+shots, early, alarms, result, reps, cur, cueDueAt, earlyPending, alarmsPending, alarmCounted}` (the last six for the
+per-rep drills, Low Ready WQ-028 and Box Drill WQ-029; `alarmInPending` too). Phases `standby → live → finishing → ended`, advanced by `tickDrill(t)` at the end of
 `tick()` and by `drillShot()` from `fire()`: standby draws the delay (one `rng()` call) at the first tick armed with
 the finger on the frame, and emits `drillBeep {drill, rep: 1}` at the first tick at or after the due time with the
 finger on the frame for at least `K.DRILL_BEEP_HOLD_MS` (350 ms, clear of the OK tone; `st.restSinceT` is when the
@@ -287,9 +294,9 @@ the three-beep cue (back to low ready) → 2–5 s after the cue, with the finge
 the completion tone plays where the cue would.
 
 **Engine** (`engine.js` 0.14.0). `DRILL_DEFS.lowready = {delayMs: [2000, 5000], reps: 5, shotsPerRep: 2, cueHoldMs: 750,
-ready: true}`; a def with `reps` takes the Low Ready branches of `drillShot` / `tickDrill`, Bill's code paths are
-unchanged. The run adds `rep` (reps whose beep has played), `reps` (finished rep results), `cur` (the rep in progress
-`{rep, beepT, shots, early, alarms}`), `cueDueAt`, `earlyPending`, all reset by `freshRun` (a cancel loses the reps).
+cue: 'lowready', next: 'standby', ready: true}`; a def with `reps` takes the per-rep branches of `drillShot` / `tickDrill`
+(shared with Box since WQ-029, parametrised by `cue` / `next` / `cueHoldMs`), Bill's code paths are unchanged. The run adds `rep` (reps whose beep has played), `reps` (finished rep results), `cur` (the rep in progress
+`{rep, startT, beepT, shots, early, alarms}`; `startT` = the beep for Low Ready, WQ-029), `cueDueAt`, `earlyPending`, all reset by `freshRun` (a cancel loses the reps).
 Rep 1's delay is drawn as Bill's; each cue draws the next rep's delay (one `rng()` call) and sets `dueAt`; the beep
 condition (due, finger on the frame ≥ `DRILL_BEEP_HOLD_MS`) is shared. In `finishing` further shots still join the rep;
 the cue timer runs only with `onRest` and is cleared when the finger is off. Rep result `{rep, beepT, reaction, split,
@@ -311,3 +318,32 @@ Total, Average and Best reaction (reps with no alarm), then the shared Early sho
 (runs with no alarm)" (min `avgReaction` over this session's Low Ready runs with no alarm; Bill keeps "Best clean total",
 since a Low Ready total depends on the seeded delays). `window.__tdt().drill` adds `rep`, `repsDone`, `curShots`,
 `cuePending`, `dueSet`. Recorder label `drill-low-ready`.
+
+## WQ-029 — Box Drill (D-95, D-98, D-107)
+
+**Behavior.** Box Drill (third in the picker) is the movement drill: the student marks four spots, starts at spot 1,
+goes round and finishes back at spot 1, five shooting positions. Finger on the frame → a random 1–4 s later the start
+beep → fire two or more at the spot → finger back on the frame → three beeps (the move cue, at once) → walk to the next
+spot with the finger on the frame, at the student's pace → fire two or more → … After position 5 the completion tone
+plays where the cue would. One shot and the finger back on the frame gives no cue: fire again (D-98 b).
+
+**Engine** (`engine.js` 0.15.0). `DRILL_DEFS.box = {delayMs: [1000, 4000], reps: 5, shotsPerRep: 2, cueHoldMs: 0,
+cue: 'move', next: 'live', ready: true}`. Box and Low Ready share the per-rep code path; `cue` names the `drillCue`,
+`next` says what follows it (`'standby'`: Low Ready's next beep due delayMs later; `'live'`: Box's next position live
+at once, `cur = {rep, startT: t, beepT: null, …}`, no beep, no `rng()` call). With `cueHoldMs` 0 the cue comes at the
+first tick with `onRest` after two or more shots, after that tick's `ok` event, at the same `t`. `cur.startT` is the
+beep (position 1, and every Low Ready rep) or the previous cue. Position result `{rep, startT, beepT, time (startT →
+first shot: move plus settle), splits, shots: [{grade, dev, unsafe}], early, alarms, withAlarm}` (Low Ready's rep result
+is unchanged); run result `{drill, seed, beepT, reps, total (beep → last shot of position 5), early, alarms, withAlarm,
+endT}`. Early shots are only possible before the beep; alarms during a position count into it and into the run (Box
+has no between-reps standby); a 180 alarm still sounding at a move cue also marks the next position (`cur.alarms = 1`,
+not counted again into the run). A pause cancels the run and loses the positions (`freshRun`, D-107). Packed cue
+`[t, 'drillCue', 'move', rep]`.
+
+**Page** (`index.html`). `DRILL_MODES.box` is `ready: true`. `drillCue` with `cue: 'move'` plays `Snd.cue3(0.35)` (after
+the OK tone of the same tick); Box's `drillEnd` keeps `Snd.complete(0.35)`. `drillLineText` (Box): "Box Drill · finger
+on the frame, wait for the beep", "Spot 1 of 5 · fire 2 or more", "Move to spot n · fire 2 or more", "Back at spot 1 ·
+fire 2 or more", "Spot n · shot 1 of 2" ("Spot 1 (last) · …" at position 5), "Finger on the frame to move" / "to
+finish", "Done". `showDrillResult` branches on `r.drill`; `boxRows(r)`: one row per position ("Spot 1 (last)" for
+position 5: time, split(s), grades, alarm / early marks), "Total (beep to last shot)", then the shared rows and "Best
+clean total this session" (as Bill: a Box total holds no seeded delay after the beep). Recorder label `drill-box`.

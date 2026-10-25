@@ -512,7 +512,7 @@ const check = (name, cond, state) => {
     await dp.click('#drillBtn');
     check('WQ-027: tapping Drill opens the picker', (await dst()).pickerOpen === true);
     const ids = await dp.$$eval('#drillList .drillOpt', els => els.map(e => e.dataset.id));
-    check("WQ-027: picker lists exactly ['freestyle','lowready','bill'] in D-93 order (Box Drill hidden; Low Ready joined with WQ-028)", JSON.stringify(ids) === '["freestyle","lowready","bill"]', ids);
+    check("WQ-027: picker lists exactly ['freestyle','lowready','box','bill'] in D-93 order (Low Ready joined with WQ-028, Box Drill with WQ-029)", JSON.stringify(ids) === '["freestyle","lowready","box","bill"]', ids);
     check('WQ-027: the picker highlights the current selection (Freestyle) and shows an <svg> diagram',
       await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'freestyle' && await dp.$eval('#drillDiagram', e => !!e.querySelector('svg')));
     await dp.click('#drillList .drillOpt[data-id="bill"]');
@@ -658,12 +658,12 @@ const check = (name, cond, state) => {
     d = await dst();
     check('WQ-027: gear after the delay started: settings open, drill back in standby with no shots, engine paused',
       await dp.$eval('#settingsOv', e => e.classList.contains('show')) && d.drill.phase === 'standby' && d.drill.shots === 0 && d.paused, d);
+    // The finger is still down through Resume, so the engine re-arms (and redraws the delay) at Resume, not at a later
+    // touch: start the frame observer BEFORE Resume so armT is the first frame showing the new arming (in-page performance.now()).
+    await observe();
     await dp.click('#doneBtn'); await dp.waitForTimeout(100);
     check('WQ-027: after Resume the status line says Cancelled and to restart',
       /^Cancelled/.test(await lineText()) && /restart/i.test(await lineText()), await lineText());
-    await dtouch('touchEnd', []); await dmotion(2);
-    await observe();
-    await dtouch('touchStart', [REST]);
     d = await waitPhase('live', 4600);
     const obsC = await dp.evaluate(() => window.__obs), gapC = obsC.beepT - obsC.armT;
     check(`WQ-027: after a cancel the beep comes 1000-4000 ms (+ a frame) after the NEW arming (${Math.round(gapC)} ms): the delay was redrawn`,
@@ -701,21 +701,29 @@ const check = (name, cond, state) => {
     check('WQ-027: Freestyle after Bill: no drill, empty drill line, armed', d.drill === null && (await lineText()) === '' && d.armed, [d, await lineText()]);
     await dtouch('touchEnd', []);
 
-    // --- 10. not-ready drills are rejected by the engine
-    const rej = await dp.evaluate(() => { const e = TDT.createEngine(TDT.DEFAULTS, {}); return [e.startDrill(0, 'box', 1), e.startDrill(0, 'nope', 1), e.state.drill]; });
-    check("WQ-027: engine rejects box and unknown ids and leaves state.drill null", JSON.stringify(rej) === '[false,false,null]', rej);
+    // --- 10. unknown drill ids are rejected by the engine (Box was the last not-ready id until WQ-029)
+    const rej = await dp.evaluate(() => { const e = TDT.createEngine(TDT.DEFAULTS, {}); return [e.startDrill(0, 'nope', 1), e.startDrill(0, '', 1), e.startDrill(0, undefined, 1), e.state.drill]; });
+    check("WQ-027: engine rejects unknown ids ('nope', '', undefined) and leaves state.drill null", JSON.stringify(rej) === '[false,false,false,null]', rej);
+    const accBox = await dp.evaluate(() => { const e = TDT.createEngine(TDT.DEFAULTS, {}); return [e.startDrill(0, 'box', 7), e.state.drill.phase, e.state.drill.id]; });
+    check("WQ-029: engine accepts box and starts in standby", JSON.stringify(accBox) === '[true,"standby","box"]', accBox);
     const accLr = await dp.evaluate(() => { const e = TDT.createEngine(TDT.DEFAULTS, {}); return [e.startDrill(0, 'lowready', 7), e.state.drill.phase, e.state.drill.id]; });
     check("WQ-028: engine accepts lowready and starts in standby", JSON.stringify(accLr) === '[true,"standby","lowready"]', accLr);
     const acc = await dp.evaluate(() => { const e = TDT.createEngine(TDT.DEFAULTS, {}); return [e.startDrill(0, 'bill', 7), e.state.drill.phase, e.state.drill.id]; });
     check("WQ-027: engine accepts bill and starts in standby", JSON.stringify(acc) === '[true,"standby","bill"]', acc);
     await dp.reload();
-    await dp.evaluate(() => { try { localStorage.setItem('tdt.drill', 'box'); } catch (e) {} });
+    await dp.evaluate(() => { try { localStorage.setItem('tdt.drill', 'nope'); } catch (e) {} });
     await dp.reload();
-    check('WQ-027: a stored not-ready drill id falls back to Freestyle', (await dst()).drillSel === 'freestyle' && /Freestyle/.test(await dp.textContent('#drillBtn')));
+    check('WQ-027: a stored unknown drill id falls back to Freestyle', (await dst()).drillSel === 'freestyle' && /Freestyle/.test(await dp.textContent('#drillBtn')));
     await dp.click('#drillBtn');
     const idsBox = await dp.$$eval('#drillList .drillOpt', els => els.map(e => e.dataset.id));
-    check("WQ-027: with tdt.drill = 'box' stored the picker lists freestyle, lowready and bill, Freestyle highlighted",
-      JSON.stringify(idsBox) === '["freestyle","lowready","bill"]' && await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'freestyle', idsBox);
+    check("WQ-027: with tdt.drill = 'nope' stored the picker lists freestyle, lowready, box and bill, Freestyle highlighted",
+      JSON.stringify(idsBox) === '["freestyle","lowready","box","bill"]' && await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'freestyle', idsBox);
+    await dp.click('#drillCancelBtn');
+    await dp.evaluate(() => { try { localStorage.setItem('tdt.drill', 'box'); } catch (e) {} });
+    await dp.reload();
+    check("WQ-029: a stored tdt.drill = 'box' now selects Box Drill (the button names it)", (await dst()).drillSel === 'box' && /Box Drill/.test(await dp.textContent('#drillBtn')), [(await dst()).drillSel, await dp.textContent('#drillBtn')]);
+    await dp.click('#drillBtn');
+    check("WQ-029: with tdt.drill = 'box' stored the picker highlights Box Drill", await dp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'box');
     await dp.click('#drillCancelBtn');
     await dp.evaluate(() => { try { localStorage.setItem('tdt.drill', 'bill'); } catch (e) {} });
     await dp.reload();
@@ -910,7 +918,7 @@ const check = (name, cond, state) => {
     // --- 1. picker: order, diagram, remembered choice
     await lp.click('#drillBtn');
     const lids = await lp.$$eval('#drillList .drillOpt', els => els.map(e => e.dataset.id));
-    check("WQ-028: picker lists exactly ['freestyle','lowready','bill'] in that order", JSON.stringify(lids) === '["freestyle","lowready","bill"]', lids);
+    check("WQ-028: picker lists exactly ['freestyle','lowready','box','bill'] in that order", JSON.stringify(lids) === '["freestyle","lowready","box","bill"]', lids);
     const lnames = await lp.$$eval('#drillList .drillOpt', els => els.map(e => e.textContent));
     check('WQ-028: the Low Ready entry is named Low Ready and carries its subtitle', /Low Ready/.test(lnames[1]) && /Five reps/.test(lnames[1]), lnames);
     const svgFree = await lp.$eval('#drillDiagram', e => e.innerHTML);
@@ -921,8 +929,9 @@ const check = (name, cond, state) => {
     check('WQ-028: highlighting Low Ready moves .sel, shows an <svg> that differs from Freestyle and Bill, and a how-to with the three-beep cue',
       await lp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'lowready' && /^<svg/.test(svgLr.trim()) && svgLr !== svgFree && svgLr !== svgBillL &&
       /three beeps/i.test(await lp.textContent('#drillHow')) && /five reps/i.test(await lp.textContent('#drillHow')), await lp.textContent('#drillHow'));
-    check('WQ-028: Low Ready is selectable (not disabled) and Box Drill is still hidden', !(await lp.$eval('#drillList .drillOpt[data-id="lowready"]', e => e.disabled || e.classList.contains('disabled'))) &&
-      !(await lp.$('#drillList .drillOpt[data-id="box"]')));
+    check('WQ-028: Low Ready is selectable (not disabled) and Box Drill (WQ-029) is listed and selectable too',
+      !(await lp.$eval('#drillList .drillOpt[data-id="lowready"]', e => e.disabled || e.classList.contains('disabled'))) &&
+      !!(await lp.$('#drillList .drillOpt[data-id="box"]')) && !(await lp.$eval('#drillList .drillOpt[data-id="box"]', e => e.disabled || e.classList.contains('disabled'))));
     await lp.$eval('#drillOv', e => { e.scrollTop = 0; });
     await shoot(path.join(shotDir, 'picker-landscape.png'));
     for (const sel of ['#drillChoose', '#drillCancelBtn']) { const r = await inView(sel, W, H); check(`WQ-028: ${sel} is inside the 844x390 viewport on the picker`, r === true, r); }
@@ -1146,6 +1155,316 @@ const check = (name, cond, state) => {
     check('WQ-028: Change drill: trainer stopped, start screen shown, results closed, drill is null; the stored choice stays Low Ready',
       d.running === false && d.drill === null && !d.drillResOpen && await startOv() && await lsGet() === 'lowready', d);
     await lp.close(); await lctx.close();
+  }
+
+  // WQ-029: Box Drill (D-95, D-98, D-107). Fresh context so localStorage and touches start clean.
+  {
+    const fs = require('fs');
+    const shotDir = path.resolve(__dirname, '..', 'docs', 'screenshots', 'wq-029');
+    if (process.env.WQ_SCREENSHOTS) fs.mkdirSync(shotDir, { recursive: true });
+    const bctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+    const bp = await bctx.newPage();
+    bp.on('pageerror', e => errors.push('box page: ' + e.message));
+    await bp.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await bp.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await bp.reload();
+    const bst = () => bp.evaluate(() => window.__tdt());
+    const bcdp = await bctx.newCDPSession(bp);
+    const btouch = (type, pts) => bcdp.send('Input.dispatchTouchEvent', {
+      type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 25, radiusY: 25 })) });
+    const bmotion = async (n = 1) => {
+      for (let i = 0; i < n; i++) {
+        await bp.evaluate(() => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+          rotationRate: { alpha: 0, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })));
+        await bp.waitForTimeout(16);
+      }
+    };
+    const bsleep = async ms => { const t0 = Date.now(); while (Date.now() - t0 < ms) await bmotion(1); };
+    const bwobble = async (rate, n) => { for (let i = 0; i < n; i++) {
+      const r = i % 2 ? rate : -rate;
+      await bp.evaluate(r => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+        rotationRate: { alpha: r, beta: r, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), r);
+      await bp.waitForTimeout(16); } };
+    const bpress = async () => {                  // one full press: touch the trigger, pull 70 px back, lift; the phone stays still
+      await btouch('touchStart', [TRG]); await bmotion(3);
+      for (let dx = 20; dx <= 70; dx += 25) { await btouch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await bmotion(1); }
+      await bmotion(2); await btouch('touchEnd', []); await bmotion(3);
+    };
+    const bline = () => bp.textContent('#drillLine');
+    const brows = () => bp.$$eval('#drillResRows tr', trs => trs.map(tr => [...tr.children].map(td => td.textContent)));
+    const waitS = async (cond, maxMs) => {
+      const t0 = Date.now(); let s;
+      while (Date.now() - t0 < maxMs) { await bmotion(1); s = await bst(); if (cond(s)) return s; }
+      return s;
+    };
+    const shoot = p => process.env.WQ_SCREENSHOTS ? bp.screenshot({ path: p }) : null;   // PNGs only on request: npm test leaves the tree clean
+    const inView = async (sel, vw, vh) => {
+      const h = await bp.$(sel); await h.scrollIntoViewIfNeeded();
+      const b = await h.boundingBox();
+      return b && b.width > 0 && b.height > 0 && b.x >= 0 && b.x + b.width <= vw + 0.5 && b.y >= 0 && b.y + b.height <= vh + 0.5 ? true : b;
+    };
+    // Page-side frame observer (timestamps from performance.now() of the frame that first shows each change): the beep
+    // (rep 0 -> 1), each cue (positions done up), each shot of a position, the finger coming onto the frame, the results
+    // overlay opening, and every distinct drill line text. Independent of the engine's own event times.
+    const observeB = () => bp.evaluate(() => {
+      window.__bo = { ev: [], lines: [] };
+      if (window.__boOn) return; window.__boOn = true;
+      let rep = 0, done = 0, cur = 0, rest = false, res = false, line = null;
+      const f = () => {
+        const s = window.__tdt(), n = performance.now(), o = window.__bo, d = s.drill;
+        if (d) {
+          if (d.rep === 1 && rep === 0) o.ev.push({ k: 'beep', n });
+          if (d.rep !== rep) cur = 0;
+          rep = d.rep;
+          if (d.repsDone > done) o.ev.push({ k: 'cue', rep: d.repsDone, n });
+          done = d.repsDone;
+          for (; cur < d.curShots; cur++) o.ev.push({ k: 'shot', rep: d.rep, i: cur + 1, n });
+          if (d.curShots < cur) cur = d.curShots;
+        } else { rep = done = cur = 0; }
+        if (s.onRest && !rest) o.ev.push({ k: 'rest', n });
+        rest = s.onRest;
+        if (s.drillResOpen && !res) o.ev.push({ k: 'res', n });
+        res = s.drillResOpen;
+        const l = document.getElementById('drillLine').textContent;
+        if (l !== line) { o.lines.push({ l, n }); line = l; }
+        requestAnimationFrame(f);
+      };
+      requestAnimationFrame(f);
+    });
+    const BO = () => bp.evaluate(() => window.__bo);
+    const pick = (ev, k, pred = () => true) => ev.find(e => e.k === k && pred(e));
+    const FRM = 17, FR = 20;
+    const perf = () => bp.evaluate(() => performance.now());
+    const fingerBack = async () => { const a = await perf(); await btouch('touchStart', [REST]); const b = await perf(); return { a, b }; };
+    const startNextSpot = async () => { await btouch('touchEnd', []); await bmotion(3); };   // walk done: finger off the frame to fire
+    const waitBeep = () => waitS(x => x.drill && x.drill.rep === 1 && x.drill.phase === 'live', 6500);
+    // Fire n shots at the current spot with the finger off the frame, then the finger back on the frame.
+    const fireN = async n => { await startNextSpot(); for (let i = 0; i < n; i++) await bpress(); };
+    // A cue (repsDone === k): same frame as the finger's return, after two or more shots at the spot.
+    const checkCue = async (k, label) => {
+      const s = await waitS(x => x.drill.repsDone >= k, 1500);
+      const lo = await BO();
+      const cue = pick(lo.ev, 'cue', e => e.rep === k), rest = cue && [...lo.ev].reverse().find(e => e.k === 'rest' && e.n <= cue.n + 1);
+      const shots = lo.ev.filter(e => e.k === 'shot' && e.rep === k && e.n <= cue.n).length;
+      check(`WQ-029: ${label}: the cue frame is the finger-return frame (${cue && rest ? (cue.n - rest.n).toFixed(1) : '?'} ms apart, within one frame) and at least two shots came before it (${shots})`,
+        !!cue && !!rest && Math.abs(cue.n - rest.n) <= FR && shots >= 2, [lo.ev.slice(-10), s.drill]);
+      return cue;
+    };
+    const startOv = () => bp.$eval('#startOv', e => e.classList.contains('show'));
+    const lsGet = () => bp.evaluate(() => { try { return localStorage.getItem('tdt.drill'); } catch (e) { return 'ERR'; } });
+
+    // --- 1. picker: order, Box entry and diagram, screenshots, bounding boxes
+    await bp.click('#drillBtn');
+    const bids = await bp.$$eval('#drillList .drillOpt', els => els.map(e => e.dataset.id));
+    check("WQ-029: picker lists exactly ['freestyle','lowready','box','bill'] in D-93 order", JSON.stringify(bids) === '["freestyle","lowready","box","bill"]', bids);
+    const bnames = await bp.$$eval('#drillList .drillOpt', els => els.map(e => e.textContent));
+    check('WQ-029: the third entry is named Box Drill with its subtitle', /Box Drill/.test(bnames[2]) && /Four corners/.test(bnames[2]), bnames);
+    const svgs = {};
+    for (const id of ['freestyle', 'lowready', 'bill', 'box']) { await bp.click(`#drillList .drillOpt[data-id="${id}"]`); svgs[id] = await bp.$eval('#drillDiagram', e => e.innerHTML); }
+    check('WQ-029: highlighting Box Drill moves .sel and shows its own <svg> (the box diagram, different from the other three), selectable',
+      await bp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'box' && /^<svg/.test(svgs.box.trim()) && /fire 2 or more/.test(svgs.box) &&
+      ['freestyle', 'lowready', 'bill'].every(k => svgs[k] !== svgs.box) && !(await bp.$eval('#drillList .drillOpt[data-id="box"]', e => e.disabled || e.classList.contains('disabled'))));
+    const howBox = await bp.textContent('#drillHow');
+    check('WQ-029: the Box how-to mentions the four spots, the three beeps and finishing back at spot 1', /four spots/i.test(howBox) && /three beeps/i.test(howBox) && /spot 1/i.test(howBox), howBox);
+    for (const [name, vw, vh] of [['landscape', W, H], ['portrait', H, W]]) {
+      await bp.setViewportSize({ width: vw, height: vh }); await bp.waitForTimeout(250);
+      await bp.$eval('#drillOv', e => { e.scrollTop = 0; });
+      await shoot(path.join(shotDir, `picker-${name}.png`));
+      const reach = [];
+      for (const sel of ['#drillChoose', '#drillCancelBtn']) reach.push(await inView(sel, vw, vh));
+      check(`WQ-029: ${vw}x${vh}: #drillChoose and #drillCancelBtn are reachable and not clipped on the Box picker`, reach.every(r => r === true), reach);
+      const noH = await bp.evaluate(() => { const o = document.getElementById('drillOv'); return o.scrollWidth <= o.clientWidth + 1; });
+      check(`WQ-029: ${vw}x${vh}: the Box picker has no horizontal overflow`, noH);
+      const svgBox = await bp.$eval('#drillDiagram svg', e => { const b = e.getBoundingClientRect(); return { x: b.x, r: b.right, w: b.width, h: b.height }; });
+      check(`WQ-029: ${vw}x${vh}: the box diagram is fully inside the viewport and has a size`, svgBox.x >= 0 && svgBox.r <= vw + 0.5 && svgBox.w > 100 && svgBox.h > 50, svgBox);
+    }
+    await bp.setViewportSize({ width: W, height: H }); await bp.waitForTimeout(250);
+    await bp.click('#drillChoose');
+    check("WQ-029: Choose stores tdt.drill === 'box' and the button names Box Drill", await lsGet() === 'box' && /Box Drill/.test(await bp.textContent('#drillBtn')) && (await bst()).drillSel === 'box');
+    await bp.reload();
+    check('WQ-029: the Box choice survives a reload', (await bst()).drillSel === 'box' && /Box Drill/.test(await bp.textContent('#drillBtn')));
+
+    // --- 2. run 1 (alarm at spot 4): spot 1 plain, spot 2 three shots after a walk with the phone shaking (finger on the frame),
+    //        spot 3 finger back after ONE shot, spot 4 with an alarm, spot 5 plain.
+    await bp.click('#startBtn'); await bp.waitForTimeout(150);
+    await observeB();
+    let d = await bst();
+    check('WQ-029: after Start the Box run is in standby: rep 0, nothing done, no shots, line "Box Drill · finger on the frame, wait for the beep"',
+      d.drill && d.drill.id === 'box' && d.drill.phase === 'standby' && d.drill.rep === 0 && d.drill.repsDone === 0 && d.drill.curShots === 0 && d.drillRuns === 0 &&
+      await bline() === 'Box Drill · finger on the frame, wait for the beep', [d.drill, await bline()]);
+    await btouch('touchStart', [REST]); await bmotion(4);
+    d = await waitBeep();
+    let lo = await BO();
+    const rest1 = pick(lo.ev, 'rest'), beep1 = pick(lo.ev, 'beep');
+    check(`WQ-029: the beep came 1000-4000 ms (+ one frame) after the finger came onto the frame (${beep1 && rest1 ? (beep1.n - rest1.n).toFixed(0) : '?'} ms); the line says "Spot 1 of 5 · fire 2 or more"`,
+      !!beep1 && !!rest1 && beep1.n - rest1.n >= 1000 - FRM && beep1.n - rest1.n <= 4000 + 2 * FRM && await bline() === 'Spot 1 of 5 · fire 2 or more', [lo.ev, await bline()]);
+    await bsleep(1500);
+    await startNextSpot(); await bpress(); d = await bst();
+    check('WQ-029: spot 1: after one shot still live with 1 shot, line "Spot 1 · shot 1 of 2"',
+      d.drill.phase === 'live' && d.drill.rep === 1 && d.drill.curShots === 1 && await bline() === 'Spot 1 · shot 1 of 2', [d.drill, await bline()]);
+    await bpress(); d = await bst();
+    check('WQ-029: spot 1: the second shot gives phase finishing, no cue yet, line "Finger on the frame to move"',
+      d.drill.phase === 'finishing' && d.drill.curShots === 2 && d.drill.repsDone === 0 && await bline() === 'Finger on the frame to move', [d.drill, await bline()]);
+    await fingerBack(); await bmotion(3);
+    await checkCue(1, 'spot 1');
+    d = await bst();
+    check('WQ-029: after cue 1: spot 2 is live at once (rep 2, 0 shots, no beep, nothing pending), line "Move to spot 2 · fire 2 or more", one position done',
+      d.drill.phase === 'live' && d.drill.rep === 2 && d.drill.curShots === 0 && d.drill.repsDone === 1 && d.drill.cuePending === false && !d.drillResOpen && d.drillRuns === 0 &&
+      await bline() === 'Move to spot 2 · fire 2 or more', [d.drill, await bline()]);
+    // spot 2: the walk is the phone shaking with the finger on the frame: no alarm; three shots
+    await bwobble(80, 15); d = await bst();
+    check('WQ-029: walking to spot 2 (phone shaking, finger on the frame): no alarm, still live with no shots', !d.alarmActive && d.drill.phase === 'live' && d.drill.rep === 2 && d.drill.curShots === 0, d);
+    await bsleep(800);
+    await fireN(3); d = await bst();
+    check('WQ-029: spot 2: a third shot joins the position (finishing, 3 shots, still no cue)', d.drill.phase === 'finishing' && d.drill.curShots === 3 && d.drill.repsDone === 1, d.drill);
+    await fingerBack(); await bmotion(3);
+    await checkCue(2, 'spot 2 (three shots)');
+    d = await bst();
+    check('WQ-029: after cue 2: spot 3 live, line "Move to spot 3 · fire 2 or more"', d.drill.rep === 3 && d.drill.phase === 'live' && d.drill.repsDone === 2 && await bline() === 'Move to spot 3 · fire 2 or more', [d.drill, await bline()]);
+    // spot 3: finger back after ONE shot
+    await bsleep(800);
+    await fireN(1);
+    await fingerBack(); await bsleep(1200);
+    d = await bst(); lo = await BO();
+    check('WQ-029: spot 3: finger back on the frame after ONE shot, held 1.2 s: no cue, nothing pending, still live with 1 shot, line "Spot 3 · shot 1 of 2"',
+      d.drill.phase === 'live' && d.drill.curShots === 1 && d.drill.cuePending === false && d.drill.repsDone === 2 && d.drill.rep === 3 && !pick(lo.ev, 'cue', e => e.rep === 3) && await bline() === 'Spot 3 · shot 1 of 2', [d.drill, await bline()]);
+    await fireN(1); d = await bst();
+    check('WQ-029: spot 3: the second shot moves it to finishing', d.drill.phase === 'finishing' && d.drill.curShots === 2, d.drill);
+    await fingerBack(); await bmotion(3);
+    await checkCue(3, 'spot 3 (second shot after the 1.2 s hold)');
+    // spot 4: alarm (finger off the frame, phone shaken), shots fired in the alarm, finger back silences it
+    await bsleep(600);
+    await btouch('touchEnd', []); await bmotion(18);
+    await bwobble(80, 15); d = await bst();
+    check('WQ-029: spot 4: moving off the frame alarms (position still live)', d.alarmActive && d.alarmReason === 'move' && d.drill.phase === 'live' && d.drill.rep === 4, d);
+    await bpress(); await bpress(); d = await bst();
+    check('WQ-029: spot 4: two shots in the alarm, finishing, alarm still on', d.drill.phase === 'finishing' && d.drill.curShots === 2 && d.alarmActive, d);
+    await fingerBack(); await bmotion(3); d = await bst();
+    check('WQ-029: spot 4: the finger back on the frame silences the alarm', !d.alarmActive, d);
+    await checkCue(4, 'spot 4 (alarm)');
+    d = await bst();
+    check('WQ-029: after cue 4: spot 5 live, line "Back at spot 1 · fire 2 or more"', d.drill.rep === 5 && d.drill.phase === 'live' && await bline() === 'Back at spot 1 · fire 2 or more', [d.drill, await bline()]);
+    await bsleep(800);
+    await startNextSpot(); await bpress(); d = await bst();
+    check('WQ-029: spot 5: after one shot the line reads "Spot 1 (last) · shot 1 of 2"', d.drill.curShots === 1 && await bline() === 'Spot 1 (last) · shot 1 of 2', [d.drill, await bline()]);
+    await bpress(); d = await bst();
+    check('WQ-029: spot 5: after two shots finishing, the line reads "Finger on the frame to finish", no results yet', d.drill.phase === 'finishing' && !d.drillResOpen && await bline() === 'Finger on the frame to finish', [d.drill, await bline()]);
+    await fingerBack(); await bmotion(4); d = await bst(); lo = await BO();
+    // The observer counts finished positions (repsDone): positions 1-4 end in a cue, position 5 ends the run in the same frame as the results opening.
+    check('WQ-029: finger back at spot 5: results open, 1 run, engine paused, phase ended, five positions done; positions 1-4 each finished in their own frame, position 5 in the frame the results opened',
+      d.drillResOpen === true && d.drillRuns === 1 && d.paused === true && d.drill.phase === 'ended' && d.drill.repsDone === 5 && d.drill.result && d.drill.result.reps.length === 5 &&
+      lo.ev.filter(e => e.k === 'cue').map(e => e.rep).join() === '1,2,3,4,5' && Math.abs(pick(lo.ev, 'cue', e => e.rep === 5).n - pick(lo.ev, 'res').n) <= FR, [d, lo.ev.filter(e => e.k === 'cue')]);
+    const lines1 = lo.lines.map(x => x.l);
+    const rows = await brows(), res = d.drill.result, rowOf = k => (rows.find(r => r[0] === k) || [])[1];
+    check('WQ-029: results title says Box Drill; rows Spot 1, Spot 2, Spot 3, Spot 4, Spot 1 (last), Total (beep to last shot), With alarm, Best clean total this session (in that order)',
+      /Box Drill/.test(await bp.textContent('#drillResTitle')) &&
+      JSON.stringify(rows.map(r => r[0])) === JSON.stringify(['Spot 1', 'Spot 2', 'Spot 3', 'Spot 4', 'Spot 1 (last)', 'Total (beep to last shot)', 'With alarm', 'Best clean total this session']), rows);
+    // figures against the observer frames
+    const fr = (k, pred) => pick(lo.ev, k, pred);
+    const beepN = fr('beep').n, cueN = k => fr('cue', e => e.rep === k).n, shotN = (rp, i) => fr('shot', e => e.rep === rp && e.i === i).n;
+    const startN = rp => rp === 1 ? beepN : cueN(rp - 1);
+    const parse = v => { const m = /^time (\d+\.\d\d) s · (?:split (\d*\.\d\d) s|splits ((?:\d*\.\d\d)(?: · \d*\.\d\d)+) s) · (.*)$/.exec(v || ''); return m && { time: +m[1], splits: (m[2] ? [m[2]] : m[3].replace(/ s$/, '').split(' · ')).map(Number), grades: m[4] }; };
+    const nShots = { 1: 2, 2: 3, 3: 2, 4: 2, 5: 2 };
+    for (let rp = 1; rp <= 5; rp++) {
+      const label = rp === 5 ? 'Spot 1 (last)' : `Spot ${rp}`, p = parse(rowOf(label));
+      const expT = (shotN(rp, 1) - startN(rp)) / 1000, expS = []; for (let i = 2; i <= nShots[rp]; i++) expS.push((shotN(rp, i) - shotN(rp, i - 1)) / 1000);
+      check(`WQ-029: "${label}" row: time ${p && p.time} s / splits ${p && p.splits.join(' ')} match the observed frames (${expT.toFixed(3)} / ${expS.map(x => x.toFixed(3)).join(' ')}) within 40 ms`,
+        !!p && Math.abs(p.time - expT) <= 0.04 && p.splits.length === nShots[rp] - 1 && p.splits.every((x, i) => Math.abs(x - expS[i]) <= 0.04), [rowOf(label), expT, expS]);
+    }
+    check('WQ-029: spot 2 lists three grades; spot 3 (one-shot return) two; a single split is written "split .xx s", two splits "splits .xx · .xx"',
+      /Clean, Clean, Clean$/.test(rowOf('Spot 2')) && /^time \d+\.\d\d s · splits \d*\.\d\d · \d*\.\d\d s · /.test(rowOf('Spot 2')) && /^time \d+\.\d\d s · split \d*\.\d\d s · Clean, Clean$/.test(rowOf('Spot 3')), rows);
+    check('WQ-029: a split under 1 s drops the leading zero (".32", never "0.32") and a split of 1 s or more reads 1.xx: spot 1 "split .xx s", spot 2 "splits .xx · .xx s", spot 3 (1.2 s hold) "split 1.xx s"',
+      /^time \d+\.\d\d s · split \.\d\d s · Clean, Clean$/.test(rowOf('Spot 1')) && /^time \d+\.\d\d s · splits \.\d\d · \.\d\d s · /.test(rowOf('Spot 2')) &&
+      /^time \d+\.\d\d s · split 1\.\d\d s · Clean, Clean$/.test(rowOf('Spot 3')), rows);
+    check('WQ-029: the status texts are rendered from the def: "shot 1 of 2" / "fire 2 or more" appear with the def\'s shotsPerRep',
+      await bp.evaluate(() => TDT.DRILL_DEFS.box.shotsPerRep) === 2 && lines1.some(x => /^Spot 2 · shot 1 of 2$/.test(x)) && lines1.some(x => /^Move to spot 2 · fire 2 or more$/.test(x)), lines1);
+    check('WQ-029: spot 4 ends with "alarm" and lists alarm for both shots; spots 1, 2, 3 and 1 (last) carry no alarm mark and are graded',
+      /alarm, alarm · alarm$/.test(rowOf('Spot 4')) && ['Spot 1', 'Spot 2', 'Spot 3', 'Spot 1 (last)'].every(k => !/alarm/.test(rowOf(k)) && /(Clean|Moved|Jerked)/.test(rowOf(k))), rows);
+    const lastN = shotN(5, 2);
+    check(`WQ-029: Total is the beep to the LAST SHOT at spot 5, from the observed frames (${((lastN - beepN) / 1000).toFixed(3)} s), within 40 ms, and shorter than beep to the results opening (${((fr('res').n - beepN) / 1000).toFixed(3)} s)`,
+      /^\d+\.\d\d s$/.test(rowOf('Total (beep to last shot)') || '') && Math.abs(parseFloat(rowOf('Total (beep to last shot)')) - (lastN - beepN) / 1000) <= 0.04, [rowOf('Total (beep to last shot)'), lastN, beepN]);
+    check('WQ-029: result: only position 4 is marked (alarms 1, withAlarm), the run counts one alarm, no early shot; shot counts 2, 3, 2, 2, 2',
+      res.reps.map(p => p.withAlarm).join() === 'false,false,false,true,false' && res.reps[3].alarms === 1 && res.withAlarm === true && res.alarms === 1 && res.early === 0 &&
+      res.reps.map(p => p.shots.length).join() === '2,3,2,2,2' && res.reps[3].shots.every(x => x.unsafe), res);
+    check('WQ-029: the With alarm row names one alarm; Best clean total is a dash (the only run had an alarm); no Early row',
+      /^1 alarm /.test(rowOf('With alarm') || '') && rowOf('Best clean total this session') === '—' && !rows.some(r => /Early/.test(r[0])), rows);
+
+    // --- 3. Again -> run 2, clean: Best clean total is its own total. Status lines are collected over both runs.
+    await btouch('touchEnd', []);
+    await bp.click('#drillAgain'); await bp.waitForTimeout(100);
+    d = await bst();
+    check('WQ-029: Again hides the results and starts a new run in standby (rep 0); the run count stays 1', !d.drillResOpen && d.drill.phase === 'standby' && d.drill.rep === 0 && d.drillRuns === 1 && d.running, d);
+    await observeB();
+    await btouch('touchStart', [REST]);
+    d = await waitBeep();
+    for (let rp = 1; rp <= 5; rp++) {
+      if (rp > 1) await bsleep(500);
+      await fireN(2); await fingerBack(); await bmotion(4);
+      if (rp < 5) await checkCue(rp, `run 2, spot ${rp}`);
+    }
+    d = await bst(); lo = await BO();
+    const rows2 = await brows(), res2 = d.drill.result, rowOf2 = k => (rows2.find(r => r[0] === k) || [])[1];
+    check('WQ-029: run 2 ends: results open, 2 runs, paused, clean (no With alarm row, no alarms)',
+      d.drillResOpen && d.drillRuns === 2 && d.paused === true && res2.withAlarm === false && res2.alarms === 0 && !rows2.some(r => r[0] === 'With alarm'), [d.drillRuns, rows2]);
+    check(`WQ-029: Best clean total this session is this clean run (${res2.total}), shown as the Total row`,
+      rowOf2('Best clean total this session') === (res2.total / 1000).toFixed(2) + ' s' && rowOf2('Total (beep to last shot)') === (res2.total / 1000).toFixed(2) + ' s', rows2);
+    const lastN2 = pick(lo.ev, 'shot', e => e.rep === 5 && e.i === 2).n, beepN2 = pick(lo.ev, 'beep').n;
+    check(`WQ-029: run 2 Total matches the observed frames (${((lastN2 - beepN2) / 1000).toFixed(3)} s) within 40 ms`, Math.abs(res2.total - (lastN2 - beepN2)) <= 40, [res2.total, lastN2 - beepN2]);
+    const seen = new Set([...lines1, ...lo.lines.map(x => x.l)]);
+    for (const [name, text] of [['standby', 'Box Drill · finger on the frame, wait for the beep'], ['spot 1 live', 'Spot 1 of 5 · fire 2 or more'], ['spot 1 shot 1', 'Spot 1 · shot 1 of 2'],
+      ['spot 2 live', 'Move to spot 2 · fire 2 or more'], ['spot 3 live', 'Move to spot 3 · fire 2 or more'], ['spot 4 live', 'Move to spot 4 · fire 2 or more'], ['spot 2 shot 1', 'Spot 2 · shot 1 of 2'],
+      ['spot 3 shot 1', 'Spot 3 · shot 1 of 2'], ['spot 4 shot 1', 'Spot 4 · shot 1 of 2'], ['last live', 'Back at spot 1 · fire 2 or more'], ['last shot 1', 'Spot 1 (last) · shot 1 of 2'],
+      ['finishing', 'Finger on the frame to move'], ['finishing, last', 'Finger on the frame to finish']]) {
+      check(`WQ-029: the drill line showed ${name}: "${text}"`, seen.has(text), [...seen]);
+    }
+    for (const sel of ['#drillAgain', '#drillChange']) { const r = await inView(sel, W, H); check(`WQ-029: ${sel} is inside the 844x390 viewport on the Box results`, r === true, r); }
+    const cellsIn = async (vw) => bp.evaluate(vw => [...document.querySelectorAll('#drillResRows td')].every(td => { const b = td.getBoundingClientRect(); return b.right <= vw + 0.5 && b.left >= -0.5; }), vw);
+    check('WQ-029: all result cells are inside the 844-wide viewport', await cellsIn(W));
+    await bp.$eval('#drillResOv', e => { e.scrollTop = 0; });
+    await shoot(path.join(shotDir, 'results-landscape.png'));
+    await bp.evaluate(() => document.fullscreenElement ? document.exitFullscreen() : null); await bp.waitForTimeout(200);
+    await bp.setViewportSize({ width: H, height: W }); await bp.waitForTimeout(250);
+    for (const sel of ['#drillAgain', '#drillChange']) { const r = await inView(sel, H, W); check(`WQ-029: ${sel} is inside the 390x844 viewport on the Box results`, r === true, r); }
+    check('WQ-029: all result cells are inside the 390-wide viewport', await cellsIn(H));
+    const hs = await bp.evaluate(() => { const o = document.getElementById('drillResOv'); return o.scrollWidth <= o.clientWidth + 1; });
+    check('WQ-029: the Box results have no horizontal overflow at 390x844', hs);
+    await bp.$eval('#drillResOv', e => { e.scrollTop = 0; });
+    await shoot(path.join(shotDir, 'results-portrait.png'));
+    await bp.setViewportSize({ width: W, height: H }); await bp.waitForTimeout(250);
+
+    // --- 4. gear mid-run cancels (D-107) and the run restarts at spot 1; run 3 completes cleanly; Change drill
+    await btouch('touchEnd', []);
+    await bp.click('#drillAgain'); await bp.waitForTimeout(100);
+    await btouch('touchStart', [REST]);
+    d = await waitBeep();
+    await fireN(2); await fingerBack(); await bmotion(4);
+    await checkCue(1, 'run 3, spot 1');
+    await bsleep(300);
+    await fireN(1); await fingerBack(); await bmotion(3);
+    d = await bst();
+    check('WQ-029: run 3: spot 2 with one shot fired, finger on the frame (rep 2, 1 shot, one position done)', d.drill.rep === 2 && d.drill.curShots === 1 && d.drill.repsDone === 1, d.drill);
+    await bp.click('#gear'); await bp.waitForTimeout(120);
+    d = await bst();
+    check('WQ-029: gear mid-run cancels: engine paused, standby, rep 0, no positions done, no shots, no result, run count unchanged',
+      await bp.$eval('#settingsOv', e => e.classList.contains('show')) && d.paused && d.drill.phase === 'standby' && d.drill.rep === 0 && d.drill.repsDone === 0 && d.drill.curShots === 0 && d.drill.result === null && d.drillRuns === 2, d);
+    await bp.click('#doneBtn'); await bp.waitForTimeout(100);
+    check('WQ-029: after Resume the line says Cancelled and to restart', /^Cancelled/.test(await bline()) && /restart/i.test(await bline()), await bline());
+    await btouch('touchEnd', []); await bmotion(2); await btouch('touchStart', [REST]);
+    d = await waitBeep();
+    check('WQ-029: the run restarts at spot 1: a fresh beep, rep 1, no positions done, line "Spot 1 of 5 · fire 2 or more" (no Cancelled)',
+      d.drill.rep === 1 && d.drill.repsDone === 0 && d.drill.curShots === 0 && await bline() === 'Spot 1 of 5 · fire 2 or more', [d.drill, await bline()]);
+    for (let rp = 1; rp <= 5; rp++) { if (rp > 1) await bsleep(300); await fireN(2); await fingerBack(); await bmotion(4); if (rp < 5) await checkCue(rp, `run 3 after the cancel, spot ${rp}`); }
+    d = await bst();
+    const rows3 = await brows(), res3 = d.drill.result;
+    check('WQ-029: run 3 ends with the results open and 3 runs', d.drillResOpen && d.drillRuns === 3 && res3.reps.length === 5 && res3.withAlarm === false, [d.drillRuns, res3]);
+    check(`WQ-029: Best clean total is the smaller of the clean runs (run 2 ${res2.total}, run 3 ${res3.total}); the alarm run is excluded`,
+      (rows3.find(r => /^Best clean/.test(r[0])) || [])[1] === (Math.min(res2.total, res3.total) / 1000).toFixed(2) + ' s', [rows3, res.total, res2.total, res3.total]);
+    await btouch('touchEnd', []);
+    await bp.click('#drillChange'); await bp.waitForTimeout(100);
+    d = await bst();
+    check('WQ-029: Change drill: trainer stopped, start screen shown, results closed, drill is null; the stored choice stays Box',
+      d.running === false && d.drill === null && !d.drillResOpen && await startOv() && await lsGet() === 'box', d);
+    await bp.close(); await bctx.close();
   }
 
   check('no page errors', errors.length === 0, errors);

@@ -106,6 +106,35 @@ const S = {
     finished(t) { return this.mem.end != null && t >= this.mem.end + 0.4; },
     rot: t => ({ a: tiny(t), b: tiny(t + 2), g: 0 }),
   },
+  // Box Drill (WQ-029): five positions, seeded; the beep is 1-4 s after arming and every later position starts at the previous
+  // cue, which falls in the tick the finger is back on the frame after two or more shots. Adaptive like Low Ready (the
+  // generator reads engine.state.drill after each frame; the written log is a plain recording). Position 1: two presses,
+  // first trigger touch 0.6 s after the beep. Positions 2-5 begin at the cue: the walk is the finger held on the frame for
+  // 1 s, then the presses. Position 2 has three presses (the third shot stays in the position, one cue). Position 3 is the
+  // one-shot return: press, finger back on the frame for 1.3 s (no cue after a single shot), then the second press.
+  // The run ends 0.4 s after the drill end event.
+  'drill-box': {
+    live: true, drillAt: 0, drillId: 'box', drillSeed: 20261027, dur: 0,
+    mem: { rep: 0, t0: 0, end: null },
+    touches(t, eng) {
+      const d = eng.state.drill, m = this.mem;
+      if (!d) return [REST];
+      if (d.rep !== m.rep) { m.rep = d.rep; m.t0 = t; }   // the beep (rep 1) or a cue (rep 2-5) opens a position
+      if (d.phase === 'ended' && m.end == null) m.end = t;
+      if (m.rep === 0 || d.phase === 'ended') return [REST];
+      const u = t - m.t0, s = m.rep === 1 ? 0.6 : 1.0;
+      const starts = m.rep === 2 ? [s, s + 0.5, s + 1.0] : m.rep === 3 ? [s, s + 1.75] : [s, s + 0.5];
+      if (u < s) return [REST];                            // the walk: finger held on the frame
+      for (let k = 0; k < starts.length; k++) {
+        const uu = u - starts[k];
+        if (uu >= 0 && uu < 0.35) return [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (uu - 0.05) / 0.25)) * 70 })];
+      }
+      if (m.rep === 3 && u >= s + 0.45 && u < starts[1]) return [REST];   // back on the frame after ONE shot, held 1.3 s
+      return u < starts[starts.length - 1] + 0.35 + 0.1 ? [] : [REST];
+    },
+    finished(t) { return this.mem.end != null && t >= this.mem.end + 0.4; },
+    rot: t => ({ a: tiny(t), b: tiny(t + 2), g: 0 }),
+  },
   'axis-up': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 40, b: 0, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
   'axis-right': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 0, b: -40, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
 };

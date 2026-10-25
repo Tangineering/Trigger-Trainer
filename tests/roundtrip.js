@@ -244,6 +244,69 @@ const check = (name, cond, extra) => {
     resL.state.drillRuns.length === 1 && resL.state.drillRuns[0].reps.length === 5 && Math.abs(resL.state.drillRuns[0].total - endL[3]) < 0.001 && endL[2] === 'lowready', [resL.state.drillRuns.length, endL]);
   check('WQ-028: Low Ready recording: the results overlay paused the engine (no drillCancel observed)', lrLast.paused === true && obsL('drillCancel').length === 0);
   check('WQ-028: the earlier Bill and Freestyle recordings carry no drillCue', !recB.observed.concat(rec.observed, recH.observed).some(o => o[1] === 'drillCue'));
+  // WQ-029: a Box Drill run recorded in the page (five positions, picked through the picker and the recorder) replays with
+  // identical events. Position 2 returns the finger after ONE shot and holds it before the second (no cue); position 3 fires three.
+  await page.reload();
+  await page.evaluate(() => { navigator.canShare = undefined; });
+  await page.click('#drillBtn');
+  await page.click('#drillList .drillOpt[data-id="box"]');
+  await page.click('#drillChoose');
+  check('WQ-029: Box selected in the picker', await page.evaluate(() => window.__tdt().drillSel) === 'box');
+  await page.click('#startSettingsBtn');
+  check('WQ-029: the recorder offers the drill-box label', await page.$$eval('#recLabel option', os => os.some(o => o.value === 'drill-box')));
+  await page.selectOption('#recLabel', 'drill-box');
+  await page.fill('#recNotes', 'roundtrip test, Box Drill');
+  await page.click('#recStart'); await page.waitForTimeout(100);
+  check('WQ-029: Box recording started with the drill in standby at rep 0', await page.evaluate(() => {
+    const t = window.__tdt(); return t.recording && t.drill && t.drill.id === 'box' && t.drill.phase === 'standby' && t.drill.rep === 0; }));
+  await page.waitForTimeout(150);
+  const lineBox = () => page.textContent('#drillLine');
+  check('WQ-029: with no touch the drill line says to put the finger on the frame and wait for the beep', await lineBox() === 'Box Drill · finger on the frame, wait for the beep', await lineBox());
+  await touch('touchStart', [REST]); await motion(0, 0, 4);
+  const stBox = () => page.evaluate(() => window.__tdt());
+  const waitBox = async (cond, maxMs) => { const t1 = Date.now(); let x; while (Date.now() - t1 < maxMs) { await motion(0, 0, 1); x = await stBox(); if (cond(x)) return x; } return x; };
+  let boxOk = true, boxLast = await waitBox(x => x.drill && x.drill.rep === 1 && x.drill.phase === 'live', 5500), oneShotNoCue = false;
+  boxOk = !!(boxLast.drill && boxLast.drill.rep === 1 && boxLast.drill.phase === 'live');
+  const shotsAt = { 1: 2, 2: 2, 3: 3, 4: 2, 5: 2 };
+  for (let rp = 1; boxOk && rp <= 5; rp++) {
+    await touch('touchEnd', []); await motion(0, 0, 5);
+    if (rp === 2) {                                   // one shot, finger back on the frame for ~0.8 s: no cue; then the second shot
+      await press(); await touch('touchStart', [REST]); await motion(0, 0, 50);
+      const x = await stBox(); oneShotNoCue = x.drill.phase === 'live' && x.drill.curShots === 1 && x.drill.repsDone === 1;
+      await touch('touchEnd', []); await motion(0, 0, 4); await press();
+    } else for (let i = 0; i < shotsAt[rp]; i++) await press();
+    await touch('touchStart', [REST]); await motion(0, 0, 3);
+    boxLast = await waitBox(x => rp === 5 ? x.drillResOpen : x.drill.repsDone >= rp, 1500);
+    if (!(rp === 5 ? boxLast.drillResOpen : boxLast.drill.repsDone >= rp)) { boxOk = false; break; }
+    await motion(0, 0, 40);                           // the walk
+  }
+  boxLast = await waitBox(x => x.drillResOpen && x.paused, 3000);   // the page pauses the engine on the frame after the results open (bounded wait)
+  check('WQ-029: Box recording: all five positions ran live and the results opened, engine paused', boxOk && oneShotNoCue && boxLast.drillResOpen && boxLast.drillRuns === 1 && boxLast.paused === true, [boxOk, oneShotNoCue, boxLast]);
+  await touch('touchEnd', []);
+  await page.click('#drillChange');
+  const [dl6] = await Promise.all([page.waitForEvent('download'), page.$eval('#recPill', el => el.click())]);
+  const recX = JSON.parse(fs.readFileSync(await dl6.path(), 'utf8'));
+  const resX = TDT.replay(recX);
+  const obsX = k => recX.observed.filter(o => o[1] === k);
+  check("WQ-029: Box recording: label drill-box and the first log row is ['r', t, 'box', seed]",
+    recX.label === 'drill-box' && recX.log[0][0] === 'r' && recX.log[0][2] === 'box' && Number.isInteger(recX.log[0][3]) && recX.log[0][3] >= 0 && recX.log[0][3] < 2 ** 32, recX.log[0]);
+  check('WQ-029: Box recording: exactly one r row', recX.log.filter(r => r[0] === 'r').length === 1);
+  check('WQ-029: Box recording: observed has 1 drillBeep (rep 1), 4 drillCue (reps 1-4, "move"), 1 drillEnd, 0 drillCancel',
+    obsX('drillBeep').length === 1 && obsX('drillBeep')[0][2] === 1 && obsX('drillCue').length === 4 && obsX('drillCue').every((o, i) => o[2] === 'move' && o[3] === i + 1) &&
+    obsX('drillEnd').length === 1 && obsX('drillCancel').length === 0, recX.observed.filter(o => /drill/.test(o[1])));
+  check('WQ-029: Box recording: each cue and the end carry the same t as an ok event (the finger returning)',
+    obsX('drillCue').concat(obsX('drillEnd')).every(c => recX.observed.some(o => o[1] === 'ok' && o[0] === c[0])), recX.observed.filter(o => /drill|ok/.test(o[1])));
+  check('WQ-029: Box recording: eleven shots in all (2, 2, 3, 2, 2) and no cue between the one shot and its second shot',
+    obsX('shot').length === 11 && (() => { const sh = obsX('shot').map(o => o[0]), c = obsX('drillCue').map(o => o[0]);
+      return !c.some(t => t > sh[2] && t < sh[3]) && c[0] < sh[2] && c[1] > sh[3]; })(), recX.observed.filter(o => /drill|shot/.test(o[1])));
+  check(`WQ-029: Box recording: replay reproduces the live events exactly (${recX.observed.length} events)`,
+    JSON.stringify(recX.observed) === JSON.stringify(resX.packed), { live: recX.observed, replay: resX.packed });
+  const endX = recX.observed.find(o => o[1] === 'drillEnd');
+  const lastShotX = obsX('shot').map(o => o[0]).pop(), beepX = obsX('drillBeep')[0][0];
+  check('WQ-029: Box recording: the replayed run has five positions; its total matches the live drillEnd total and is the last shot minus the beep',
+    resX.state.drillRuns.length === 1 && resX.state.drillRuns[0].reps.length === 5 && Math.abs(resX.state.drillRuns[0].total - endX[3]) < 0.001 && endX[2] === 'box' &&
+    Math.abs(endX[3] - (lastShotX - beepX)) < 0.01, [resX.state.drillRuns.length, endX, lastShotX - beepX]);
+  check('WQ-029: Box recording: the results overlay paused the engine (no drillCancel observed)', boxLast.paused === true && obsX('drillCancel').length === 0);
   check('no page errors', errors.length === 0, errors);
 
   await browser.close();
