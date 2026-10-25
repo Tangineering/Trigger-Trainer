@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-030
+next_id: WQ-031
 updated: 2026-10-25
 ```
 
@@ -31,6 +31,7 @@ updated: 2026-10-25
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
+| WQ-030 | Make frame contact and trigger contact mutually exclusive across touches (D-111) | P1 | M | queued | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 
@@ -48,6 +49,70 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 ---
 
 ## Items
+
+### WQ-030 — Make frame contact and trigger contact mutually exclusive across touches (D-111)
+
+- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** alarm · **Env:** any
+- **Added:** 2026-10-25 by queue-add session (Ricky's request)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Ricky (2026-10-25, D-111): the engine must not accept two fingers at once. Today a student can keep one
+finger flat on the frame strip and press the trigger with another: `updateTrigger()` (`engine.js:409`) engages the
+first touch found in `zoneFor('trigger', vw)` regardless of other touches, and `restTouch()` (`engine.js:397`)
+returns any touch in `ZONES.rest` except the engaged trigger touch (D-75). So the trainer reads "safe" and "on the
+trigger" at the same time, which defeats the drill. The reverse also works: with the trigger engaged, a second finger
+on the frame strip sets `onRest` and silences the off-frame alarm and drift limit (D-56). D-75 already keeps the trigger
+touch itself out of frame contact; D-111 extends exclusion to *other* touches. D-112 (Claude, proposed) fixes the open
+details. Real recordings contain multi-touch rows (counted 2026-10-25 by unpacking every `t` row with
+`TDT.unpackTouchList`): `pixel-11/tdt-free-2026-10-20-22-40-27.json` (813 rows with >1 touch),
+`pixel-11/tdt-free-2026-10-20-23-27-38.json` (5753), `iphone-15/tdt-free-2026-10-21-03-38-03.json` (1); no other
+recording has any.
+
+**Scope.**
+- `engine.js`: keep a set of refused touch ids (e.g. `st.refused`, created in the state at `engine.js:281`ff, cleared
+  of ids no longer in the list on every `touches()` call, emptied by a pause in `setPaused`). Rules (D-111, D-112):
+  - In `updateTrigger()`, a touch entering the trigger zone does not engage while any *other*, non-refused touch is
+    in `ZONES.rest` (raw zone test, not the debounced `onRest`, D-112 c); it is added to the refused set and never
+    engages until it is lifted (D-112 a). A single touch sliding from the strip into the trigger zone still engages
+    (D-112 b) — it is the only touch, so nothing refuses it.
+  - In `restTouch()`, a touch other than the engaged trigger touch that is in `ZONES.rest` while the trigger is
+    engaged is added to the refused set and never counts as frame contact until lifted, even after the trigger
+    touch lifts (D-112 a). Refused touches are skipped in both functions.
+  - Tie in one `touches()` call with neither present before: frame wins, the trigger touch is refused (D-112 d).
+    Since `restTouch()` runs in `tick()` and `updateTrigger()` in `touches()`, make the decision in `touches()` (or a
+    helper both call) so the outcome does not depend on tick timing; replays must stay deterministic.
+  - Mouse fallback (`onMouse`) is single-pointer; nothing to change there. `index.html` needs no change unless a
+    test hook in `window.__tdt()` is useful (e.g. `refused` count) — keep `__tdt` read-only.
+- Bump `VERSION` (outputs change for the same inputs; 0.15.0 → 0.16.0).
+- Run `npm run test:replay` before and after; report which recordings change outcome (expected: the three `free`
+  recordings above, possibly only in events, not in drill expectations). Do not edit recordings (CLAUDE.md working
+  rules); if a drill expectation fails, stop and report instead of loosening it.
+- Add synthetic coverage: `tests/smoke.js` checks (CDP multi-touch is already used there) for (1) finger on frame +
+  second finger pulls the trigger → no `trigOn`, no `shot`, state stays SAFE; (2) after that the frame finger lifts,
+  the refused trigger finger still pulls → still no shot until it is lifted and placed again; (3) trigger engaged +
+  second finger on the strip → state stays off-frame (movement alarms as usual, no OK tone); (4) one finger sliding
+  from the strip into the trigger zone and pulling still fires. Optionally a synthetic recording in
+  `tests/make-synthetic.js` (`two-finger`) with an expectation in `tests/expectations.js`.
+- Docs (hub files, append-only blocks): a `## WQ-030` block in `CLAUDE.md` describing the rule and the refused set,
+  and one line in the Behavior spec bullet list ("**One finger** (D-111): …") next to the "Trigger wins" bullet;
+  any further detail decided goes in `docs/DECISIONS.md` as `Claude (proposed)`.
+- Out of scope: trigger geometry, zones, pull distance, the frame debounce (`K.REST_LOSS_DEBOUNCE_MS`), the drills,
+  any page layout; the stale synthetic set in the parking lot (regenerate only the new file).
+
+**Acceptance.**
+- Agent-verifiable: `npm test` passes (all three suites); the four smoke scenarios above pass; `VERSION` is 0.16.0;
+  the completion entry lists every recording whose replayed events change and says no drill expectation changed.
+- Owner-verifiable: on a real iPhone and a real Android phone, with one finger flat on the frame a second finger
+  cannot fire the trigger; with the trigger held a second finger on the strip gives no OK tone and the movement
+  alarm still sounds; a normal one-finger press still fires.
+
+**Verification.** `npm run test:replay` output before/after (outcome changes quoted in the completion entry);
+`npm test` totals; the orchestrator returns the item `blocked:owner-machine` for the phone half.
+
+**Notes.** If Ricky prefers the refused touch to become valid once the other finger lifts (instead of D-112 a), only
+the "until lifted" bookkeeping changes; ask in `OPEN_QUESTIONS.md` rather than guess if the phone check suggests it.
+
+---
 
 ### WQ-006 — Record axis and clean-press drills on an iPhone and a second Android phone
 
