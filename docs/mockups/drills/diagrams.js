@@ -90,4 +90,30 @@ const bill = svg(`
   ${T(124,164,'stays still. Full trigger reset each shot.',{c:C.muted})}
   ${done(130,180)}${T(144,184,'Finger back on frame → finish tone',{c:C.safe,fs:10.5})}`);
 
-module.exports = { freestyle, box, bill, lr };
+// Transitions (mockup for the next queue item): low ready, one beep, five pairs of two shots across targets;
+// from the first to the tenth shot movement with the finger on the trigger does not alarm.
+const TX=[62,180,298];
+const pairX=[96,148,200,252,304];
+const transitions = svg(`
+  ${T(180,12,'▲ DOWNRANGE',{a:'middle',c:C.muted,fs:9.5,w:600})}
+  ${TX.map(x=>target(x,40,15)).join('')}
+  ${T(62,70,'pairs 1 · 5',{a:'middle',fs:9.5,c:C.muted})}${T(180,70,'pairs 2 · 4',{a:'middle',fs:9.5,c:C.muted})}${T(298,70,'pair 3',{a:'middle',fs:9.5,c:C.muted})}
+  <path d="M84,32 Q121,14 156,32" fill="none" stroke="${C.trig}" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#ah-trig)"/>
+  <path d="M202,32 Q239,14 274,32" fill="none" stroke="${C.trig}" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#ah-trig)"/>
+  <path d="M274,50 Q239,64 204,50" fill="none" stroke="${C.trig}" stroke-width="1.4" stroke-dasharray="3 3" stroke-opacity=".7" marker-end="url(#ah-trig)"/>
+  <path d="M156,50 Q121,64 86,50" fill="none" stroke="${C.trig}" stroke-width="1.4" stroke-dasharray="3 3" stroke-opacity=".7" marker-end="url(#ah-trig)"/>
+  ${T(180,86,'Transition with the finger on the trigger',{a:'middle',fs:10,c:C.trig})}
+  <rect x="${pairX[0]-10}" y="98" width="${pairX[4]+22-pairX[0]}" height="40" rx="6" fill="${C.trig}" fill-opacity=".14" stroke="${C.trig}" stroke-width="1.2"/>
+  <line x1="14" y1="124" x2="346" y2="124" stroke="${C.steel}" stroke-width="2"/>
+  <path d="M18,118 h5 l7,-6 v24 l-7,-6 h-5z" fill="${C.warn}"/>
+  ${T(26,150,'BEEP',{a:'middle',c:C.warn,w:700,fs:9.5})}
+  ${pairX.map((x,i)=>`<line x1="${x}" y1="114" x2="${x}" y2="134" stroke="${C.bad}" stroke-width="3"/><line x1="${x+12}" y1="114" x2="${x+12}" y2="134" stroke="${C.bad}" stroke-width="3"/>${T(x+6,110,i+1,{a:'middle',w:700,fs:10})}`).join('')}
+  ${pairX.slice(1).map((x,i)=>`<path d="M${pairX[i]+16},128 Q${(pairX[i]+12+x)/2},120 ${x-4},128" fill="none" stroke="${C.trig}" stroke-width="1.4"/>`).join('')}
+  ${T(200,150,'movement on the trigger allowed: shot 1 → shot 10',{a:'middle',fs:9.5,c:C.trig})}
+  ${T(50,104,'normal',{a:'middle',fs:9,c:C.muted})}${T(50,114,'alarms',{a:'middle',fs:9,c:C.muted})}
+  ${T(336,104,'normal',{a:'middle',fs:9,c:C.muted})}${T(336,114,'alarms',{a:'middle',fs:9,c:C.muted})}
+  ${T(14,172,'Low ready, finger on the frame → beep → raise,',{fs:10.5})}
+  ${T(14,186,'two shots per target, five pairs',{fs:10.5,c:C.muted})}
+  ${done(262,180)}${T(276,177,'Finger on frame',{fs:10,c:C.safe})}${T(276,189,'→ finish tone',{fs:10,c:C.safe})}`);
+
+module.exports = { freestyle, box, bill, lr, transitions };
