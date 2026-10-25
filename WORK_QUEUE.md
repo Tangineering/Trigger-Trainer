@@ -33,7 +33,7 @@ updated: 2026-10-25
 |----|-------|-----|------|--------|------------|-------|
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-030 | Transitions drill: ten shots, movement on the trigger allowed (D-111, D-112) | P2 | L | queued | — | drills |
+| WQ-030 | Transitions drill: ten shots, movement on the trigger allowed (D-111, D-112) | P2 | L | claimed:round-20261025-3 | — | drills |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -187,7 +187,7 @@ WQ-022.
 
 ### WQ-030 — Transitions drill: ten shots, movement on the trigger allowed (D-111, D-112)
 
-- **Status:** queued · **Priority:** P2 · **Size:** L · **Track:** drills · **Env:** any
+- **Status:** claimed:round-20261025-3 · **Priority:** P2 · **Size:** L · **Track:** drills · **Env:** any
 - **Added:** 2026-10-25 by exploratory session (Transitions mockup)
 - **Depends on:** — · **Blocks:** —
 
