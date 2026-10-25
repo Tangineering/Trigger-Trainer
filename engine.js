@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.16.0';
+  const VERSION = '0.17.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -293,6 +293,8 @@
       qOff: null, devOff: 0,                       // orientation when the finger left the frame; drift from it (deg, D-56)
       trig: null, lastTrace: null, shots: [], tally: newTally(),
       touches: new Map(),
+      ctrl: null,                                  // id of the one touch that controls the engine (D-113, D-115)
+      ignored: new Set(),                          // ids of touches ignored until lifted (D-115); see touches()
       axisEst: null,                               // advisory gyro-axis estimate {cand, margin, motionS, windows} (D-57)
       drill: null,                                 // current drill run (null = Freestyle); see startDrill()
       drillRuns: [],                               // results of the runs finished this session (resetStats clears)
@@ -390,20 +392,52 @@
     /** list = [{id, cx, cy, rx, ry}] in CSS px; w/h = viewport */
     function touches(t, list, w, h) {
       if (w) vw = w; if (h) vh = h;
+      const seen = new Set(st.touches.keys());   // ids of the previous call: a touch not in it is new
       st.touches.clear();
       for (const p of list) {
         let x = p.cx / vw;
         if (S.hand === 'left') x = 1 - x;
         st.touches.set(p.id, { x, y: p.cy / vh, cx: p.cx });
       }
+      resolveControl(seen);
       if (!st.paused) updateTrigger(t);
     }
 
+    // One finger (D-113, D-115): decided here, the only place a new touch id is first seen, and kept in state
+    // (`st.ctrl`, `st.ignored`), so it never depends on tick timing or pauses. A touch wants control while it is the
+    // engaged trigger touch or lies in the frame strip or the trigger zone (raw zone test, not the debounced onRest,
+    // D-114 c). The controller keeps control while it wants it. A touch first seen while a touch controls is ignored
+    // until it is lifted, wherever it moves; so is a touch already down that enters a zone while another controls.
+    // With no controller, the first touch wanting control takes it (a frame touch before a trigger touch, D-114 d;
+    // otherwise list order); the other new touches of that call are ignored.
+    function resolveControl(seen) {
+      for (const id of st.ignored) if (!st.touches.has(id)) st.ignored.delete(id);
+      const trigZone = zoneFor('trigger', vw);
+      const inRest = tc => inZone(tc, ZONES.rest);
+      const wants = (id, tc) => (st.trig && st.trig.id === id) || inRest(tc) || inZone(tc, trigZone);
+      if (st.ctrl != null && !(st.touches.has(st.ctrl) && wants(st.ctrl, st.touches.get(st.ctrl)))) st.ctrl = null;
+      if (st.ctrl == null) {
+        let pick = null, pickRest = false;
+        for (const [id, tc] of st.touches) {
+          if (st.ignored.has(id) || !wants(id, tc)) continue;
+          if (pick == null || (inRest(tc) && !pickRest)) { pick = id; pickRest = inRest(tc); }
+        }
+        st.ctrl = pick;
+      }
+      if (st.ctrl == null) return;
+      for (const [id, tc] of st.touches) {
+        if (id === st.ctrl || st.ignored.has(id)) continue;
+        if (!seen.has(id) || wants(id, tc)) st.ignored.add(id);
+      }
+    }
+
     // D-75: the touch that engaged the trigger never counts as frame contact, wherever it moves.
+    // D-115: an ignored touch never counts as frame contact.
     function restTouch() {
       let best = null;
       for (const [id, tc] of st.touches) {
         if (st.trig && id === st.trig.id) continue;
+        if (st.ignored.has(id)) continue;
         if (!inZone(tc, ZONES.rest)) continue;
         best = tc;
       }
@@ -416,6 +450,7 @@
       if (st.trig && !st.touches.has(st.trig.id)) endTrigger(t);
       if (!st.trig) {
         for (const [id, tc] of st.touches) {
+          if (st.ignored.has(id)) continue;                            // D-115: an ignored touch never engages
           if (inZone(tc, zoneFor('trigger', vw))) {
             st.trig = { id, base: rearPx(tc), pull: 0, fired: false, breakT: 0, breakIdx: -1,
                         oh: st.aimH, ov: st.aimV, trace: [], moveMs: 0, minPull: 0 };

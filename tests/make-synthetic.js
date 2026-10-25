@@ -173,6 +173,28 @@ const S = {
       return { a: tiny(t), b: tiny(t + 2), g: 0 };
     },
   },
+  // One finger (WQ-031, D-113, D-115). Finger on the frame from 0 s. 1.0-2.6 s: a second finger (id 3) on the trigger pulls
+  // 70 px while the frame finger stays (ignored); the frame finger lifts at 1.8 s, the ignored finger slides forward and
+  // pulls again, lifts at 2.6 s. 3.0-3.4 s: a fresh finger (id 4) on the trigger pulls 70 px and holds the shot; at
+  // 3.6 s a second finger (id 5) lands on the strip beside it (ignored: no OK tone); the trigger finger lifts at 4.2 s, the
+  // strip finger stays until 4.8 s. 5.2 s: a fresh finger on the frame. The phone stays still throughout.
+  'two-finger': {
+    dur: 6,
+    touches: t => {
+      const pull = (id, t0) => Object.assign({}, TRG, { id, cx: TRG.cx - Math.max(0, Math.min(1, (t - t0) / 0.3)) * 70 });
+      const strip = id => Object.assign({}, REST, { id, cx: REST.cx + 40 });
+      if (t < 1.0) return [REST];
+      if (t < 1.8) return [REST, pull(3, 1.2)];
+      if (t < 2.6) return [pull(3, 2.1)];
+      if (t < 3.0) return [];
+      if (t < 3.6) return [pull(4, 3.1)];
+      if (t < 4.2) return [pull(4, 3.1), strip(5)];
+      if (t < 4.8) return [strip(5)];
+      if (t < 5.2) return [];
+      return [REST];
+    },
+    rot: t => ({ a: tiny(t), b: tiny(t + 2), g: 0 }),
+  },
   'axis-up': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 40, b: 0, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
   'axis-right': { dur: 3, touches: () => [REST], rot: t => between(t, 1, 1.5) ? { a: 0, b: -40, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
 };

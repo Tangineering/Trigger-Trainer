@@ -462,6 +462,9 @@ const check = (name, cond, state) => {
     const lineText = () => dp.textContent('#drillLine');
     // One full press: touch the trigger, pull 70 px back, lift. The phone stays still.
     const press = async () => {
+      // WQ-031 (D-115): CDP keeps a point down until a touchEnd lists it, so touchStart [TRG] alone would add a second
+      // finger beside the frame finger (ignored now); lift every point first (throws if none is down).
+      await dtouch('touchEnd', []).catch(() => {});
       await dtouch('touchStart', [TRG]); await dmotion(3);
       for (let dx = 20; dx <= 70; dx += 25) { await dtouch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await dmotion(1); }
       await dmotion(2); await dtouch('touchEnd', []); await dmotion(3);
@@ -854,6 +857,9 @@ const check = (name, cond, state) => {
         rotationRate: { alpha: r, beta: r, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), r);
       await lp.waitForTimeout(16); } };
     const lpress = async () => {                  // one full press: touch the trigger, pull 70 px back, lift; the phone stays still
+      // WQ-031 (D-115): CDP keeps a point down until a touchEnd lists it, so touchStart [TRG] alone would add a second
+      // finger beside the frame finger (ignored now); lift every point first (throws if none is down).
+      await ltouch('touchEnd', []).catch(() => {});
       await ltouch('touchStart', [TRG]); await lmotion(3);
       for (let dx = 20; dx <= 70; dx += 25) { await ltouch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await lmotion(1); }
       await lmotion(2); await ltouch('touchEnd', []); await lmotion(3);
@@ -1193,6 +1199,9 @@ const check = (name, cond, state) => {
         rotationRate: { alpha: r, beta: r, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), r);
       await bp.waitForTimeout(16); } };
     const bpress = async () => {                  // one full press: touch the trigger, pull 70 px back, lift; the phone stays still
+      // WQ-031 (D-115): CDP keeps a point down until a touchEnd lists it, so touchStart [TRG] alone would add a second
+      // finger beside the frame finger (ignored now); lift every point first (throws if none is down).
+      await btouch('touchEnd', []).catch(() => {});
       await btouch('touchStart', [TRG]); await bmotion(3);
       for (let dx = 20; dx <= 70; dx += 25) { await btouch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await bmotion(1); }
       await bmotion(2); await btouch('touchEnd', []); await bmotion(3);
@@ -1783,6 +1792,110 @@ const check = (name, cond, state) => {
     await tp.click('#doneBtn'); await tp.waitForTimeout(100);
     check('WQ-030: no page errors in this section', errors.filter(e => e.startsWith('transitions page')).length === 0, errors);
     await tp.close(); await tctx.close();
+  }
+
+  // WQ-031: one finger (D-113, D-114 b-d, D-115). Only a touch that lands while no other touch controls (frame contact or
+  // the engaged trigger) can count; a later finger is ignored until it is lifted. CDP keeps a point down until a
+  // touchEnd lists it (touchEnd [] lifts all), so one finger of two is lifted with touchEnd [that finger].
+  {
+    const octx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+    const op = await octx.newPage();
+    op.on('pageerror', e => errors.push('one-finger page: ' + e.message));
+    await op.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await op.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await op.reload();
+    await op.click('#startBtn'); await op.waitForTimeout(150);
+    const ost = () => op.evaluate(() => window.__tdt());
+    const ocdp = await octx.newCDPSession(op);
+    const otouch = (type, pts) => ocdp.send('Input.dispatchTouchEvent', {
+      type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 25, radiusY: 25 })) });
+    const omotion = async (n = 1, rate = 0) => {
+      for (let i = 0; i < n; i++) {
+        await op.evaluate(a => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+          rotationRate: { alpha: a, beta: a, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })), rate);
+        await op.waitForTimeout(16);
+      }
+    };
+    const owobble = async (rate, n = 15) => { for (let i = 0; i < n; i++) await omotion(1, i % 2 ? rate : -rate); };
+    // Wait for rendered frames (rAF), not wall time: n frames of the page's own loop.
+    const frames = n => op.evaluate(n => new Promise(r => { let k = 0; const f = () => (++k >= n ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
+    const T2 = id => [TRG[0], TRG[1], id], P2 = (dx, id) => [TRG[0] - dx, TRG[1], id];
+    const R1 = [REST[0], REST[1], 1], R4 = [REST[0] + 40, REST[1], 4];
+    let o;
+
+    await otouch('touchStart', [R1]); await omotion(5); await frames(3);
+    o = await ost(); check('WQ-031: finger on the frame arms and is safe', o.armed && o.onRest && o.ignored === 0, o);
+
+    // (1) finger on the frame + a second finger pulls the trigger: no trigger contact, no shot, still safe.
+    await otouch('touchStart', [R1, T2(2)]); await omotion(3);
+    for (let dx = 20; dx <= 75; dx += 15) { await otouch('touchMove', [R1, P2(dx, 2)]); await omotion(2); }
+    await frames(3);
+    o = await ost();
+    check('WQ-031 (1): a second finger on the trigger while the frame finger controls: no trigger contact, no shot, safe',
+      o.trig === null && o.shots === 0 && o.onRest && o.armed && !o.alarmActive && o.ignored === 1, o);
+
+    // (2) the frame finger lifts while the second finger is still down and pulls again: still nothing, and off the frame.
+    await otouch('touchEnd', [R1]); await omotion(2);
+    await otouch('touchMove', [P2(0, 2)]); await omotion(2);
+    for (let dx = 20; dx <= 75; dx += 15) { await otouch('touchMove', [P2(dx, 2)]); await omotion(2); }
+    await omotion(10); await frames(3);
+    o = await ost();
+    check('WQ-031 (2): the frame finger lifts, the ignored finger pulls again: no trigger contact, no shot, off the frame',
+      o.trig === null && o.shots === 0 && !o.onRest && !o.restContact && o.ignored === 1 && !o.alarmActive, o);
+    await otouch('touchEnd', []); await omotion(3);
+    o = await ost(); check('WQ-031 (2): lifting the ignored finger drops it from the ignored set', o.ignored === 0, o);
+    await otouch('touchStart', [T2(3)]); await omotion(3);
+    o = await ost(); check('WQ-031 (2): the same finger placed again on the trigger engages', !!o.trig && !o.trig.fired, o);
+    for (let dx = 20; dx <= 70; dx += 25) { await otouch('touchMove', [P2(dx, 3)]); await omotion(2); }
+    await frames(2);
+    o = await ost(); check('WQ-031 (2): ... and fires normally', o.shots === 1 && !!o.trig && o.trig.fired && !o.alarmActive, o);
+    await otouch('touchEnd', []); await omotion(25);
+
+    // (3) trigger engaged + a second finger on the strip: no frame contact (no OK tone), movement alarms as usual; after the
+    // trigger finger lifts the strip finger still gives no frame contact.
+    await otouch('touchStart', [R1]); await omotion(8);
+    o = await ost(); check('WQ-031 (3): back on the frame: safe', o.onRest && !o.alarmActive, o);
+    await otouch('touchEnd', []); await omotion(25);
+    await otouch('touchStart', [T2(2)]); await omotion(3);
+    await otouch('touchStart', [T2(2), R4]); await omotion(8); await frames(3);
+    o = await ost();
+    check('WQ-031 (3): trigger engaged, a second finger on the strip: no frame contact (no OK tone)',
+      !!o.trig && !o.onRest && !o.restContact && o.ignored === 1 && !o.alarmActive, o);
+    const v3 = o.violations;
+    await owobble(80); await omotion(5);
+    o = await ost();
+    check('WQ-031 (3): ... and moving alarms as usual', o.alarmActive && o.alarmReason === 'move' && o.violations === v3 + 1, o);
+    await otouch('touchEnd', [T2(2)]); await omotion(10); await frames(3);
+    o = await ost();
+    check('WQ-031 (3): the trigger finger lifts: the strip finger still gives no frame contact, the alarm holds',
+      o.trig === null && !o.onRest && !o.restContact && o.alarmActive && o.ignored === 1, o);
+    await otouch('touchEnd', []); await omotion(3);
+    await otouch('touchStart', [R1]); await omotion(8);
+    o = await ost(); check('WQ-031 (3): a fresh finger on the strip clears the alarm', o.onRest && !o.alarmActive && o.ignored === 0, o);
+
+    // (4) two fingers laid on the frame one after the other; the first lifts: frame contact is lost.
+    await otouch('touchStart', [R1, R4]); await omotion(5);
+    o = await ost(); check('WQ-031 (4): a second finger on the frame is ignored', o.onRest && o.ignored === 1, o);
+    await otouch('touchEnd', [R1]); await omotion(10); await frames(3);
+    o = await ost();
+    check('WQ-031 (4): the first finger lifts: frame contact is lost although the second is still on the strip',
+      !o.onRest && !o.restContact && o.ignored === 1, o);
+    await otouch('touchEnd', []); await omotion(3);
+
+    // (5) one finger slides from the strip into the trigger zone and pulls: it fires (D-114 b).
+    await otouch('touchStart', [R1]); await omotion(8);
+    o = await ost(); check('WQ-031 (5): finger on the frame, safe', o.onRest && !o.alarmActive && o.ignored === 0, o);
+    const shots5 = o.shots;
+    for (let k = 1; k <= 4; k++) {
+      await otouch('touchMove', [[REST[0] + (TRG[0] - REST[0]) * k / 4, REST[1] + (TRG[1] - REST[1]) * k / 4, 1]]); await omotion(2);
+    }
+    o = await ost(); check('WQ-031 (5): sliding the same finger into the trigger zone engages', !!o.trig && !o.trig.fired && !o.onRest, o);
+    for (let dx = 20; dx <= 70; dx += 25) { await otouch('touchMove', [P2(dx, 1)]); await omotion(2); }
+    await frames(2);
+    o = await ost(); check('WQ-031 (5): ... and the pull fires', o.shots === shots5 + 1 && o.trig && o.trig.fired && !o.alarmActive, o);
+    await otouch('touchEnd', []); await omotion(3);
+    check('WQ-031: no page errors in this section', errors.filter(e => e.startsWith('one-finger page')).length === 0, errors);
+    await op.close(); await octx.close();
   }
 
   check('no page errors', errors.length === 0, errors);

@@ -26,6 +26,8 @@
 - **Press, don't slap:** slow rearward press; watch the blue trace and the shot dot. Green ring = clean.
 - **Reset and follow-up:** after a shot, let the trigger forward until it re-arms, press again.
 - **Back to the frame:** after every string, finger flat on the frame → OK tone before moving.
+- **One finger at a time:** only the finger that touched first counts; a second finger on the frame or the trigger is
+  ignored until it is lifted, so the same finger must leave the frame to reach the trigger.
 - **Finger on the trigger is not a rest:** resting the fingertip on the trigger and moving alarms, and so does
   moving during a press. One short jerk during the press is graded, not alarmed; anything longer, or
   several wobbles adding up to more than about a third of a second (300 ms by default), alarms. A jerk
