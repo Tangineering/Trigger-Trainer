@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-040 — Add a browser-support and known-issues section to the README
+
+- **Closed:** 2026-10-25 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on sonnet (docs S item); orchestration session (Fable 5.1) checked each bullet against CLAUDE.md and archived · **Round:** round-20261025-6
+- **Commits / PR:** 3dc80ef "WQ-040: README browser support and known limitations; class setup note"; merge on the orchestration branch
+
+**What was done.** `README.md`: two `###` subsections under "Use it", before "Deploy": "Supported browsers" (iPhone Safari 17 or newer, Android Chrome; tested on iPhone 15 iOS 18.7, Pixel 11 and Galaxy S20+ on Chrome 155) and "Known limitations" (seven bullets: HTTPS only; laptops get a mouse demo and the WQ-045 No motion data banner; no vibration on iPhone and none felt on Android yet, the shot is a click and a flash; Silent mode; the 180 check off until Set downrange and lost when the page goes to the background; gyro drift of a few degrees over minutes; iPhone portrait swings up to about 4 s against the 3 s hold). `docs/CLASS_USE.md` "Student setup": a WQ-040 note after the WQ-045 one (click and flash, no iPhone vibration, Silent mode off).
+
+**Why.** Public-release review (2026-10-25): hard constraint 4 and the platform facts in CLAUDE.md were not public, so users opening the link would meet the limitations unwarned.
+
+**Deviations.** (1) Two `###` subsections instead of one paragraph plus a list. (2) Silent mode is worded "can mute the page on some iOS versions" (CLAUDE.md only states the iOS 17+ `audioSession` fix). (3) Vibration on Android stays "not felt so far" (WQ-023 open).
+
+**Verification.** Orchestrator: every bullet traced to a source: HTTPS (hard constraint 2); laptop mouse fallback and the banner (Additions, WQ-045); vibration (Known platform facts "Vibration", WQ-023); Silent mode (`Snd` audioSession note); Set downrange and downrange lost on a motion gap > `ORIENT_GAP_MS` (D-26, D-31, state machine); drift (Q10, D-61); portrait (Orientation fact, D-60). Agent: `npm run test:replay` "all passed (46 recordings)". NOT run: the browser suites (docs-only change).
+
+**Follow-ups.** None.
+
+---
+
+---
+
 ### WQ-032 — Add a one-line disclaimer and privacy line to the start screen and the README
 
 - **Closed:** 2026-10-25 · **Outcome:** done-with-deviations

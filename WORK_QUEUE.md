@@ -39,7 +39,6 @@ updated: 2026-10-25
 | WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | claimed:round-20261025-6 | — | hygiene |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | claimed:round-20261025-6 | — | ui |
 | WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | queued | — | docs |
-| WQ-040 | Add a browser-support and known-issues section to the README | P2 | S | claimed:round-20261025-6 | — | docs |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | queued | WQ-037 | platform |
 | WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
@@ -421,38 +420,6 @@ only "`index.html` is the UI; `engine.js` is the logic" and never lists `docs/` 
 
 **Verification.** The grep pass over the names; completion entry lists any CLAUDE.md statement found to be stale on
 the way (fix in CLAUDE.md only if trivially wrong, else report).
-
----
-
-### WQ-040 — Add a browser-support and known-issues section to the README
-
-- **Status:** claimed:round-20261025-6 · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
-- **Added:** 2026-10-25 by public-release review session
-- **Depends on:** — · **Blocks:** —
-
-**Context.** Hard constraint 4 (iPhone Safari and Android Chrome) and the platform facts in CLAUDE.md line 157 are not
-public. Users about to open the link will meet: no vibration on iPhone and none felt yet on Android (WQ-023);
-iPhone Silent mode muting the page on older iOS; iPhone Safari reporting portrait for up to 4 s in a hard swing (the
-page tolerates 3 s, D-60); gyro drift of a few degrees in the 180 orientation over minutes (Q10); the 180 check being
-off until **Set downrange**; laptops and desktops getting a mouse demo with no motion data; the page needing HTTPS.
-None of it is in `README.md` or `docs/CLASS_USE.md`.
-
-**Scope.**
-- Append a "Supported browsers" paragraph (iPhone Safari 17+, Android Chrome; tested on iPhone 15 iOS 18.7, Pixel 11
-  and Galaxy S20+ Chrome 155, from the recordings folders) and a "Known limitations" bullet list covering the items
-  above to `README.md`, each bullet one or two lines in user language, after "Use it" (`README.md:26`–29).
-- Add the two user-relevant ones (Silent mode, no vibration) to `docs/CLASS_USE.md` "Student setup" if not already
-  there (Silent mode is at line 4; vibration is not mentioned, keep it that way per WQ-023 until it is understood,
-  but say "the shot is a click and a flash").
-- Out of scope: fixing any of them; the architecture page (WQ-039); the disclaimer (WQ-032).
-
-**Acceptance.**
-- `README.md` has both sections; every limitation stated is backed by a CLAUDE.md platform fact or a decision number
-  (cite the source in the completion entry, not in the README).
-- `npm test` unchanged.
-
-**Verification.** Cross-check each bullet against CLAUDE.md "Known platform facts"; completion entry lists the
-sources.
 
 ---
 
