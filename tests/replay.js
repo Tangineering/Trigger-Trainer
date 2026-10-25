@@ -48,6 +48,7 @@ function summarize(res) {
     firstArmedT: (ev.find(e => e.type === 'armed') || {}).t,
     beepT: (ev.find(e => e.type === 'drillBeep') || {}).t,
     shotTimes: ev.filter(e => e.type === 'shot').map(e => e.t),
+    trigOnTs: ev.filter(e => e.type === 'trigOn').map(e => e.t),
     finalAlarm: res.state.alarmActive,
     maxDev: Math.max(0, ...res.path.map(p => p[3] || 0)),
     shots: ev.filter(e => e.type === 'shot').map(e => e.shot),

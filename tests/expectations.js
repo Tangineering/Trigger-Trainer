@@ -190,6 +190,20 @@ module.exports = {
   'axis-up': r => [
     ['largest excursion reads as muzzle UP', dominant(r.peak, 'v', +1)],
   ],
+  // WQ-031 (D-113, D-115): only a touch that lands while no other touch controls counts (tests/make-synthetic.js).
+  'two-finger': r => {
+    const T0 = 1000, at = s => T0 + s * 1000, inside = (x, a, b) => x >= at(a) && x < at(b);
+    return [
+      ['arms on the frame', r.armed >= 1 && r.firstArmedT < at(0.1)],
+      ['the second finger on the trigger beside the frame finger never engages, not after the frame finger lifts either',
+        !r.trigOnTs.some(x => inside(x, 1.0, 3.0))],
+      ['exactly one shot, from the fresh finger at 3.1-3.4 s', r.shotTimes.length === 1 && inside(r.shotTimes[0], 3.1, 3.45)],
+      ['exactly one trigger contact (the fresh finger at 3.0 s)', r.trigOnTs.length === 1 && inside(r.trigOnTs[0], 3.0, 3.05)],
+      ['no OK tone from the strip finger beside the trigger or after the trigger finger lifts; the next one is the fresh finger',
+        !r.okTs.some(x => inside(x, 0.2, 5.2)) && r.okTs.some(x => inside(x, 5.2, 5.4))],
+      ['no alarm (the phone stays still)', r.alarms === 0],
+    ];
+  },
   'axis-right': r => [
     ['largest excursion reads as muzzle RIGHT', dominant(r.peak, 'h', +1)],
   ],
