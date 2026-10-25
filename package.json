@@ -9,7 +9,10 @@
     "axis-estimate": "node tests/axis-estimate.js",
     "synthetic": "node tests/make-synthetic.js"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
-    "playwright": "^1.47.0"
+    "playwright": "1.63.0"
   }
 }
