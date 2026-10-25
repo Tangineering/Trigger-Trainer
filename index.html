@@ -416,7 +416,7 @@ const Snd = {
   ok() { this.tone(660, 0, 0.12); this.tone(990, 0.11, 0.22); },
   // Drill sounds (D-94, D-98 g), through the master gain, never the alarm node. Start beep: one 2.6 kHz tone,
   // about 0.3 s, like a shot timer. Completion: a rising C5-E5-G5-C6 arpeggio, about 0.9 s.
-  // Cue (Low Ready, back to low ready): three 70 ms beeps at 1.76 kHz, 120 ms apart.
+  // Cue (Low Ready: back to low ready; Box Drill: move to the next spot): three 70 ms beeps at 1.76 kHz, 120 ms apart.
   timerBeep(delay = 0) { this.tone(2600, delay, 0.3, 'square', 0.6); },
   cue3(delay = 0) { [0, 0.12, 0.24].forEach(o => this.tone(1760, delay + o, 0.07, 'square', 0.6)); },
   complete(delay = 0) { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.tone(f, delay + i * 0.18, 0.32)); },
@@ -668,11 +668,11 @@ function lowReadyRows(r) {
 function boxRows(r) {
   const rows = r.reps.map(p => {
     const sp = p.splits.length === 1 ? `split ${secsShort(p.splits[0])} s`
-                                     : `splits ${p.splits.map(secsShort).join(' · ')}`;
+                                     : `splits ${p.splits.map(secsShort).join(' · ')} s`;
     let v = `time ${secs2(p.time)} s · ${sp} · `
           + p.shots.map(x => x.unsafe ? 'alarm' : x.grade).join(', ');     // D-45: shots in an alarm are not graded
-    if (p.withAlarm) v += ' · alarm';
     if (p.early > 0) v += ` · early ${p.early}`;
+    if (p.withAlarm) v += ' · alarm';
     return [p.rep === r.reps.length ? 'Spot 1 (last)' : `Spot ${p.rep}`, v];
   });
   rows.push(['Total (beep to last shot)', secs2(r.total) + ' s']);
@@ -685,12 +685,12 @@ function drillLineText(s) {
   if (d.phase === 'standby' && drillCancelled) return 'Cancelled · finger on the frame to restart';
   const lr = TDT.DRILL_DEFS[d.id].reps;
   if (d.id === 'box') {                           // Box Drill (D-95, D-107); positions are reps in the data
-    const last = d.rep === lr, n = d.cur ? d.cur.shots.length : 0;
+    const last = d.rep === lr, n = d.cur ? d.cur.shots.length : 0, k = TDT.DRILL_DEFS.box.shotsPerRep;
     if (d.phase === 'standby') return `${name} · finger on the frame, wait for the beep`;
     if (d.phase === 'live') {
-      if (n) return `${last ? 'Spot 1 (last)' : `Spot ${d.rep}`} · shot ${n} of 2`;
-      return d.rep === 1 ? `Spot 1 of ${lr} · fire 2 or more`
-           : last ? 'Back at spot 1 · fire 2 or more' : `Move to spot ${d.rep} · fire 2 or more`;
+      if (n) return `${last ? 'Spot 1 (last)' : `Spot ${d.rep}`} · shot ${n} of ${k}`;
+      return d.rep === 1 ? `Spot 1 of ${lr} · fire ${k} or more`
+           : last ? `Back at spot 1 · fire ${k} or more` : `Move to spot ${d.rep} · fire ${k} or more`;
     }
     if (d.phase === 'finishing') return last ? 'Finger on the frame to finish' : 'Finger on the frame to move';
     return 'Done';

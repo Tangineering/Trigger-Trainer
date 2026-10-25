@@ -546,6 +546,8 @@
           if (def.next === 'live') {                      // Box: the next position is live now, no beep (D-95)
             d.rep++;
             d.cur = { rep: d.rep, startT: t, beepT: null, shots: [], early: 0, alarms: 0 };
+            // A (180) alarm still sounding at the cue marks the next position too; the run counted it already.
+            if (st.alarmActive) d.cur.alarms = 1;
             d.phase = 'live';
           } else {
             const [lo, hi] = def.delayMs;
