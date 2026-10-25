@@ -276,6 +276,129 @@ if (lrFile) {
   }
 }
 
+// WQ-029: the synthetic Box Drill replays deterministically; the seed in the 'r' row decides the beep time (the only random
+// draw: later positions open at the cue). Engine-level checks cover what the recording cannot: cancel, no beep after a cue,
+// alarms at the beep and in one position.
+const boxFile = files.find(f => f.endsWith(path.join('synthetic', 'drill-box.json')));
+if (boxFile) {
+  console.log('\nBox Drill determinism (synthetic/drill-box.json, in memory)');
+  const t = (desc, pass) => { console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${desc}`); if (!pass) failures++; };
+  const rec = JSON.parse(fs.readFileSync(boxFile, 'utf8'));
+  const withSeed = sd => { const o = JSON.parse(JSON.stringify(rec)); o.log[o.log.findIndex(r => r[0] === 'r')][3] = sd >>> 0; return o; };
+  const beepsOf = res => res.events.filter(e => e.type === 'drillBeep').map(e => e.t);
+  const a = TDT.replay(rec), b = TDT.replay(rec);
+  t('replaying twice gives identical packed events', JSON.stringify(a.packed) === JSON.stringify(b.packed) && a.packed.length > 0);
+  const rIdx = rec.log.findIndex(r => r[0] === 'r');
+  t('the log carries one r row, right after the opening p row, naming box', rec.log.filter(r => r[0] === 'r').length === 1 && rIdx === 1 && rec.log[rIdx][2] === 'box');
+  t('observed is empty (synthetic recordings carry no live events)', rec.synthetic === true && Array.isArray(rec.observed) && rec.observed.length === 0);
+  t('the packed events carry the cues as [t, "drillCue", "move", rep] for reps 1-4',
+    a.packed.filter(x => x[1] === 'drillCue').map(x => x.slice(2).join()).join('|') === 'move,1|move,2|move,3|move,4');
+  const base = beepsOf(a);
+  const seeds = [rec.log[rIdx][3] + 12345, 1, 2, 3, 4, 5, 99, 123456, 4294967295];
+  const others = seeds.map(sd => beepsOf(TDT.replay(withSeed(sd))));
+  t(`a different seed moves the beep (original ${base.map(Math.round).join('/')}; others ${others.map(o => o.map(Math.round).join('/')).join(', ')})`,
+    base.length === 1 && others.every(o => o.length >= 1) && new Set(others.map(o => o[0])).size >= 4 && others.some(o => o[0] !== base[0]));
+  t('seed coercion: -1 behaves as 4294967295 (same beeps)', JSON.stringify(beepsOf(TDT.replay(withSeed(-1)))) === JSON.stringify(beepsOf(TDT.replay(withSeed(4294967295)))));
+
+  // Engine-level harness: a Box run driven by hand.
+  const W = 844, H = 390, mid = z => [(z.x + z.w / 2) * W, (z.y + z.h / 2) * H];
+  const REST = [{ id: 1, cx: mid(TDT.ZONES.rest)[0], cy: mid(TDT.ZONES.rest)[1], rx: 0, ry: 0 }], TR = mid(TDT.zoneFor('trigger', W));
+  const mk = seed => {
+    const evs = [], eng = TDT.createEngine(Object.assign({}, TDT.DEFAULTS), { onEvent: e => evs.push(e) });
+    const c = { evs, eng, T: 0 };
+    c.step = (a = 0) => { c.T += 1000 / 60; eng.motion({ t: c.T, a, b: 0, g: 0, angle: 90 }); eng.tick(c.T); };
+    c.run = ms => { const e = c.T + ms; while (c.T < e) c.step(); };
+    c.press = () => {
+      eng.touches(c.T, [{ id: 2, cx: TR[0], cy: TR[1], rx: 0, ry: 0 }], W, H); c.run(60);
+      for (const dx of [20, 45, 70]) { eng.touches(c.T, [{ id: 2, cx: TR[0] - dx, cy: TR[1], rx: 0, ry: 0 }], W, H); c.run(40); }
+      c.run(30); eng.touches(c.T, [], W, H); c.run(50);
+    };
+    c.until = (cond, maxMs) => { const e = c.T + maxMs; while (!cond() && c.T < e) c.run(17); return cond(); };
+    c.d = () => eng.state.drill;
+    c.of = type => evs.filter(e => e.type === type);
+    eng.setPaused(false, 0); eng.startDrill(0, 'box', seed);
+    return c;
+  };
+  // Finger on the frame throughout: the beep falls 1000-4000 ms (+1 frame) after arming for any seed.
+  {
+    const gaps = seeds.map(sd => { const c = mk(sd); c.eng.touches(10, REST, W, H); c.until(() => c.of('drillBeep').length === 1, 6000);
+      const bp = c.of('drillBeep')[0], ar = c.of('armed')[0]; return bp && ar ? bp.t - ar.t : NaN; });
+    t(`finger on the frame throughout: the beep falls 1000-4000 ms (+1 frame) after arming for ${seeds.length} seeds (${gaps.map(x => Math.round(x)).join(', ')})`,
+      gaps.every(x => x >= 1000 && x <= 4000 + 17));
+  }
+  // Positions after the cue open at the cue time: live at once, no beep, no delay, however long the walk takes.
+  {
+    const c = mk(5), d = c.d; c.eng.touches(10, REST, W, H);
+    t('beep came: position 1 live', c.until(() => d().rep === 1, 6000) && d().phase === 'live' && d().cur.startT === c.of('drillBeep')[0].t && d().cur.beepT === c.of('drillBeep')[0].t);
+    c.press(); c.eng.touches(c.T, REST, W, H); c.run(1500);
+    t('one shot and the finger back on the frame for 1.5 s: no cue, still position 1, live with one shot', c.of('drillCue').length === 0 && d().rep === 1 && d().phase === 'live' && d().cur.shots.length === 1);
+    c.press(); c.eng.touches(c.T, REST, W, H);
+    t('second shot, finger back: the cue (move, rep 1) comes in the tick of the ok and position 2 is live at once',
+      c.until(() => c.of('drillCue').length === 1, 500) && d().rep === 2 && d().phase === 'live' && d().cur.shots.length === 0);
+    const cue = c.of('drillCue')[0], okEv = c.of('ok').filter(e => e.t === cue.t);
+    t('cue event {drill box, cue move, rep 1} at the same t as an ok, emitted after it', cue.drill === 'box' && cue.cue === 'move' && cue.rep === 1 && okEv.length === 1 && c.evs.indexOf(okEv[0]) < c.evs.indexOf(cue));
+    t('position 2 opens at the cue time with no beep time', d().cur.startT === cue.t && d().cur.beepT === null && d().cur.rep === 2);
+    c.run(8000);
+    t('eight seconds of walking with the finger on the frame: no second beep, no early shot, no alarm, still position 2 live',
+      c.of('drillBeep').length === 1 && d().phase === 'live' && d().rep === 2 && d().early === 0 && c.of('alarmStart').length === 0);
+    c.press(); c.press(); c.eng.touches(c.T, REST, W, H); c.until(() => d().reps.length === 2, 500);
+    const p2 = d().reps[1];
+    t(`position 2 time is the first shot minus the cue, not the beep (${p2 && p2.time})`, !!p2 && Math.abs(p2.time - (c.of('shot')[2].t - cue.t)) < 0.01 && p2.time > 8000 && p2.beepT === null && p2.startT === cue.t);
+  }
+  // A full run, to the end and a second consecutive run via startDrill; then resetStats clears the runs.
+  {
+    const c = mk(7), d = c.d; c.eng.touches(10, REST, W, H); c.until(() => d().rep === 1, 6000);
+    for (let n = 1; n <= 5; n++) { c.press(); c.press(); c.eng.touches(c.T, REST, W, H); c.run(300); c.run(500); }
+    t('five positions of two shots each: one end, four cues, phase ended, one run', c.of('drillEnd').length === 1 && c.of('drillCue').length === 4 && d().phase === 'ended' && c.eng.state.drillRuns.length === 1);
+    const run = c.eng.state.drillRuns[0], sh = c.of('shot').map(e => e.t);
+    t(`total = shot 10 minus the beep (${run.total}), not the end`, Math.abs(run.total - (sh[9] - c.of('drillBeep')[0].t)) < 0.01 && c.of('drillEnd')[0].t > sh[9]);
+    c.eng.resetStats(); t('resetStats clears the runs', c.eng.state.drillRuns.length === 0);
+  }
+  // A pause in position 3 cancels the run once, loses the positions, and the run restarts at position 0 with a fresh beep.
+  {
+    const c = mk(9), d = c.d; c.eng.touches(10, REST, W, H); c.until(() => d().rep === 1, 6000);
+    for (let n = 1; n <= 2; n++) { c.press(); c.press(); c.eng.touches(c.T, REST, W, H); c.until(() => d().rep === n + 1, 500); c.run(800); }
+    t('position 3 live after two cues', d().rep === 3 && d().phase === 'live' && d().reps.length === 2);
+    c.press();
+    c.eng.setPaused(true, c.T + 1);
+    t('pausing a live Box run emits one drillCancel (drill box) and restarts at rep 0 in standby with no positions and no current one',
+      c.of('drillCancel').length === 1 && c.of('drillCancel')[0].drill === 'box' && d().phase === 'standby' && d().rep === 0 && d().reps.length === 0 && d().cur === null && d().dueAt === null);
+    c.eng.setPaused(false, c.T + 2); c.eng.touches(c.T + 2, REST, W, H);
+    t('after the cancel the run restarts: a new beep (rep 1) comes and the old shots do not count',
+      c.until(() => c.of('drillBeep').length === 2, 7000) && c.of('drillBeep')[1].rep === 1 && d().rep === 1 && d().cur.shots.length === 0 && d().early === 0);
+  }
+  // An alarm sounding at the beep marks position 1 (the 180 alarm, as in the Low Ready block): the run counts it once.
+  {
+    const c = mk(3), d = c.d, eng = c.eng;
+    c.run(100); eng.setDownrange(c.T); c.run(100);
+    for (let n = 0; eng.state.dev180 < 95 && n < 400; n++) c.step(-120);
+    t(`180 setup: muzzle ${eng.state.dev180.toFixed(0)} deg off downrange, no alarm yet`, eng.state.dev180 > 95 && !eng.state.alarmActive);
+    eng.touches(c.T, REST, W, H);
+    t('beep with the 180 alarm sounding: run alarms 1, position 1 marked', c.until(() => d().rep === 1, 7000) && eng.state.alarmActive && d().alarms === 1 && d().cur.alarms === 1);
+    c.press(); c.press(); eng.touches(c.T, REST, W, H);
+    t('cue 1: position 1 carries the alarm (withAlarm), the run counts one episode, shots unsafe',
+      c.until(() => d().reps.length === 1, 3000) && d().alarms === 1 && d().reps[0].alarms === 1 && d().reps[0].withAlarm === true && d().reps[0].shots.every(x => x.unsafe) && c.of('alarmStart').length === 1);
+  }
+  // A move alarm in position 3 only (finger off the frame, phone swung, finger back) marks that position, not the others.
+  {
+    const c = mk(11), d = c.d, eng = c.eng; eng.touches(10, REST, W, H); c.until(() => d().rep === 1, 6000);
+    for (let n = 1; n <= 4; n++) {
+      if (n === 3) { eng.touches(c.T, [], W, H); c.run(200); for (let k = 0; k < 15; k++) c.step(80); eng.touches(c.T, REST, W, H); c.run(500); }
+      c.press(); c.press(); eng.touches(c.T, REST, W, H); c.until(() => d().reps.length === n, 500); c.run(800);
+    }
+    c.press(); c.press(); eng.touches(c.T, REST, W, H); c.until(() => c.of('drillEnd').length === 1, 800);
+    const run = eng.state.drillRuns[0];
+    t(`one alarm during position 3: that position has alarms 1 / withAlarm, the other four none; the run has 1 alarm (${run && run.reps.map(p => p.alarms)})`,
+      !!run && run.alarms === 1 && run.withAlarm === true && run.reps.map(p => p.withAlarm).join() === 'false,false,true,false,false' && run.reps[2].alarms === 1);
+  }
+  // Early shots: before the beep only, counted in the run and position 1.
+  {
+    const c = mk(13), d = c.d; c.eng.touches(10, REST, W, H); c.run(100); c.press(); c.eng.touches(c.T, REST, W, H);
+    c.until(() => d().rep === 1, 7000); c.press(); c.press(); c.eng.touches(c.T, REST, W, H); c.until(() => d().reps.length === 1, 500);
+    t('a shot before the beep is early: counted in the run and in position 1, not in the position\'s shots', d().early === 1 && d().reps[0].early === 1 && d().reps[0].shots.length === 2);
+  }
+}
+
 for (const [ua, list] of Object.entries(byDevice)) {
   const labels = new Set(list.map(x => x.label));
   if (labels.size < 2) continue;

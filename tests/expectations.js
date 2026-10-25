@@ -112,6 +112,48 @@ module.exports = {
       ['run-level early 0, alarms 0, withAlarm false', !!run && run.early === 0 && run.alarms === 0 && run.withAlarm === false],
     ];
   },
+  // WQ-029: Box Drill, five positions (adaptive synthetic recording, see make-synthetic.js). Position 2 fires three shots (the
+  // extra one stays in the position); position 3 returns the finger to the frame after ONE shot and holds it 1.3 s: that return
+  // gives an ok but no cue, and the cue follows the second shot's return. Every figure is derived here from the event times.
+  'drill-box': r => {
+    const FR = 17, near = (a, b) => Math.abs(a - b) < 0.01;
+    const run = r.runs[0], B = r.beepEvs, C = r.cueEvs, endT = r.endTs[0];
+    const start = i => i === 0 ? (B[0] && B[0].t) : C[i - 1] && C[i - 1].t;       // position i+1 opens at the beep / the previous cue
+    const winEnd = i => i < C.length ? C[i].t : endT;                              // and closes at its cue (position 5: the end)
+    const shotsOf = i => r.shotTimes.filter(t => t > start(i) && t <= winEnd(i));
+    const have = B.length === 1 && C.length === 4 && endT !== undefined;
+    const pos = have ? [0, 1, 2, 3, 4].map(i => { const s = shotsOf(i); return { s, time: s[0] - start(i), splits: s.slice(1).map((x, k) => x - s[k]) }; }) : [];
+    const okPos = pos.length === 5 && pos.every(x => x.s.length >= 2);
+    const lastShot = okPos ? pos[4].s[pos[4].s.length - 1] : undefined;
+    return [
+      ['exactly one start beep (rep 1): positions 2-5 start at the cue, with no beep', r.drillBeeps === 1 && B[0].rep === 1],
+      ['four cues, positions 1-4 in order, cue "move" (and no Low Ready cue)', r.drillCues === 4 && C.map(c => c.rep).join() === '1,2,3,4' && C.every(c => c.cue === 'move')],
+      ['one drill end, no cancel, no alarm', r.drillEnds === 1 && r.drillCancels === 0 && r.alarms === 0],
+      ['order: beep, cue, cue, cue, cue, end', have && B[0].t < C[0].t && C.every((c, i) => i === 0 || C[i - 1].t < c.t) && C[3].t < endT],
+      ['every cue has the same t as an ok event (the finger returning)', C.length === 4 && C.every(c => r.okTs.includes(c.t))],
+      ['the end has the same t as an ok event', endT !== undefined && r.okTs.includes(endT)],
+      ['eleven shots in all: 2, 3, 2, 2, 2 per position (the extra shot stays in position 2)', have && r.shotTimes.length === 11 && [2, 3, 2, 2, 2].every((n, i) => shotsOf(i).length === n)],
+      ['every cue comes after at least two shots at its position', have && [0, 1, 2, 3].every(i => shotsOf(i).length >= 2)],
+      ['one-shot return (position 3): an ok falls between shot 1 and shot 2, but no cue does',
+        have && (() => { const s = shotsOf(2); return s.length === 2 && r.okTs.some(o => o > s[0] && o < s[1]) && !C.some(c => c.t > s[0] && c.t < s[1]) && !C.some(c => c.t === s[0]); })()],
+      ['that one-shot return holds the finger on the frame well over a second before shot 2 (no cue yet)',
+        have && (() => { const s = shotsOf(2), o = r.okTs.filter(x => x > s[0] && x < s[1])[0]; return o !== undefined && s[1] - o >= 1000; })()],
+      ['the cue of position 3 is the ok after its second shot, not the earlier ok', have && (() => { const s = shotsOf(2); return C[2].t > s[1] && r.okTs.filter(o => o > s[1] && o <= C[2].t).includes(C[2].t); })()],
+      ['the beep falls 1000-4000 ms (+ one frame) after arming (finger on the frame from the start, hold already met)',
+        B.length > 0 && r.firstArmedT !== undefined && B[0].t - r.firstArmedT >= 1000 && B[0].t - r.firstArmedT <= 4000 + FR],
+      ['all shots come after the beep; the walk after each cue lasts about a second before the next position\'s first shot',
+        have && r.shotTimes.every(t => t > B[0].t) && [1, 2, 3, 4].every(i => pos[i].time >= 1000 && pos[i].time <= 1500)],
+      ['state.drillRuns holds one run with five positions (cancel-free), drill "box"', r.runs.length === 1 && !!run && run.reps.length === 5 && run.drill === 'box'],
+      ['per position: startT = beep / previous cue, beepT only on position 1, rep = 1..5',
+        !!run && have && run.reps.every((p, i) => p.rep === i + 1 && near(p.startT, start(i)) && (i === 0 ? near(p.beepT, B[0].t) : p.beepT === null))],
+      ['per position: time = first shot - (beep | previous cue), splits = shot gaps, from the event times',
+        !!run && okPos && run.reps.every((p, i) => near(p.time, pos[i].time) && p.splits.length === pos[i].splits.length && p.splits.every((x, k) => near(x, pos[i].splits[k])))],
+      ['per position: shot counts 2, 3, 2, 2, 2; no early shots; no alarm',
+        !!run && run.reps.map(p => p.shots.length).join() === '2,3,2,2,2' && run.reps.every(p => p.early === 0 && p.alarms === 0 && p.withAlarm === false)],
+      ['total = last shot of position 5 - beep (not the end event)', !!run && okPos && near(run.total, lastShot - B[0].t) && near(run.endT, endT) && near(run.beepT, B[0].t) && run.total < endT - B[0].t - 10],
+      ['run-level early 0, alarms 0, withAlarm false', !!run && run.early === 0 && run.alarms === 0 && run.withAlarm === false],
+    ];
+  },
   'axis-up': r => [
     ['largest excursion reads as muzzle UP', dominant(r.peak, 'v', +1)],
   ],
