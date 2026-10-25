@@ -78,8 +78,14 @@ repeating it).
 
 ## Field rules
 
-- **ID**: take `next_id` from the YAML block at the top, then increment it
-  there. IDs are never reused, even for closed-wontdo items.
+- **ID**: run `python scripts/wq.py next` (it fetches and scans every local
+  and remote branch) and take the `next WQ-NNN` it prints; then set `next_id`
+  to one above it. Never take `next_id` from your own copy of the file: side
+  branches add items before they merge, and `next_id` on any one branch
+  lags them. IDs are never reused, even for closed-wontdo items. The same
+  command prints the next free `D-`, `Q` and `I-` numbers for the decision
+  log, `OPEN_QUESTIONS.md` and `docs/IDEAS.md` — use those for the rows an
+  item adds there, for the same reason.
 - **Priority**: P0 = must ship before the next milestone can even start;
   P1 = required for the milestone; P2 = wanted, not gating; P3 = nice to
   have. Do not inflate — an all-P0 queue schedules nothing.
@@ -117,6 +123,27 @@ repeating it).
    open), then commit `WORK_QUEUE.md` on its own
    (message `queue: add WQ-NNN <title>`), so orchestration rounds can diff
    the queue cleanly. Do not bundle queue edits into feature commits.
+
+## Numbering across branches
+
+The queue is meant to be fed from exploratory side sessions that experiment
+on their own branches and only then write the final brief. Every one of
+those branches holds its own copy of the numbered files, so a number is
+free only if **no branch** uses it. Before assigning any `WQ-`, `D-`, `Q`
+or `I-` number:
+
+1. `python scripts/wq.py next` — fetches, scans every ref, prints the next
+   free number of each kind and which branch holds the current highest.
+2. Use those numbers, and set `next_id` one above the `WQ` it printed.
+3. `python scripts/wq.py check` (part of step 4 above) fails when
+   `next_id` is not above every `WQ` id on every branch, so a stale number
+   is caught before the `queue:` commit. `--no-branches` is for a clone
+   without git access; do not use it to silence the failure.
+
+If a collision has already happened (two branches, one number): the
+branch that is not yet merged renumbers — item, index row, decision rows
+and every cross-reference — and records the renumbering in the item's
+`Updated` line. Numbers skipped by a renumbering stay unused.
 
 ## Parking lot
 
