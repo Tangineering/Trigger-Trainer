@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.12.6';
+  const VERSION = '0.13.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -64,6 +64,8 @@
     ORIENT_GAP_MS: 1000,         // motion data gap this long (page hidden, sensor stall) invalidates downrange
     ORIENT_BRIDGE_MS: 300,       // longest motion gap bridged in the 180 orientation (mean of the rates before and
                                  // after); longer gaps are credited 300 ms, and gaps over ORIENT_GAP_MS clear downrange
+    DRILL_BEEP_HOLD_MS: 350,     // a drill start beep waits until the finger has been on the frame this long, so it
+                                 // never overlaps the OK tone (D-98 g, D-104)
   });
 
   /** Zone `name` in right-handed viewport fractions for a viewport `vw` CSS px wide, with the fixed
@@ -94,6 +96,29 @@
     }
     return { dev, grade, dir };
   }
+
+  /* ---------- drills (D-93, D-97, D-98) ---------- */
+  // Deterministic generator for drill delays (D-98 h): the page passes a seed when a run starts (row 'r'),
+  // so a recording replays to the same beep times. mulberry32: 32-bit state, returns [0, 1).
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  // delayMs: random start-beep delay [lo, hi] once the finger is on the frame (D-98 a). Not-ready drills are
+  // rejected by startDrill() until their items land (WQ-028 Low Ready, WQ-029 Box Drill).
+  const DRILL_DEFS = Object.freeze({
+    bill:     Object.freeze({ delayMs: Object.freeze([1000, 4000]), shots: 6, ready: true }),
+    lowready: Object.freeze({ delayMs: Object.freeze([2000, 5000]), ready: false }),   // WQ-028
+    box:      Object.freeze({ delayMs: Object.freeze([1000, 4000]), ready: false }),   // WQ-029
+  });
+  // A run a pause or cancel interrupts: live, finishing, or standby once the delay has started (D-102).
+  const drillActive = d => !!d && (d.phase === 'live' || d.phase === 'finishing' || (d.phase === 'standby' && d.dueAt != null));
 
   /* ---------- session totals (never trimmed, unlike st.shots) ---------- */
   // D-45: shots fired during an alarm count in `shots`, `unsafe` and `dirs` only; the grade counts
@@ -233,7 +258,8 @@
    * @param S     settings object (read live; the page may mutate it between sessions)
    * @param opts  { onEvent: fn({type, t, ...}) }
    * Events: armed, ok, alarmStart {reason: 'move'|'180', devOff on 'move'}, alarmStop, trigOn, trigOff, shot, reset,
-   *         downrange (set by the user), downrangeLost (orientation tracking interrupted)
+   *         downrange (set by the user), downrangeLost (orientation tracking interrupted),
+   *         drillBeep {drill, rep} (start beep), drillEnd {drill, result} (run complete), drillCancel {drill}
    */
   function createEngine(S, opts) {
     opts = opts || {};
@@ -243,6 +269,7 @@
       lastMotionT: 0, motionEvents: 0,
       restContact: false,
       paused: true, armed: false, onRest: false, wasOnRest: false, restLostAt: null, offSince: 0,
+      restSinceT: null,                            // when the finger last came onto the frame (drill beep hold, D-104)
       trigOffAt: -Infinity, inPress: false, pressEndAt: -Infinity, movingSince: null, lastTickT: null,
       alarmActive: false, alarmReason: null, violations: 0, breaks180: 0,
       // Orientation since downrange was set (quaternion w,x,y,z, device frame → reference frame).
@@ -252,6 +279,8 @@
       trig: null, lastTrace: null, shots: [], tally: newTally(),
       touches: new Map(),
       axisEst: null,                               // advisory gyro-axis estimate {cand, margin, motionS, windows} (D-57)
+      drill: null,                                 // current drill run (null = Freestyle); see startDrill()
+      drillRuns: [],                               // results of the runs finished this session (resetStats clears)
     };
     let grav = null, vw = 1, vh = 1;
     const axisEstimator = createAxisEstimator();
@@ -410,6 +439,74 @@
       addToTally(st.tally, shot);
       tr.fired = true; tr.breakT = t; tr.breakIdx = tr.trace.length;
       emit({ type: 'shot', t, shot });
+      if (st.drill) drillShot(t, shot);
+    }
+
+    /* Drill run (D-97, D-98). Phases: standby (waiting for the frame, then the random delay) → live (beep given,
+       counting shots) → finishing (sixth shot fired, timer stopped, waiting for the finger on the frame) → ended. */
+    function drillShot(t, shot) {
+      const d = st.drill;
+      if (d.phase === 'standby') { d.early++; return; }   // before the beep: counted, not timed (D-98 d)
+      if (d.phase !== 'live') return;                     // finishing / ended: an ordinary Freestyle shot
+      d.shots.push({ t, grade: shot.grade, dev: shot.dev, unsafe: shot.unsafe });
+      const def = DRILL_DEFS[d.id];
+      if (d.shots.length < def.shots) return;
+      const ts = d.shots.map(x => x.t), splits = [];
+      for (let i = 1; i < ts.length; i++) splits.push(r4(ts[i] - ts[i - 1]));
+      d.result = {
+        drill: d.id, seed: d.seed, beepT: d.beepT, first: r4(ts[0] - d.beepT), splits, total: r4(ts[ts.length - 1] - d.beepT),
+        shots: d.shots.map(x => ({ grade: x.grade, dev: x.dev, unsafe: x.unsafe })),
+        early: d.early, alarms: 0, withAlarm: false, endT: null,
+      };
+      d.phase = 'finishing';
+    }
+
+    function tickDrill(t) {
+      const d = st.drill;
+      if (d.phase === 'standby') {
+        if (d.dueAt == null && st.armed && st.onRest) {
+          const [lo, hi] = DRILL_DEFS[d.id].delayMs;
+          d.dueAt = t + lo + d.rng() * (hi - lo);
+        }
+        // The beep only plays with the finger on the frame: if it is off when due, at the first tick back on.
+        // It also waits until the finger has been on the frame DRILL_BEEP_HOLD_MS, clear of the OK tone (D-104).
+        if (d.dueAt != null && t >= d.dueAt && st.onRest && t - st.restSinceT >= K.DRILL_BEEP_HOLD_MS) {
+          d.beepT = t; d.rep = 1; d.phase = 'live';
+          if (st.alarmActive) d.alarms++;                 // an alarm (180) still sounding at the beep marks the run
+          emit({ type: 'drillBeep', t, drill: d.id, rep: 1 });
+        }
+      } else if (d.phase === 'finishing' && st.onRest) {
+        const res = d.result;
+        res.alarms = d.alarms; res.withAlarm = d.alarms > 0; res.endT = t;
+        d.phase = 'ended';
+        st.drillRuns.push(res);
+        emit({ type: 'drillEnd', t, drill: d.id, result: res });
+      }
+    }
+
+    // Counts alarm episodes from the beep to the end (a move alarm escalating to 180 is one episode).
+    const drillAlarm = () => { if (st.drill && (st.drill.phase === 'live' || st.drill.phase === 'finishing')) st.drill.alarms++; };
+
+    function freshRun(d) {
+      d.phase = 'standby'; d.dueAt = null; d.beepT = null; d.rep = 0; d.shots = []; d.early = 0; d.alarms = 0; d.result = null;
+      return d;
+    }
+
+    /** Start a run of drill `id` (a ready DRILL_DEFS key) with generator seed `seed`. Returns false and changes
+     *  nothing for an unknown or not-yet-built drill. A run already in progress is cancelled first. */
+    function startDrill(t, id, seed) {
+      const def = Object.prototype.hasOwnProperty.call(DRILL_DEFS, id) ? DRILL_DEFS[id] : null;
+      if (!def || !def.ready) return false;
+      if (drillActive(st.drill)) emit({ type: 'drillCancel', t, drill: st.drill.id });
+      st.drill = freshRun({ id, seed: seed >>> 0, rng: mulberry32(seed) });
+      return true;
+    }
+
+    /** Back to Freestyle: cancel any run in progress (event) and drop the drill. */
+    function cancelDrill(t) {
+      if (!st.drill) return;
+      if (drillActive(st.drill)) emit({ type: 'drillCancel', t, drill: st.drill.id });
+      st.drill = null;
     }
 
     function tick(t) {
@@ -418,7 +515,7 @@
 
       const rest = restTouch();
       st.restContact = !!rest;
-      if (rest) { st.restLostAt = null; st.onRest = true; st.qOff = null; }
+      if (rest) { if (!st.onRest) st.restSinceT = t; st.restLostAt = null; st.onRest = true; st.qOff = null; }
       else if (st.onRest) {
         if (st.restLostAt == null) st.restLostAt = t;
         if (t - st.restLostAt > K.REST_LOSS_DEBOUNCE_MS) { st.onRest = false; st.offSince = st.restLostAt; st.qOff = st.q.slice(); }
@@ -445,7 +542,9 @@
         if (st.onRest) { st.armed = true; emit({ type: 'armed', t }); }
       } else {
         if (S.rule180 && st.refSet && st.dev180 > S.limit180Deg && st.alarmReason !== '180') {
+          const wasActive = st.alarmActive;
           st.alarmActive = true; st.alarmReason = '180'; st.breaks180++;     // also escalates a movement alarm
+          if (!wasActive) drillAlarm();
           emit({ type: 'alarmStart', t, reason: '180', rot: st.rotEMA, lin: st.linEMA, dev: st.dev180 });
         }
         if (st.alarmActive) {
@@ -471,11 +570,13 @@
           if (!alarm && st.qOff && st.devOff > S.offFrameDeg && t - st.offSince > S.graceMs) alarm = true;
           if (alarm) {
             st.alarmActive = true; st.alarmReason = 'move'; st.violations++;
+            drillAlarm();
             emit({ type: 'alarmStart', t, reason: 'move', rot: st.rotEMA, lin: st.linEMA, dev: st.dev180, devOff: st.devOff });
           }
         }
       }
       st.wasOnRest = st.onRest;
+      if (st.drill) tickDrill(t);
 
       const tr = st.trig;
       if (tr && (!tr.fired || t - tr.breakT < K.FOLLOW_THROUGH_MS) && tr.trace.length < K.TRACE_MAX) {
@@ -493,6 +594,12 @@
         st.armed = false; st.onRest = st.wasOnRest = false; st.restLostAt = null; st.restContact = false;
         st.qOff = null; st.devOff = 0;
         if (st.trig) endTrigger(t);
+        // A pause cancels a run without the completion tone; the drill waits in a fresh standby (D-98 e).
+        // The generator carries on, so the next run's delay is still decided by the seed.
+        if (drillActive(st.drill)) {
+          emit({ type: 'drillCancel', t, drill: st.drill.id });
+          freshRun(st.drill);
+        }
       } else if (st.touches.size) {
         updateTrigger(t);
       }
@@ -506,10 +613,10 @@
     }
 
     function resetStats() { st.shots = []; st.violations = 0; st.breaks180 = 0; st.lastTrace = null; st.tally = newTally();
-      axisEstimator.reset(); st.axisEst = null;
+      axisEstimator.reset(); st.axisEst = null; st.drillRuns = [];
     }
 
-    return { motion, touches, tick, setPaused, setDownrange, resetStats, state: st, version: VERSION };
+    return { motion, touches, tick, setPaused, setDownrange, resetStats, startDrill, cancelDrill, state: st, version: VERSION };
   }
 
   /* ---------- record / replay helpers ---------- */
@@ -519,6 +626,8 @@
   //   ['p', t, 0|1]                                       engine paused (1) / resumed (0)
   //   ['f', t]                                            animation-frame tick
   //   ['d', t]                                            Set downrange pressed
+  //   ['r', t, drill, seed]                               drill run requested (seed for the engine's generator)
+  //   ['x', t]                                            drill cancelled (back to the start screen)
   function fromDeviceMotion(e, t, angle) {
     const r = e.rotationRate || {}, a = e.acceleration, g = e.accelerationIncludingGravity;
     const hasA = a && a.x != null, hasG = g && g.x != null;
@@ -537,6 +646,8 @@
   function packEvent(e) {
     if (e.type === 'shot') return [e.t, 'shot', e.shot.grade, r4(e.shot.dev)];
     if (e.type === 'alarmStart') return [e.t, 'alarmStart', e.reason, r4(e.rot), r4(e.lin), r4(e.dev)];
+    if (e.type === 'drillBeep') return [e.t, 'drillBeep', e.rep];
+    if (e.type === 'drillEnd') return [e.t, 'drillEnd', e.drill, r4(e.result.total)];
     return [e.t, e.type];
   }
 
@@ -551,6 +662,8 @@
         case 't': eng.touches(row[1], unpackTouchList(row[4]), row[2], row[3]); break;
         case 'p': eng.setPaused(!!row[2], row[1]); break;
         case 'd': eng.setDownrange(row[1]); break;
+        case 'r': eng.startDrill(row[1], row[2], row[3]); break;
+        case 'x': eng.cancelDrill(row[1]); break;
         case 'f': eng.tick(row[1]); path.push([row[1], eng.state.aimH, eng.state.aimV, eng.state.dev180]); break;
       }
     }
@@ -558,7 +671,7 @@
   }
 
   return {
-    VERSION, DEFAULTS, ZONES, K, zoneFor, inZone, gradeShot, createEngine, summarize,
+    VERSION, DEFAULTS, ZONES, K, zoneFor, inZone, gradeShot, createEngine, summarize, DRILL_DEFS, mulberry32,
     rt, r2, r4, fromDeviceMotion, fromTouch, packMotion, unpackMotion, packTouches, unpackTouchList, packEvent, replay,
   };
 });

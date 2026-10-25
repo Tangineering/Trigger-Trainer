@@ -69,6 +69,10 @@ How the queue and the other documents fit together:
   the frame; it clears once the muzzle is back downrange with the finger on the frame.
 - Layout (D-21): wide grip at the rear, thin slide, frame strip and trigger high; the shot movement
   indicator sits in the empty area under the muzzle.
+- **Drills** (D-93, D-94, D-97, D-98, WQ-027): the start screen's **Drill** picker chooses **Freestyle** (the trainer as
+  above, no timer, the default) or a timed drill; all Freestyle rules stay on during a drill. **Bill Drill**: finger on
+  the frame → a random 1–4 s later the start beep → six shots (timer stops at the sixth) → finger back on the frame →
+  completion tone and results (first shot, splits, total). A pause cancels the run; results are session-only.
 - **Trigger wins** (D-75, WQ-016): a touch that engaged the trigger counts as on the trigger until it is lifted,
   wherever it moves; it never counts as frame contact, even inside the frame strip.
 
@@ -90,7 +94,7 @@ inside the engine.
 | `VERSION` | Bump when outputs change for the same inputs (D-20). |
 | `DEFAULTS`, `ZONES`, `K`, `zoneFor` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. `zoneFor(name, vw)` adds the fixed `K.TRIGGER_FWD_PX` offset to the trigger (and the guard's front edge); the engine hit test and `rectFor()` both use it (D-72). |
 | `summarize(state)` | Session totals for the summary screen, from `state.tally` (not capped like `state.shots`) and the alarm counters. Grades and movement figures cover only shots fired with no alarm (`graded`, D-45). |
-| `createEngine(S, {onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`. Starts paused. |
+| `createEngine(S, {onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, startDrill, cancelDrill, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`, `drillBeep`, `drillEnd`, `drillCancel`. Starts paused. |
 | `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace (each sample's `dt` clamped to `MAX_DT_S`). The 180 orientation quaternion integrates the mean of the previous and current rates over the raw gap, capped at `ORIENT_BRIDGE_MS` (300 ms), so `devicemotion` gaps are bridged (D-62). Axis mapping per `axisMode`. Also feeds an advisory gyro-axis estimator (E-2, fused gravity; D-57, D-70) that sets `state.axisEst` = `{cand, margin, motionS, windows}` (`null` until the first 0.5 s window counts); it reads raw rates only and changes no output. |
 | `touches(t, list, vw, vh)` | Full current touch list in CSS px; drives the trigger (engage on entering the zone, fire at `pullPx` rearward, re-arm at `RESET_FRACTION`). |
 | `tick(t)` | State machine: debounced frame contact → armed / safe / off-frame / alarm; trace capture. |
@@ -108,6 +112,8 @@ inside the engine.
 | Recorder | `startRecording()` makes a fresh engine; `stopRecording(share)` saves (if `share`) and then opens Settings scrolled to the recorder (`openSettings('recorder')`); `saveRecording()` uses the share sheet when it accepts files, else a download. |
 | Settings overlay | Built from `SLIDERS`; includes live sensor readout, axis-check canvas, and the recorder. **Finish** opens the summary. |
 | Summary overlay | `showSummary()`: `TDT.summarize` table + plot of kept shots (`drawTarget` with no trace). **Keep training** / **New session** (resets stats, back to the start screen). `sessionT0` is the start of the summarized time. |
+| Drill picker | `DRILL_MODES` (`{id, name, sub, how, svg, ready}`, D-93 order; diagrams inline in `DRILL_SVG`; not-ready drills hidden). `#drillBtn` on the start screen opens `#drillOv` (**Choose** / **Cancel**). The selection `drillSel` is kept in `localStorage['tdt.drill']`, not in `S` (D-98 i). |
+| Drill runs and results | `beginDrillRun(t)` (Start, recorder start, **Again**, Restore defaults while running) seeds `engine.startDrill` and logs `['r', t, drill, seed]`; Freestyle does nothing. `leaveToStart()` (**Change drill**, **New session**) cancels and logs `['x', t]` only if a drill existed. `drillEnd` → `Snd.complete(0.35)` + `showDrillResult()` (`#drillResOv`, pauses the engine while open). `#drillLine` shows the run's phase. |
 | `window.__tdt()` | Read-only snapshot used by the browser tests. Keep it. |
 
 ### State machine
@@ -124,6 +130,10 @@ kept as `qOff`; once `graceMs` has passed, a muzzle deviation `devOff` > `offFra
 alarm; clears when back inside the limit by `HYST_180_DEG` with the finger on the frame. Only active after `setDownrange`;
 a motion gap > `ORIENT_GAP_MS` clears downrange (`downrangeLost`).
 Opening settings or the summary, backgrounding the page, or a portrait orientation that persists for 3 s (D-60) disarms and silences.
+Drills (`st.drill`, only after `startDrill`): `standby` (delay drawn at the first armed tick on the frame; the beep waits
+for the due time and for the finger on the frame ≥ `DRILL_BEEP_HOLD_MS` 350 ms) → `live` (beep; shots counted) →
+`finishing` (sixth shot; timer stopped) → `ended` (finger on the frame: `drillEnd`); a pause in live, finishing or a
+started standby emits `drillCancel` and returns to a fresh standby.
 
 ## Known platform facts and unknowns
 
@@ -230,3 +240,37 @@ Low / Default / High write `DEFAULTS` × 1.3 / 1 / 0.7 (rounded to the slider st
 changed slider keys are stored (D-64), never a preset key. Steps: `moveDps` 0.5, `moveAcc` 0.05, `offFrameDeg` 0.5;
 their outputs drop trailing zeros (`trim: true`). Slider order is unchanged (moveDps, moveAcc, offFrameDeg, graceMs,
 jerkMs).
+
+## WQ-027 — drill framework and Bill Drill (D-93, D-94, D-97, D-98)
+
+**Engine** (`engine.js` 0.13.0). `mulberry32(seed)` is the drill generator (exported, D-98 h); `DRILL_DEFS` (exported)
+holds each drill's start-beep delay range and `ready` flag (`bill` ready; `lowready`, `box` reserved and rejected
+until WQ-028 / WQ-029). `startDrill(t, id, seed)` returns `false` and changes nothing for an unknown or not-ready id;
+otherwise it cancels a run in progress (`drillCancel`) and sets `st.drill = {id, seed, rng, phase, dueAt, beepT, rep,
+shots, early, alarms, result}`. Phases `standby → live → finishing → ended`, advanced by `tickDrill(t)` at the end of
+`tick()` and by `drillShot()` from `fire()`: standby draws the delay (one `rng()` call) at the first tick armed with
+the finger on the frame, and emits `drillBeep {drill, rep: 1}` at the first tick at or after the due time with the
+finger on the frame for at least `K.DRILL_BEEP_HOLD_MS` (350 ms, clear of the OK tone; `st.restSinceT` is when the
+finger last came onto the frame; D-104); live collects the run's shots (a shot in standby is `early`); the sixth shot computes `result`
+(`first`, five `splits`, `total`, per-shot `{grade, dev, unsafe}`, `early`) and moves to finishing; the first tick
+with the finger on the frame then fills `alarms`/`withAlarm` (alarm episodes from the beep to the end, a move alarm escalating to 180 counted
+once, plus an alarm already sounding at the beep), pushes the result
+to `st.drillRuns` and emits `drillEnd {drill, result}`. A run is "active" (`drillActive`) when live, finishing,
+or in standby with its delay started (D-102); `setPaused(true)` on an active run emits `drillCancel {drill}` and
+resets it to a fresh standby (the generator carries on); `startDrill` and `cancelDrill(t)` emit `drillCancel` only
+for an active run, and `cancelDrill` sets `st.drill = null`. `resetStats()` clears `st.drillRuns`. With `st.drill === null`
+(Freestyle) nothing changes: every existing recording replays to identical events.
+Rows: `['r', t, drill, seed]` → `startDrill`, `['x', t]` → `cancelDrill`. Packed events: `[t, 'drillBeep', rep]`,
+`[t, 'drillEnd', drill, r4(total)]`, `[t, 'drillCancel']`.
+
+**Page** (`index.html`). `DRILL_SVG` (the four diagrams from `docs/mockups/drills/diagrams.js`, inline) and
+`DRILL_MODES` (`{id, name, sub, how, svg, ready}` in D-93 order; not-ready modes are not listed). The selection is
+`drillSel`, kept in `localStorage['tdt.drill']` (not a setting). Start screen: `#drillBtn` → picker `#drillOv`
+(`openPicker`, `renderPicker`; **Choose** stores, **Cancel** reverts; landscape list left / diagram right, portrait
+diagram on top). `beginDrillRun(t)` (from `start()`, `startRecording()`, **Again**, Restore defaults while running)
+calls `engine.startDrill` with a `Math.random` seed and logs the `r` row; Freestyle does nothing. `leaveToStart()`
+(results **Change drill**, summary **New session**) calls `cancelDrill` and logs `x` only when a drill existed. `Snd.timerBeep()` (2.6 kHz,
+0.3 s) on `drillBeep`; `Snd.complete(0.35)` (C5–E5–G5–C6) on `drillEnd`, then `showDrillResult()` opens `#drillResOv`,
+which pauses the engine while open. `#drillLine` under the status pill shows the run's phase (empty in Freestyle).
+`window.__tdt()` adds `drill {id, phase, shots, early, result}`, `drillRuns`, `drillSel`, `drillResOpen`, `pickerOpen`.
+Recorder label `drill-bill`.

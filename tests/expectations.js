@@ -51,6 +51,29 @@ module.exports = {
     ['no 180 alarm while within 90° of downrange', r.b180 === 0],
     ['no alarm at all (finger stays on the frame)', r.alarms === 0],
   ],
+  // WQ-027: Bill Drill. The log starts a run ('r' row) with the finger on the frame; it lifts off for 0.7 s covering the
+  // seeded due time (1.43 s after arming), so the beep is deferred: it plays only once the finger has been back on the
+  // frame 350 ms (D-104), i.e. >= 350 ms after the OK tone, never in the OK tone's tick.
+  'drill-bill': r => {
+    const run = r.runs[0], bt = r.beepT, shots6 = r.shotTimes.slice(0, 6);
+    const okBefore = r.okTs.filter(t => t <= bt);
+    return [
+      ['exactly one start beep', r.drillBeeps === 1],
+      ['exactly one drill end', r.drillEnds === 1],
+      ['no drill cancel', r.drillCancels === 0],
+      ['at least six shots', r.shots.length >= 6],
+      ['no alarm', r.alarms === 0],
+      ['one finished run with six shots, no early shot, no alarm', r.runs.length === 1 && run.shots.length === 6 && run.early === 0 && run.alarms === 0 && run.withAlarm === false],
+      ['the beep falls 1000-4000 ms (+ one frame) after the first armed event',
+        bt !== undefined && r.firstArmedT !== undefined && bt - r.firstArmedT >= 1000 && bt - r.firstArmedT <= 4000 + 17],
+      ['the beep was deferred past the finger-off window: 2250-2317 ms after arming (return + 350 ms hold)',
+        bt !== undefined && bt - r.firstArmedT >= 2250 && bt - r.firstArmedT <= 2300 + 17],
+      ['the beep comes at least 350 ms after the OK tone of the finger returning',
+        okBefore.length >= 1 && bt - okBefore[okBefore.length - 1] >= 350],
+      ['all six run shots come after the beep and are the first six shots', shots6.length === 6 && shots6.every(t => t > bt) && r.shotTimes.every(t => t > bt)],
+      ['result.first is the first shot minus the beep', !!run && Math.abs(run.first - (shots6[0] - bt)) < 0.01],
+    ];
+  },
   'axis-up': r => [
     ['largest excursion reads as muzzle UP', dominant(r.peak, 'v', +1)],
   ],
