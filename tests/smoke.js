@@ -658,12 +658,12 @@ const check = (name, cond, state) => {
     d = await dst();
     check('WQ-027: gear after the delay started: settings open, drill back in standby with no shots, engine paused',
       await dp.$eval('#settingsOv', e => e.classList.contains('show')) && d.drill.phase === 'standby' && d.drill.shots === 0 && d.paused, d);
+    // The finger is still down through Resume, so the engine re-arms (and redraws the delay) at Resume, not at a later
+    // touch: start the frame observer BEFORE Resume so armT is the first frame showing the new arming (in-page performance.now()).
+    await observe();
     await dp.click('#doneBtn'); await dp.waitForTimeout(100);
     check('WQ-027: after Resume the status line says Cancelled and to restart',
       /^Cancelled/.test(await lineText()) && /restart/i.test(await lineText()), await lineText());
-    await dtouch('touchEnd', []); await dmotion(2);
-    await observe();
-    await dtouch('touchStart', [REST]);
     d = await waitPhase('live', 4600);
     const obsC = await dp.evaluate(() => window.__obs), gapC = obsC.beepT - obsC.armT;
     check(`WQ-027: after a cancel the beep comes 1000-4000 ms (+ a frame) after the NEW arming (${Math.round(gapC)} ms): the delay was redrawn`,
