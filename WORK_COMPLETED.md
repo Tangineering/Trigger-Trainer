@@ -35,6 +35,46 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-035 — Regenerate the stale synthetic recordings
+
+- **Closed:** 2026-10-25 · **Outcome:** done
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) re-ran the generator and the replay suite on the merged branch and archived · **Round:** round-20261025-5
+- **Commits / PR:** 9c8cae8 "WQ-035: tests: regenerate synthetic recordings with engine 0.17.0"; merge (orchestration branch, after 9438dc1)
+
+**What was done.** `node tests/make-synthetic.js` (`npm run synthetic`) run with engine 0.17.0 and the whole `tests/recordings/synthetic/` folder committed in one commit: 15 of the 16 files changed (`two-finger.json` was already current). Every file now carries `"app":"0.17.0"`; the `settings` object gained `beepHz: 1650` and `beepMs: 350` (current `DEFAULTS`, D-109/D-110) where missing; touch rows changed only in `clean-press` (31 rows), `jerked-press` (10), `press-wobble` (61) and `trigger-sweep` (1), from the trigger geometry moves (D-72, D-87), with row counts unchanged. `observed` events changed in no file. `tests/make-synthetic.js` and `tests/expectations.js` untouched.
+
+**Why.** Parking-lot hygiene promoted by the public-release review (2026-10-25): eleven non-drill synthetic files still said `app 0.12.3`, so a contributor running `npm run synthetic` saw a large unexplained diff.
+
+**Deviations.** None in the work: the generator was already stable (two runs `diff -r` identical), so the item's conditional fix to `tests/make-synthetic.js` was not needed. The commit subject keeps the item's wording behind the required `WQ-035:` prefix.
+
+**Verification.** Agent: `node tests/replay.js` before and after, both "all passed (46 recordings)" with byte-identical output (so no recording changed outcome and every expectation holds); `node tests/make-synthetic.js && git status --short` empty after the commit; `npm test` rc 0, 799 PASS lines, 0 FAIL. Orchestrator on the merged branch: generator re-run leaves 0 changed files, 0 files lack `"app":"0.17.0"`, `node tests/replay.js` "all passed (46 recordings)". Nothing skipped.
+
+**Follow-ups.** None. The parking-lot entry "Stale synthetic recordings → promoted to WQ-035" can be dropped at the next parking-lot tidy.
+
+---
+
+---
+
+### WQ-033 — Run the replay suite in GitHub Actions and pin Playwright
+
+- **Closed:** 2026-10-25 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff, re-ran the replay suite and archived · **Round:** round-20261025-5
+- **Commits / PR:** 6d653ad "WQ-033: run the replay suite in GitHub Actions; pin Playwright" (the agent's commit was c39a1d9 before the orchestrator rewrote its trailer; the Actions run cited below ran on c39a1d9, same tree); merge 9438dc1
+
+**What was done.** `.github/workflows/test.yml` (new): workflow `tests`, job `replay` on `ubuntu-latest`, `actions/checkout@v4`, `actions/setup-node@v4` with `node-version: 22`, then `node tests/replay.js` directly (no `npm install`, no cache; `permissions: contents: read`). `package.json`: `"playwright": "1.63.0"` (exact pin, was `^1.47.0`) and `"engines": {"node": ">=20"}`. `README.md` "Develop": two sentences after the test commands (the replay suite runs in Actions on every push and pull request; the browser suites are not in CI yet, run `npm test` locally before a merge). No lockfile, no test changes.
+
+**Why.** Public-release review (2026-10-25): the only workflow on GitHub was the Pages build; the replay suite needs no browser and is the natural pull-request gate (WQ-047 will require it). The caret range let a fresh `npm install` resolve a Playwright whose Chromium build differed from the one installed, breaking the browser suites until reinstalled.
+
+**Deviations.** (1) The workflow triggers on every `push` (no branch filter) plus `pull_request`, not only on push to `main`: a main-only trigger could never be seen green before the owner-gated merge to `main`; the suite takes seconds. (2) Playwright is pinned to 1.63.0, the version installed system-wide in the executing session and the one the three suites run under, because `npm install` cannot run there; `npm ls playwright` after a fresh install was not available. (3) The agent pushed its item branch `wq-033` to `origin` (permitted for this item only) to get the run; the orchestrator's attempt to delete the remote branch afterwards was refused (HTTP 403 from the git proxy), so `origin/wq-033` still exists and the owner may delete it.
+
+**Verification.** Agent: GitHub Actions run https://github.com/Tangineering/Trigger-Trainer/actions/runs/40239879519 (job `replay`, conclusion success, commit c39a1d9), log line "all passed (46 recordings)"; local `node tests/replay.js` "all passed (46 recordings)"; local `npm test` exit 0 (replay all passed, smoke all passed, roundtrip all passed). Orchestrator: `node tests/replay.js` on the merged branch "all passed (46 recordings)"; diff reviewed (three files, README append only). NOT run: the clean-clone `npm install && npx playwright install chromium && npm test` acceptance line (`npm install` is forbidden in the cloud session) — owner, once, on a clean clone.
+
+**Follow-ups.** The Actions log warns that `actions/checkout@v4` and `actions/setup-node@v4` are forced onto Node.js 24 (Node 20 runner deprecation); moving both to v5 is a one-line hygiene item when wanted (parking lot). Once WQ-036 removes the smoke flake, the browser suites can join CI (noted in WQ-036's follow-ups when it lands). WQ-047 (branch ruleset requiring `replay`) is now unblocked on the agent side but stays owner-machine.
+
+---
+
+---
+
 ### WQ-038 — Start a user-facing CHANGELOG and a version-tag convention
 
 - **Closed:** 2026-10-25 · **Outcome:** done-with-deviations

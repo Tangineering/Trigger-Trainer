@@ -36,7 +36,6 @@ updated: 2026-10-25
 | WQ-032 | Add a one-line disclaimer and privacy line to the start screen and the README | P1 | S | claimed:round-20261025-5 | — | docs |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | claimed:round-20261025-5 | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-033 | Run the replay suite in GitHub Actions and pin Playwright | P2 | S | claimed:round-20261025-5 | — | hygiene |
 | WQ-034 | Link the page to its source and add contributing notes to the README | P2 | S | queued | — | docs |
 | WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | queued | — | hygiene |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | queued | — | ui |
@@ -45,8 +44,7 @@ updated: 2026-10-25
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | queued | WQ-037 | platform |
 | WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
-| WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | WQ-033 | hygiene |
-| WQ-035 | Regenerate the stale synthetic recordings | P3 | S | claimed:round-20261025-5 | — | recordings |
+| WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
 | WQ-041 | Put two screenshots in the README | P3 | S | queued | — | docs |
 | WQ-044 | Accessibility pass on the page (D-121) | P3 | S | queued | — | ui |
 
@@ -313,46 +311,6 @@ record the decision number in the completion entry.
 
 ---
 
-### WQ-033 — Run the replay suite in GitHub Actions and pin Playwright
-
-- **Status:** claimed:round-20261025-5 · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
-- **Added:** 2026-10-25 by public-release review session
-- **Depends on:** — · **Blocks:** WQ-047
-
-**Context.** The repo is public and about to get outside readers, but the only workflow that runs on GitHub is the
-Pages build (`pages build and deployment`, 49 runs, all on `main`). `tests/replay.js` needs no browser and takes a few
-seconds for the 46 recordings, so it is the natural pull-request gate. The browser suites (`tests/smoke.js`,
-`tests/roundtrip.js`) are not CI material yet: `tests/smoke.js` has a timing-sensitive block that fails in 2 of 6
-unloaded runs (WQ-036). Separately, `package.json:13` asks for `"playwright": "^1.47.0"`; on 2026-10-25 a fresh
-`npm install` resolved a release that looks for Chromium build 1248 while a machine that ran `npx playwright install
-chromium` for an earlier release holds 1243, so the browser tests fail with "Executable doesn't exist" until the
-browsers are reinstalled. An exact pin keeps `npm install` and `npx playwright install chromium` in step for
-contributors.
-
-**Scope.**
-- Add `.github/workflows/test.yml`: on `push` to `main` and on `pull_request`, check out, `actions/setup-node` with
-  Node 22 (the version the tests run under locally: `node --version` printed v22.22.0 on 2026-10-25) and run
-  `node tests/replay.js` directly (no `npm install`: the replay suite has no dependencies). Name the job `replay`.
-- Pin `playwright` in `package.json` to the exact version `npm ls playwright` reports after a fresh install in the
-  executing session (write the number in the completion entry), and add an `engines.node` of `>=20` so the
-  requirement is visible.
-- Add two sentences to `README.md` "Develop" (`README.md:40`): the replay suite runs on every pull request, and the
-  browser suites are run locally before a merge.
-- Out of scope: running `tests/smoke.js` or `tests/roundtrip.js` in CI (wait for WQ-036); any change to the tests
-  themselves; a lockfile (the repo tracks none; do not add `package-lock.json`).
-
-**Acceptance.**
-- The workflow file exists and a run on the pushed branch shows the `replay` job green with `all passed (46
-  recordings)` in its log (46 at the time of writing; use the current count).
-- `package.json` has an exact Playwright version and `engines.node`; `npm install && npx playwright install chromium
-  && npm test` passes from a clean clone.
-- `README.md` "Develop" mentions the CI gate.
-
-**Verification.** Push the branch and read the Actions run (GitHub MCP `actions_list` / `get_job_logs` from a cloud
-session); run `npm test` locally; record the pinned version and the run URL in the completion entry.
-
----
-
 ### WQ-034 — Link the page to its source and add contributing notes to the README
 
 - **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
@@ -398,41 +356,6 @@ are the ground truth or that Ricky owns scope. There is no `CONTRIBUTING.md`, no
 - `npm test` passes unchanged; engine `VERSION` unchanged.
 
 **Verification.** `npm test`; Playwright screenshots; `git ls-files` shows the new files; completion entry lists them.
-
----
-
-### WQ-035 — Regenerate the stale synthetic recordings
-
-- **Status:** claimed:round-20261025-5 · **Priority:** P3 · **Size:** S · **Track:** recordings · **Env:** any
-- **Added:** 2026-10-25 by public-release review session (promoted from the parking lot, noted by the WQ-027 test
-  writer on 2026-10-25)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** `tests/recordings/synthetic/` is generated by `tests/make-synthetic.js`, but the eleven non-drill files
-(`180-break`, `180-safe`, `axis-right`, `axis-up`, `clean-press`, `jerked-press`, `off-frame-move`, `off-frame-still`,
-`press-wobble`, `safe-move`, `trigger-sweep`) still carry `"app":"0.12.3"`, while the drill files carry 0.13.0–0.16.0
-and `two-finger` 0.17.0 (checked 2026-10-25). Running the generator today rewrites all of them: the `app` field
-everywhere, and the touch logs of `clean-press`, `jerked-press`, `press-wobble` and `trigger-sweep` because the
-trigger geometry moved (D-72, D-87). The committed files still pass, so this is hygiene: a contributor who runs
-`npm run synthetic` sees a large unexplained diff.
-
-**Scope.**
-- Run `npm run synthetic` once with the current engine (0.17.0) and commit the regenerated folder in a commit of its
-  own (`tests: regenerate synthetic recordings with engine 0.17.0`).
-- Before committing, run `npm run test:replay` and list in the completion entry which recordings changed their
-  observed events, if any; the expectation of every synthetic label (`tests/expectations.js`) must still hold.
-- If the generator's own output is not stable across two runs (seeded randomness or timestamps), fix that in
-  `tests/make-synthetic.js` first and say so.
-- Out of scope: the real-phone folders (never regenerated, CLAUDE.md working rules); any engine change; the
-  parking-lot idea of synthetic drills that can identify an axis mapping.
-
-**Acceptance.**
-- Every file in `tests/recordings/synthetic/` carries `"app":"0.17.0"` (or the current `VERSION`).
-- `npm run synthetic` immediately after the commit produces no diff.
-- `npm test` passes; `tests/replay.js` reports the same recording count and all expectations met.
-
-**Verification.** `npm run synthetic && git status --short` (empty) and `npm test`; completion entry names the
-changed logs.
 
 ---
 
@@ -797,7 +720,7 @@ One line answers it; (a) is the smaller change.
 
 - **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** owner-machine
 - **Added:** 2026-10-25 by public-release review session
-- **Depends on:** WQ-033 · **Blocks:** —
+- **Depends on:** — (WQ-033 landed 2026-10-25: the `replay` job exists) · **Blocks:** —
 
 **Context.** `main` has no protection: any push lands and deploys. Once WQ-033 gives the repository a `replay` check
 on pull requests, a branch rule can require it. Repository settings are the owner's; the queue's own flow (merge
