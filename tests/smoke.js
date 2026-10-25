@@ -1898,6 +1898,54 @@ const check = (name, cond, state) => {
     await op.close(); await octx.close();
   }
 
+  // WQ-045 (D-123, D-124): no devicemotion sample within 2 s of Start shows the non-modal banner and the pill prefix;
+  // one sample clears both; samples stopping for more than 5 s while running shows them again. The trainer is not paused.
+  {
+    const nctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+    const np = await nctx.newPage();
+    np.on('pageerror', e => errors.push('no-motion page: ' + e.message));
+    await np.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await np.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await np.reload();
+    const nst = () => np.evaluate(() => window.__tdt());
+    const banner = () => np.evaluate(() => {
+      const b = document.getElementById('motionBanner');
+      return { shown: getComputedStyle(b).display !== 'none', text: b.textContent, pill: document.getElementById('status').textContent,
+               perm: typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function' && window.isSecureContext !== false };
+    });
+    const nmotion = () => np.evaluate(() => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+      rotationRate: { alpha: 0, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })));
+    await np.click('#startBtn'); await np.waitForTimeout(800);
+    let n = await nst(), b = await banner();
+    check('WQ-045: just after Start with no motion yet: no banner, motionSeen false', n.running && !n.motionSeen && !n.motionBannerOpen && !b.shown, [n.motionSeen, n.motionBannerOpen, b]);
+    await np.waitForTimeout(1700);
+    n = await nst(); b = await banner();
+    check('WQ-045: 2 s after Start with no motion: banner shown, pill reads NO MOTION', n.motionBannerOpen && b.shown && /^NO MOTION/.test(b.pill) && /No motion data\. The alarms cannot work\./.test(b.text), [n.motionBannerOpen, b]);
+    check('WQ-045: the fix line follows the feature check (D-53)',
+      b.perm ? /tap Allow/.test(b.text) && /Motion & Orientation Access/.test(b.text) : /over HTTPS on a phone/.test(b.text), b);
+    check('WQ-045: the banner does not pause the engine', n.running && !n.paused, n);
+    // The banner lets touches through: a finger on the frame strip under it still arms (mouse fallback / touch keep working).
+    const ncdp = await nctx.newCDPSession(np);
+    await ncdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: REST[0], y: REST[1], id: 1, radiusX: 25, radiusY: 25 }] });
+    await np.waitForTimeout(150);
+    n = await nst(); b = await banner();
+    check('WQ-045: with the banner up, a finger on the frame arms; the pill keeps the state after the prefix', n.armed && n.onRest && /^NO MOTION · SAFE$/.test(b.pill), [n.armed, n.onRest, b.pill]);
+    await nmotion(); await np.waitForTimeout(100);
+    n = await nst(); b = await banner();
+    check('WQ-045: one sample clears the banner and the pill', n.motionSeen && !n.motionBannerOpen && !b.shown && b.pill === 'SAFE', [n.motionSeen, n.motionBannerOpen, b]);
+    await np.waitForTimeout(3500);
+    n = await nst();
+    check('WQ-045: a 3.5 s gap after samples arrived: still no banner (gap limit 5 s)', !n.motionBannerOpen, n.motionBannerOpen);
+    await np.waitForTimeout(2000);
+    n = await nst(); b = await banner();
+    check('WQ-045: samples stopped for more than 5 s while running: banner and pill again', n.motionBannerOpen && b.shown && /^NO MOTION/.test(b.pill), [n.motionBannerOpen, b]);
+    await nmotion(); await np.waitForTimeout(100);
+    n = await nst(); b = await banner();
+    check('WQ-045: the next sample hides it again', !n.motionBannerOpen && !b.shown && !/NO MOTION/.test(b.pill), [n.motionBannerOpen, b]);
+    check('WQ-045: no page errors in this section', errors.filter(e => e.startsWith('no-motion page')).length === 0, errors);
+    await np.close(); await nctx.close();
+  }
+
   check('no page errors', errors.length === 0, errors);
   await browser.close();
   console.log(failures ? `\n${failures} failed` : '\nall passed');

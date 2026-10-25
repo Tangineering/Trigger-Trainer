@@ -435,3 +435,16 @@ sections' smoke press helpers and the roundtrip Bill / Low Ready / Box `press()`
 every point first; the `WQ-031` smoke section covers
 the five scenarios of the item.
 
+## WQ-045 — no-motion banner (D-123, D-124)
+
+`index.html` only (engine 0.17.0 unchanged, nothing logged). `onMotion` stores `lastMotionT` (page clock `now()`,
+never an engine input) for events with a non-null rotation-rate or gravity component (Chrome with no sensor sends one
+all-null event). `updateMotionBanner(t)`, called in `tick()` before `render()`, opens `#motionBanner` (a
+`pointer-events: none` flex item of `#readout`, before `#statusBox`, in the slide's rear part) when the page is
+running, visible and landscape and no sample has arrived for `NO_MOTION_START_MS` (2 s, none yet this run, i.e. since
+`startedAt`) or `NO_MOTION_GAP_MS` (5 s, after samples this run), measured from the later of the last sample and
+`watchT0` (when running + visible + landscape last became true). It never pauses the engine; the first sample closes it.
+The fix line (`motionFixText()`) is chosen by feature checks (D-53): non-secure context → HTTPS line; else
+`DeviceMotionEvent.requestPermission` present → close the tab, reopen, Allow, or Settings → Safari → Motion &
+Orientation Access; else HTTPS line. While open, `setStatus` prefixes the pill with "NO MOTION · ". `#warnLine` no longer
+carries a no-motion message. `window.__tdt()` adds `motionSeen` (any sample since load) and `motionBannerOpen`.

@@ -90,6 +90,13 @@
   .pill.trig { background: var(--trig); }
   #stats { font-size: 12px; color: #d5dade; white-space: nowrap; }
   #warnLine { font-size: 11px; line-height: 1.35; color: var(--warn); }
+  /* WQ-045 (D-123): no devicemotion sample after Start (2 s) or for 5 s while running. Non-modal: it sits in the
+     slide's rear part beside the status box and lets every touch through to what lies under it. */
+  #motionBanner { display: none; flex: 0 1 46%; min-width: 0; align-self: stretch; box-sizing: border-box;
+                  padding: 4px 8px; border: 2px solid var(--warn); border-radius: 8px; background: rgba(42,26,0,.88);
+                  color: #ffe2b0; font-size: 11px; line-height: 1.25; overflow: hidden; pointer-events: none; }
+  #motionBanner.show { display: flex; flex-direction: column; justify-content: center; }
+  #motionBanner b { color: #fff; }
   #recPill { pointer-events: auto; font: inherit; font-size: 12px; font-weight: 700; color: #fff; background: var(--bad);
              border: none; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
   #recPill[hidden] { display: none; }
@@ -196,6 +203,7 @@
     <div class="z trigger" data-z="trigger" id="trigZone"><div id="blade"></div><span class="label">TRIGGER<br>press &amp; pull back</span></div>
   </div>
   <div id="readout" data-z="slide">
+    <div id="motionBanner" role="status"><b>No motion data. The alarms cannot work.</b><span id="motionFix"></span></div>
     <div id="statusBox">
       <div id="status" class="pill">TAP START</div>
       <div id="drillLine"></div>
@@ -889,7 +897,12 @@ function onMotion(e) {
   let angle = screenAngle();
   if (!isPortrait()) landAngle = angle;
   else if (portraitPending() && landAngle !== null) angle = landAngle;
-  const m = TDT.fromDeviceMotion(e, now(), angle);
+  const t = now();
+  // Page state for the no-motion banner (WQ-045, D-123 e); not an engine input. Chrome with no sensor sends one event whose
+  // fields are all null: that is not a sample.
+  const rr = e.rotationRate, ag = e.accelerationIncludingGravity;
+  if ((rr && (rr.alpha != null || rr.beta != null || rr.gamma != null)) || (ag && (ag.x != null || ag.y != null || ag.z != null))) lastMotionT = t;
+  const m = TDT.fromDeviceMotion(e, t, angle);
   engine.motion(m);
   logRow(TDT.packMotion(m));
 }
@@ -921,6 +934,33 @@ function onMouse(e) {
 
 /* ======================= main loop ======================= */
 let running = false, startedAt = 0, sessionT0 = 0;   // sessionT0: start of the stats shown in the summary
+/* No-motion banner (WQ-045, D-123). Page clock only (now()), never fed to the engine and never logged. The wait
+   restarts whenever the page becomes running, visible and landscape again (watchT0), so a return from the background
+   or from portrait gets a fresh wait instead of a flash of the banner before the first new sample. */
+const NO_MOTION_START_MS = 2000, NO_MOTION_GAP_MS = 5000;
+let lastMotionT = null, watchT0 = null, motionBannerOpen = false;
+const needsMotionPermission = () => typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
+function motionFixText() {
+  if (window.isSecureContext !== false && needsMotionPermission())
+    return 'Close this tab, reopen the link and tap Allow; or Settings → Safari → Motion & Orientation Access.';
+  return 'Open the page over HTTPS on a phone.';
+}
+function updateMotionBanner(t) {
+  const watch = running && document.visibilityState === 'visible' && !isPortrait();
+  if (!watch) watchT0 = null;
+  else if (watchT0 === null) watchT0 = t;
+  let open = false;
+  if (watch) {
+    const seenThisRun = lastMotionT !== null && lastMotionT >= startedAt;
+    const since = Math.max(watchT0, seenThisRun ? lastMotionT : -Infinity);
+    open = t - since > (seenThisRun ? NO_MOTION_GAP_MS : NO_MOTION_START_MS);
+  }
+  if (open !== motionBannerOpen) {
+    motionBannerOpen = open;
+    if (open) $('motionFix').textContent = ' ' + motionFixText();
+    $('motionBanner').classList.toggle('show', open);
+  }
+}
 function tick() {
   requestAnimationFrame(tick);
   const t = now();
@@ -940,6 +980,7 @@ function tick() {
     if (el > REC_MAX_MS) { stopRecording(false); saveNote('Recording hit the 3-minute limit. Tap Save last recording.'); }
     else $('recPill').textContent = `● REC ${Math.floor(el / 60000)}:${String(Math.floor(el / 1000) % 60).padStart(2, '0')} · tap to stop`;
   }
+  updateMotionBanner(t);
   render(t);
 }
 
@@ -959,10 +1000,6 @@ function render(t) {
   const dtx = drillLineText(s), dle = $('drillLine');
   if (dle.textContent !== dtx) dle.textContent = dtx;
 
-  if (running && startedAt && t - startedAt > 2000 && s.motionEvents === 0) {
-    $('warnLine').textContent = 'No motion sensor data — movement alarm and aim trace inactive.';
-  } else if (s.motionEvents > 0 && $('warnLine').textContent.startsWith('No motion')) $('warnLine').textContent = '';
-
   const dl = $('dirLine'), db = $('downrangeBtn');
   db.hidden = !S.rule180;
   db.classList.toggle('unset', !s.refSet);
@@ -979,6 +1016,7 @@ function render(t) {
   if (S.debug) renderDebug(s);
 }
 function setStatus(cls, text) {
+  if (motionBannerOpen) text = 'NO MOTION · ' + text;   // WQ-045 (D-124)
   const key = cls + '|' + text;
   if (statusEl.dataset.k === key) return;
   statusEl.dataset.k = key;
@@ -1342,7 +1380,7 @@ window.__tdt = () => {
   return { running, armed: s.armed, onRest: s.onRest, alarmActive: s.alarmActive, violations: s.violations,
     shots: s.shots.length, lastGrade: s.shots.length ? s.shots[s.shots.length - 1].grade : null,
     trig: s.trig ? { pull: s.trig.pull, fired: s.trig.fired } : null, ignored: s.ignored.size, restContact: s.restContact, rotEMA: s.rotEMA, aimH: s.aimH, aimV: s.aimV,
-    recording: !!rec, alarmSound: Snd.alarm ? Snd.alarm.kind : null, paused: enginePaused, portraitHeld, refSet: s.refSet, alarmReason: s.alarmReason, dev180: s.dev180, devOff: s.devOff, breaks180: s.breaks180, inPress: s.inPress, axisEst: s.axisEst ? Object.assign({}, s.axisEst) : null,
+    recording: !!rec, motionSeen: lastMotionT !== null, motionBannerOpen, alarmSound: Snd.alarm ? Snd.alarm.kind : null, paused: enginePaused, portraitHeld, refSet: s.refSet, alarmReason: s.alarmReason, dev180: s.dev180, devOff: s.devOff, breaks180: s.breaks180, inPress: s.inPress, axisEst: s.axisEst ? Object.assign({}, s.axisEst) : null,
     summary: TDT.summarize(s), summaryOpen: $('summaryOv').classList.contains('show'),
     drill: s.drill ? { id: s.drill.id, phase: s.drill.phase, shots: s.drill.shots.length, early: s.drill.early,
                        rep: s.drill.rep, repsDone: s.drill.reps.length, curShots: s.drill.cur ? s.drill.cur.shots.length : 0,
