@@ -24,7 +24,7 @@ How to use it:
 
 ```yaml
 next_id: WQ-048
-updated: 2026-10-25
+updated: 2026-10-26
 ```
 
 ## Index
@@ -35,7 +35,6 @@ updated: 2026-10-25
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-036 | Make the trigger-reset smoke block deterministic | P2 | M | claimed:round-20261025-6 | — | hygiene |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | claimed:round-20261025-6 | — | ui |
 | WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | queued | — | docs |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
@@ -264,45 +263,6 @@ WQ-022.
 
 **Verification.** `npm test`; a Playwright run with `navigator.vibrate` stubbed to return `false` shows
 `vib: false` in the readout after a simulated shot (add it to `tests/smoke.js`).
-
----
-
-### WQ-036 — Make the trigger-reset smoke block deterministic
-
-- **Status:** claimed:round-20261025-6 · **Priority:** P2 · **Size:** M · **Track:** hygiene · **Env:** browser
-- **Added:** 2026-10-25 by public-release review session (promoted from the parking lot: WQ-023 agent 2026-10-24,
-  WQ-029 2026-10-25)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** `tests/smoke.js` fails intermittently in three checks: "trigger reset allows follow-up; drift graded as
-moved" (`tests/smoke.js:129`) and the two session-summary grading checks that depend on it (`tests/smoke.js:322`–326).
-Measured 2 failures in 6 sequential unloaded runs on 2026-10-25 (WQ-029 round) and once under container load on
-2026-10-24. The failing state shows `lastGrade "Jerked"` with `rotEMA` about 12: the `motion(-15, 0, 6)` burst at
-`tests/smoke.js:126` is meant to dip the muzzle about 1.4° during the press and grade Moved, but each
-`DeviceMotionEvent` is dispatched from `page.evaluate` with a `waitForTimeout(16)` between them (`motion` helper,
-`tests/smoke.js:78`–85), so the engine's `dt` per sample is whatever the event loop gives, and a slow frame turns the
-same six samples into a jerk. The engine is not suspect (every recording replays identically); the harness timing is.
-This block is also why WQ-033 keeps the browser suites out of CI.
-
-**Scope.**
-- Make the motion fed in that block independent of wall-clock timing. Preferred: have the page's test hook accept a
-  motion sample with an explicit timestamp, or drive the burst through the recorder's replay path, so that the six
-  samples always integrate to the same angle; alternatively measure from requestAnimationFrame timestamps and assert
-  on the integrated `aimV` rather than on a fixed sample count. Read `window.__tdt()` (CLAUDE.md "`window.__tdt()`
-  Read-only snapshot used by the browser tests. Keep it.") and `onMotion` in `index.html` before choosing; any new hook
-  must be read-only for production behaviour and must not touch the engine.
-- Apply the same fix to the `wobble` helper (`tests/smoke.js:87`–94) if it shares the weakness.
-- Out of scope: engine or `index.html` behaviour changes visible to a user; the drill sections' press helpers (they
-  passed in every run); adding the suite to CI (WQ-033 follow-up once this lands).
-
-**Acceptance.**
-- `for i in $(seq 10); do node tests/smoke.js | tail -1; done` prints `all passed` ten times in a row on the
-  executing machine, and the same loop with `node tests/roundtrip.js`.
-- `npm run test:replay` unchanged (46 recordings); engine `VERSION` unchanged.
-- The completion entry says which mechanism was chosen and why.
-
-**Verification.** The ten-run loops above; `npm test`; diff of `tests/smoke.js` reviewed for timing-dependent waits
-left in the block.
 
 ---
 
@@ -627,8 +587,12 @@ records it in this item's completion entry.
 Ideas noted but not yet turned into items (an exploratory session may
 promote one with `work-queue-add`):
 
-- **Stale synthetic recordings** → promoted to WQ-035 (2026-10-25).
-- **Timing-sensitive summary checks in `tests/smoke.js`** → promoted to WQ-036 (2026-10-25).
+- **Browser suites in CI** (from WQ-036, 2026-10-26): the smoke press block is deterministic now (held test clock, D-126), so a
+  `browser` job in `.github/workflows/test.yml` (install Playwright's Chromium, run `tests/smoke.js` and `tests/roundtrip.js`)
+  is possible; keep `replay` as the only required check until the browser job has a record. Also move `actions/checkout`
+  and `actions/setup-node` to v5 (WQ-033 saw the Node 20 runner deprecation warning).
+- **Compact landscape start screen** (from WQ-032, 2026-10-25): at 375–393 px height **Start** sits 500 px down `#startOv`,
+  below the fold; a smaller landscape layout would show it without scrolling. Pre-existing, not caused by WQ-032.
 - **Auto-switch of the axis mapping with a confidence gate** (proposal 3.6 steps 2–3). The advisory
   readout is WQ-012 (D-57); the switch waits for a second phone's recordings (WQ-006) and a Ricky decision.
 - **Synthetic recordings that can identify an axis mapping** (from WQ-004). `tests/make-synthetic.js` emits

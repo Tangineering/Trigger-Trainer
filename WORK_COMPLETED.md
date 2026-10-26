@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-036 — Make the trigger-reset smoke block deterministic
+
+- **Closed:** 2026-10-26 · **Outcome:** done
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) reviewed the diff, re-ran the smoke suite on the merged branch and archived · **Round:** round-20261025-6
+- **Commits / PR:** bc70f45 "WQ-036: run the smoke press block on a held test clock"; merge on the orchestration branch
+
+**What was done.** `tests/smoke.js` only: `holdClock()` replaces `performance.now` inside the page (from `page.evaluate`) with a virtual clock that only the motion helpers advance, and `releaseClock()` lets real time run on from where the virtual clock stopped (a fixed offset, so time never jumps). A shared `sample()` helper, used by `motion` and `wobble`, advances the virtual clock 16 ms per sample and waits one rendered frame while the clock is held (so the page's tick sees the sample), and waits 16 ms of real time otherwise. The block from "trigger reset allows follow-up; drift graded as moved" through the third shot fired during an alarm runs between `holdClock()` and `releaseClock()`; the six −15 °/s samples now always integrate to 1.44° (Moved). `tests/roundtrip.js` needed no change. D-126 (`Claude (proposed)`) records the mechanism; `CLAUDE.md` has a `## WQ-036` block.
+
+**Why.** Promoted from the parking lot by the public-release review (2026-10-25): the block failed in 2 of 6 unloaded runs because each sample's `dt` was whatever the event loop gave, so a slow frame turned the same samples into a Jerked grade; the flake kept the browser suites out of CI (WQ-033).
+
+**Deviations.** None in the work. Mechanism: the held page clock rather than the item's preferred page hook (would have changed `index.html`), synchronous timestamped bursts (the engine's `jerkMs` count needs ticks between samples) or the recorder's replay path (would test Node, not the page wiring). One wall-clock wait remains inside the held block (`waitForTimeout(50)` after the follow-up pull); the shot fires on the touch event, so it does not affect the outcome.
+
+**Verification.** Agent: `for i in $(seq 10); do node tests/smoke.js | tail -1; done` → "all passed" 10/10; the same loop with `tests/roundtrip.js` → 10/10; `npm run test:replay` "all passed (46 recordings)"; `npm test` exit 0, 809 PASS lines, 0 FAIL; engine `VERSION` 0.17.0, `index.html` and `engine.js` untouched. Orchestrator: diff read (42 lines in `tests/smoke.js`, docs otherwise); smoke suite re-run on the merged branch (see the round report). Not applicable: real phones.
+
+**Follow-ups.** With the block deterministic, the browser suites can join CI: a small hygiene item (extend `.github/workflows/test.yml` with a `browser` job that installs Playwright's Chromium and runs `tests/smoke.js` and `tests/roundtrip.js`; keep `replay` as the required check until the browser job has a record). Added to the parking lot.
+
+---
+
+---
+
 ### WQ-034 — Link the page to its source and add contributing notes to the README
 
 - **Closed:** 2026-10-25 · **Outcome:** done-with-deviations
