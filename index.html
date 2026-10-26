@@ -1232,6 +1232,18 @@ async function requestWakeLock() {
 }
 let motionBound = false;
 function bindMotion() { if (!motionBound) { window.addEventListener('devicemotion', onMotion); motionBound = true; } }
+// Offline cache (WQ-043, D-121, D-128): after Start, register sw.js with the engine version in its URL. A file:// page,
+// a browser without service workers or a failed registration changes nothing.
+let swAsked = false;
+function registerOffline() {
+  if (swAsked) return; swAsked = true;
+  try {
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol))
+      navigator.serviceWorker.register('sw.js?v=' + encodeURIComponent(TDT.VERSION), { updateViaCache: 'none' }).catch(() => {});
+  } catch (e) {}
+}
+function offlineReady() { try { return !!(navigator.serviceWorker && navigator.serviceWorker.controller); } catch (e) { return false; } }
+function renderVersionLine() { $('versionLine').textContent = `Engine ${TDT.VERSION}` + (offlineReady() ? ' · offline ready' : ''); }
 async function start() {
   Snd.init(); Snd.resume();                         // must happen inside the tap
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -1243,6 +1255,7 @@ async function start() {
     try { await screen.orientation.lock('landscape'); } catch (e) {}
   }
   requestWakeLock();
+  registerOffline();
   running = true; startedAt = now();
   beginDrillRun(startedAt);
   if (!sessionT0) sessionT0 = startedAt;
@@ -1370,7 +1383,8 @@ $('drillCancelBtn').addEventListener('click', closePicker);
 $('drillAgain').addEventListener('click', () => { $('drillResOv').classList.remove('show'); beginDrillRun(now()); });
 $('drillChange').addEventListener('click', () => { $('drillResOv').classList.remove('show'); leaveToStart(); });
 
-$('versionLine').textContent = `Engine ${TDT.VERSION}`;
+renderVersionLine();
+try { if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersionLine); } catch (e) {}
 
 newEngine(); bindSettings(); buildSettings(); renderDrillBtn(); layout(); renderStats();
 requestAnimationFrame(tick);

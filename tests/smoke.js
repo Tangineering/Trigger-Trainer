@@ -2000,6 +2000,74 @@ const check = (name, cond, state) => {
     await ip.close(); srv.close();
   }
 
+  // WQ-043: offline use (D-121, D-128). Served over a throwaway local HTTP server (service workers need http(s); the
+  // page above runs from file://, where registration is skipped) in a fresh context, so the worker cannot leak into
+  // the other sections. Start registers sw.js?v=<VERSION>; once it controls the page, the context goes offline and the
+  // server stops, and a reload must still render the start screen with the same engine version.
+  {
+    const http = require('http'), fs = require('fs');
+    const root = path.resolve(__dirname, '..');
+    const types = { '.html': 'text/html', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.js': 'text/javascript' };
+    const srv = http.createServer((req, res) => {
+      const f = path.join(root, decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html');
+      if (!f.startsWith(root + path.sep) || !fs.existsSync(f) || !fs.statSync(f).isFile()) { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+      fs.createReadStream(f).pipe(res);
+    });
+    await new Promise(r => srv.listen(0, '127.0.0.1', r));
+    const base = `http://127.0.0.1:${srv.address().port}/`;
+    const fctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+    const fp = await fctx.newPage();
+    fp.on('pageerror', e => errors.push('offline page: ' + e.message));
+    await fp.goto(base);
+    const v0 = await fp.evaluate(() => window.TDT.VERSION);
+    const before = await fp.evaluate(async () => ({ ctl: !!navigator.serviceWorker.controller,
+      regs: (await navigator.serviceWorker.getRegistrations()).length, line: document.getElementById('versionLine').textContent }));
+    check('WQ-043: no worker is registered before Start', !before.ctl && before.regs === 0 && !/offline/.test(before.line), before);
+    await fp.click('#startBtn');
+    const got = await fp.evaluate(async () => {
+      const reg = await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller)
+        await new Promise(r => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
+      const keys = await caches.keys(), c = await caches.open(keys.find(k => k.startsWith('tdt-')) || 'none');
+      return { script: reg.active && reg.active.scriptURL, ctl: !!navigator.serviceWorker.controller, keys,
+        cached: (await c.keys()).map(q => new URL(q.url).pathname).sort(), line: document.getElementById('versionLine').textContent };
+    });
+    check('WQ-043: Start registers sw.js?v=<VERSION> and it controls the page',
+      got.ctl && got.script === base + 'sw.js?v=' + encodeURIComponent(v0), got);
+    check('WQ-043: the cache is named after the engine version', got.keys.length === 1 && got.keys[0] === 'tdt-' + v0, got.keys);
+    const want = ['/', '/engine.js', '/icon-180.png', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/icon.svg', '/index.html', '/manifest.webmanifest'];
+    check('WQ-043: the cache holds the page, the engine, the manifest and every icon', JSON.stringify(got.cached) === JSON.stringify(want), got.cached);
+    check('WQ-043: the version line says offline ready once the worker controls the page', /offline ready/.test(got.line), got.line);
+    const asked = [];
+    fctx.on('request', q => asked.push(q.url()));
+    await fctx.setOffline(true); srv.close(); srv.closeAllConnections();
+    let reloaded = true;
+    try { await fp.reload({ waitUntil: 'load' }); } catch (e) { reloaded = false; errors.push('offline reload: ' + e.message); }
+    const off = reloaded ? await fp.evaluate(() => ({ start: document.getElementById('startOv').classList.contains('show'),
+      v: window.TDT && window.TDT.VERSION, ctl: !!navigator.serviceWorker.controller,
+      line: document.getElementById('versionLine').textContent })) : null;
+    check('WQ-043: offline reload renders the start screen with the same engine version',
+      !!off && off.start && off.v === v0 && off.ctl, off);
+    check('WQ-043: offline reload shows offline ready', !!off && /offline ready/.test(off.line), off);
+    check('WQ-043: no request leaves the local origin', asked.every(u => u.startsWith(base)), asked);
+    // A new registered version string installs a new worker and deletes the old cache on activate.
+    const bump = await fp.evaluate(() => caches.keys());
+    await fctx.setOffline(false);
+    const srv2 = http.createServer(srv.listeners('request')[0]);
+    await new Promise(r => srv2.listen(new URL(base).port, '127.0.0.1', r));
+    const next = await fp.evaluate(async () => {
+      const swap = new Promise(r => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
+      await navigator.serviceWorker.register('sw.js?v=wq043-next', { updateViaCache: 'none' });
+      await swap;
+      for (let i = 0; i < 50; i++) { const k = await caches.keys(); if (k.length === 1) break; await new Promise(r => setTimeout(r, 50)); }
+      return { keys: await caches.keys(), script: navigator.serviceWorker.controller && navigator.serviceWorker.controller.scriptURL };
+    });
+    check('WQ-043: a changed version string makes a new cache and deletes the old one',
+      bump.includes('tdt-' + v0) && next.keys.length === 1 && next.keys[0] === 'tdt-wq043-next' && /sw\.js\?v=wq043-next$/.test(next.script || ''), { bump, next });
+    await fctx.close(); srv2.close(); srv2.closeAllConnections();
+  }
+
   check('no page errors', errors.length === 0, errors);
   await browser.close();
   console.log(failures ? `\n${failures} failed` : '\nall passed');

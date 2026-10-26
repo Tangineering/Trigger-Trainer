@@ -40,7 +40,8 @@ How the queue and the other documents fit together:
 1. **Static files, no build step.** `index.html` (markup, CSS, UI wiring) and `engine.js` (all logic, no DOM)
    are served as-is. No framework, no bundler, no runtime dependencies, no CDN scripts. Other companions:
    `manifest.webmanifest`, `icon.svg`, and the PNG icons rendered from it (`icon-180.png`, `icon-192.png`,
-   `icon-512.png`, `icon-maskable-512.png`; WQ-037, D-127). (Was "one file"; relaxed by D-17, ratified 2026-10-20.)
+   `icon-512.png`, `icon-maskable-512.png`; WQ-037, D-127), and the offline service worker `sw.js` (WQ-043, D-121).
+   (Was "one file"; relaxed by D-17, ratified 2026-10-20.)
 2. **Free static hosting** (GitHub Pages). It must work by opening a URL. HTTPS is required for motion
    sensors on iOS.
 3. **No data leaves the phone.** No analytics, no network calls, no cookies. Settings live in
@@ -226,6 +227,7 @@ engine.js               all trainer logic + record/replay helpers (no DOM)
 manifest.webmanifest    home-screen install (landscape, fullscreen)
 icon.svg
 icon-180.png, icon-192.png, icon-512.png, icon-maskable-512.png   PNG icons rendered from icon.svg (WQ-037)
+sw.js                   offline cache service worker, registered after Start (WQ-043)
 scripts/render-icons.js renders the PNG icons (Playwright Chromium; no new dependency)
 tests/replay.js         replays every recording; expectations + live==replay + axis diagnosis
 tests/expectations.js   what each drill label must produce
@@ -462,3 +464,18 @@ helpers, 16 ms per sample, each sample followed by one rendered frame; `releaseC
 offset. The main press block (trigger reset graded Moved through the third shot during an alarm) runs held, so the
 angle a burst integrates to and the movement time during a press no longer depend on event-loop timing. Checks that
 need wall time to pass (portrait hold, drill delays) must not run while the clock is held.
+
+## WQ-043 — offline use (D-121, D-128)
+
+`sw.js` (repo root, same scope as the page) caches the site's own files so a reload with no connection still opens the
+trainer. The page registers it once, at the end of `start()` (`registerOffline()`, after the audio unlock), as
+`sw.js?v=<TDT.VERSION>` with `updateViaCache: 'none'`, only where `'serviceWorker' in navigator` and the page is http(s)
+(a `file://` page, as in the smoke and roundtrip suites, skips it), inside a try/catch with the promise's rejection
+swallowed. The worker takes the version from its own URL: cache `tdt-<version>` holds `./`, `index.html`, `engine.js`,
+`manifest.webmanifest` (network first, cache fallback; a navigation falls back to the cached page) and `icon.svg` plus
+the four PNGs (cache first). Install `skipWaiting()`s, activate deletes every other `tdt-` cache and `clients.claim()`s,
+so an engine `VERSION` bump reaches a phone on its next online load. Only GET requests to those listed same-origin
+paths are handled; everything else passes through untouched. `renderVersionLine()` writes `Engine <VERSION>` and, once a
+worker controls the page (checked at load and on `controllerchange`), ` · offline ready`. Nothing reaches the engine or a
+recording. Test: the `WQ-043` block at the end of `tests/smoke.js` (local HTTP server, fresh context, offline reload,
+cache-name swap).
