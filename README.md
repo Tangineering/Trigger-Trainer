@@ -3,6 +3,11 @@
 A free, phone-only drill aid for teaching trigger finger discipline. The phone screen plays the side of a
 pistol: keep the index finger flat on the frame while moving; go to the trigger only when still.
 
+<p align="center">
+  <img src="docs/screenshots/readme/armed.png" width="49%" alt="The trainer in landscape with the index finger flat on the frame strip: green SAFE pill, a green frame strip and the shot radar showing a short blue aim trace after one clean shot.">
+  <img src="docs/screenshots/readme/picker.png" width="49%" alt="The drill picker listing Freestyle, Low Ready, Box Drill, Bill Drill and Transitions, with a diagram of moving with the finger on the frame versus firing when still.">
+</p>
+
 - **Finger flat on the frame strip** → safe; move freely.
 - **Finger off the frame and the phone moves** → alarm until the finger is back on the frame.
 - **Trigger** (rear of the screen): press and pull back to fire. The shot is a click and a flash.
