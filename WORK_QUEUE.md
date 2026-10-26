@@ -36,13 +36,13 @@ updated: 2026-10-26
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
-| WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | queued | — | docs |
+| WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | claimed:round-20261025-7 | — | docs |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
-| WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | queued | — | platform |
+| WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | claimed:round-20261025-7 | — | platform |
 | WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
-| WQ-041 | Put two screenshots in the README | P3 | S | queued | — | docs |
-| WQ-044 | Accessibility pass on the page (D-121) | P3 | S | queued | — | ui |
+| WQ-041 | Put two screenshots in the README | P3 | S | claimed:round-20261025-7 | — | docs |
+| WQ-044 | Accessibility pass on the page (D-121) | P3 | S | claimed:round-20261025-7 | — | ui |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -303,7 +303,7 @@ completion entry.
 
 ### WQ-039 — Write docs/ARCHITECTURE.md for contributors and a documentation map in the README
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
+- **Status:** claimed:round-20261025-7 · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
 - **Added:** 2026-10-25 by public-release review session
 - **Depends on:** — · **Blocks:** —
 
@@ -336,7 +336,7 @@ the way (fix in CLAUDE.md only if trivially wrong, else report).
 
 ### WQ-041 — Put two screenshots in the README
 
-- **Status:** queued · **Priority:** P3 · **Size:** S · **Track:** docs · **Env:** browser
+- **Status:** claimed:round-20261025-7 · **Priority:** P3 · **Size:** S · **Track:** docs · **Env:** browser
 - **Added:** 2026-10-25 by public-release review session
 - **Depends on:** — · **Blocks:** —
 
@@ -393,7 +393,7 @@ with `minimal_output: false` shows `description`, `homepage`, `topics`).
 
 ### WQ-043 — Offline use: cache the page with a service worker (D-121)
 
-- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** platform · **Env:** any
+- **Status:** claimed:round-20261025-7 · **Priority:** P2 · **Size:** M · **Track:** platform · **Env:** any
 - **Added:** 2026-10-25 by public-release review session (Ricky promoted idea I-11, D-121)
 - **Depends on:** — (WQ-037's files landed 2026-10-26; its owner check is independent) · **Blocks:** —
 
@@ -437,7 +437,7 @@ versions seen before and after a deploy.
 
 ### WQ-044 — Accessibility pass on the page (D-121)
 
-- **Status:** queued · **Priority:** P3 · **Size:** S · **Track:** ui · **Env:** browser
+- **Status:** claimed:round-20261025-7 · **Priority:** P3 · **Size:** S · **Track:** ui · **Env:** browser
 - **Added:** 2026-10-25 by public-release review session (Ricky promoted idea I-12, D-121)
 - **Depends on:** — · **Blocks:** —
 
