@@ -67,7 +67,7 @@ LAN won't get motion data on iPhone.
 
 ## Develop
 
-No build step. `index.html` is the UI; `engine.js` is the logic. Tests:
+No build step. `index.html` is the UI; `engine.js` is the logic (how they fit together: `docs/ARCHITECTURE.md`). Tests:
 
 ```
 npm install
@@ -99,7 +99,7 @@ What changed in each version: see [CHANGELOG.md](CHANGELOG.md).
 
 ## Project files
 
-How the project is run (WQ-034): [CONTRIBUTING.md](CONTRIBUTING.md) says how to report a problem, contribute a phone
+How the project is run: [CONTRIBUTING.md](CONTRIBUTING.md) says how to report a problem, contribute a phone
 recording and open a pull request; [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and [SECURITY.md](SECURITY.md) sit beside
 it. The other files in the root are the planning documents: [WORK_QUEUE.md](WORK_QUEUE.md) (outstanding work),
 [WORK_COMPLETED.md](WORK_COMPLETED.md) (finished work), [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) (questions for the
@@ -113,7 +113,7 @@ browser; a recording from Settings → **Record test data** helps most).
 
 ## Documentation
 
-Where to read more (WQ-039):
+Where to read more:
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the trainer works, for contributors (engine / page split, state
   machine, zones and axes, recordings as tests, adding a drill).

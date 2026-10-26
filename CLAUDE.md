@@ -222,32 +222,41 @@ Bill's single string with ten shots; while it is live with at least one shot and
 ## Layout of this repo
 
 ```
-index.html              UI, audio, input wiring, recorder
+index.html              UI, audio, input wiring, recorder, settings, drill UI, offline registration
 engine.js               all trainer logic + record/replay helpers (no DOM)
 manifest.webmanifest    home-screen install (landscape, fullscreen)
-icon.svg
+icon.svg                source icon
 icon-180.png, icon-192.png, icon-512.png, icon-maskable-512.png   PNG icons rendered from icon.svg (WQ-037)
 sw.js                   offline cache service worker, registered after Start (WQ-043)
 scripts/render-icons.js renders the PNG icons (Playwright Chromium; no new dependency)
+scripts/wq.py           queue invariant check, claim/unclaim/archive
 tests/replay.js         replays every recording; expectations + live==replay + axis diagnosis
 tests/expectations.js   what each drill label must produce
 tests/recordings/       real phone recordings (one folder per phone) + synthetic/ baseline
 tests/make-synthetic.js generates tests/recordings/synthetic/
-tests/smoke.js          browser state-machine test
+tests/smoke.js          browser state-machine test (+ icon, offline and accessibility blocks)
 tests/roundtrip.js      browser record → Node replay equality test
-docs/RECORDINGS.md      how to record drills; recording file format
-package.json            dev-only: playwright for tests
+tests/axis-estimate.js  gyro axis-order estimators over the recordings (npm run axis-estimate)
+.github/workflows/test.yml   GitHub Actions: the replay suite on every push and pull request (job `replay`)
+.github/ISSUE_TEMPLATE/bug_report.md   bug report template (phone, OS, browser, engine version, recording)
+package.json            dev-only: playwright (exact pin) for the browser tests
+docs/ARCHITECTURE.md    contributor version of the Architecture section below
+docs/RECORDINGS.md      how to record drills; recording file format; consent for contributed recordings
+docs/CLASS_USE.md       how to run it in a class (student-facing steps)
 docs/DECISIONS.md       decision log with attribution
 docs/IDEAS.md           ideas for later exploration (not committed to)
-docs/CLASS_USE.md       how to run it in a class (student-facing steps)
 docs/PROPOSAL_2026-10-20.md  rationale behind the first queue items (axis order, platform check, estimators)
+docs/axis-estimate-2026-10-20.txt  estimator output over the 2026-10-20 recordings
+docs/mockups/           design mockups (drill picker diagrams)
+docs/screenshots/       Playwright screenshots kept per item (wq-NNN/) and for the README (readme/)
 OPEN_QUESTIONS.md       blocking/pending questions for Ricky
 WORK_QUEUE.md           outstanding work, one WQ-NNN item per unit (the planning document)
 WORK_COMPLETED.md       archive of finished queue items
-scripts/wq.py           queue invariant check, claim/unclaim/archive
 .claude/skills/         work-queue-add, work-queue-run (+ BRIEF_RULES.md for execution agents, MODELS.md
                         for agent models), orchestrated-feature (+ PROJECT.md for this repo's specifics)
-README.md               short public description + deploy steps
+CHANGELOG.md            user-facing changes per engine version (plus Unreleased)
+CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md   how the project is run, for outside contributors
+README.md               short public description, use, limitations, deploy, documentation map
 LICENSE                 MIT (Tangineering)
 ```
 

@@ -4,6 +4,24 @@ All notable changes to the Trigger Discipline Trainer, newest first. The version
 Settings. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are tagged `vX.Y.Z` on
 `main` by the owner after the merge.
 
+## [Unreleased]
+
+Page and project changes with no engine change (`Engine 0.17.0` still shows in Settings).
+
+### Added
+- Start screen: a one-line disclaimer, a privacy line and a **Source on GitHub** link.
+- A **No motion data** banner when no motion sample arrives after Start (iPhone **Don't Allow**, laptop, plain
+  HTTP), with the fix for the platform; the status pill is prefixed NO MOTION meanwhile.
+- Home-screen icons for iPhone and Android (PNG renders of the SVG icon, including a maskable one).
+- Offline use: after the first load the page opens with no connection (a service worker caches the site's own
+  files; Settings shows "offline ready").
+- Accessibility: a **Shot flash** switch in Settings → Other, the flash replaced by a brief trigger outline when
+  it is off or the phone asks for reduced motion, dialog and live-region labels, and higher-contrast alarm and
+  trigger pills.
+- For contributors: CHANGELOG, CONTRIBUTING, code of conduct, security note, bug-report template, the replay suite
+  in GitHub Actions on every push and pull request, `docs/ARCHITECTURE.md`, README screenshots and a browser
+  support / known limitations section.
+
 ## [0.17.0] - 2026-10-25
 
 ### Changed
