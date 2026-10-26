@@ -33,7 +33,7 @@ updated: 2026-10-26
 |----|-------|-----|------|--------|------------|-------|
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
-| WQ-048 | Box Drill diagram: position 1 at the lower right (D-132) | P1 | S | queued | — | drills |
+| WQ-048 | Box Drill diagram: position 1 at the lower right (D-132) | P1 | S | claimed:round-20261026-2 | — | drills |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
@@ -130,7 +130,7 @@ fix the remaining details; D-114 (a) is superseded by D-115. Real recordings con
 
 ### WQ-048 — Box Drill diagram: position 1 at the lower right (D-132)
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** drills · **Env:** browser
+- **Status:** claimed:round-20261026-2 · **Priority:** P1 · **Size:** S · **Track:** drills · **Env:** browser
 - **Added:** 2026-10-26 by the orchestration session (Ricky's request, D-132)
 - **Depends on:** — · **Blocks:** —
 
