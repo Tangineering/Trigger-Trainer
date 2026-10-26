@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-046 — Deploy the public page from a release branch instead of main (Q19)
+
+- **Closed:** 2026-10-26 · **Outcome:** done
+- **Executed by:** orchestration session (Fable 5.1) for the branch and the queue bookkeeping; execution agent on sonnet for the docs; Ricky for the Pages setting · **Round:** round-20261026-1
+- **Commits / PR:** `release` created from `main` at 1ba8c5e (2026-10-26); 2cbb2be "queue: Q19 resolved (D-131, release branch)"; 3036029 "WQ-046: document the release branch flow for the public page"; merge on the orchestration branch; first release push `main:release` at 0dc043f
+
+**What was done.** Q19 → (a), D-131 (Ricky): the public page follows a `release` branch, `main` is the development branch, a release is `git push origin main:release` after the owner's phone pass, normally with the `vX.Y.Z` tag. The branch was created from `main` at the commit then live (1ba8c5e), so the switch changed nothing on the page. Ricky switched Settings → Pages to `release`, folder `/ (root)`. Docs: README "Deploy" rewritten in place (Pages setting, the release step, the Engine-line check), `docs/CLASS_USE.md` "Before class" bullet, `.claude/skills/work-queue-run/SKILL.md` §5 step 5 (every completion entry says whether the item is on `release`), CLAUDE.md hard constraint 2 names `release`. Then, on Ricky's instruction, the orchestration session fast-forwarded `main` and `release` to 0dc043f (rounds 5–8).
+
+**Why.** Public-release review (2026-10-25): every merge to `main` went live at once, before its owner-verifiable half (WQ-031 reached the public page with its phone checks open); with the link public, "merged" and "released" needed to be different states.
+
+**Deviations.** None. The orchestration session cannot change the Pages source, so that step was Ricky's, as the item said.
+
+**Verification.** Actions after the switch: `pages build and deployment` run 50 for `release` at 1ba8c5e (success, triggered by the setting change) and run 51 for `release` at 0dc043f after the release push; the push of 0dc043f to `main` triggered only the `tests` workflow (run 19), no Pages run. Agent: `node tests/replay.js` "all passed (46 recordings)"; no code changed. On `release`: yes, this item is on `release` (0dc043f).
+
+**Follow-ups.** WQ-047 (branch ruleset) can also protect `release` with the same rule and no pull-request requirement, as its scope says. Nothing new.
+
+---
+
+---
+
 ### WQ-044 — Accessibility pass on the page (D-121)
 
 - **Closed:** 2026-10-26 · **Outcome:** done-with-deviations
