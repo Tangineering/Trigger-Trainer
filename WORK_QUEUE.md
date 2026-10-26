@@ -41,7 +41,6 @@ updated: 2026-10-26
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | claimed:round-20261025-7 | — | platform |
 | WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
-| WQ-041 | Put two screenshots in the README | P3 | S | claimed:round-20261025-7 | — | docs |
 | WQ-044 | Accessibility pass on the page (D-121) | P3 | S | claimed:round-20261025-7 | — | ui |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -331,33 +330,6 @@ only "`index.html` is the UI; `engine.js` is the logic" and never lists `docs/` 
 
 **Verification.** The grep pass over the names; completion entry lists any CLAUDE.md statement found to be stale on
 the way (fix in CLAUDE.md only if trivially wrong, else report).
-
----
-
-### WQ-041 — Put two screenshots in the README
-
-- **Status:** claimed:round-20261025-7 · **Priority:** P3 · **Size:** S · **Track:** docs · **Env:** browser
-- **Added:** 2026-10-25 by public-release review session
-- **Depends on:** — · **Blocks:** —
-
-**Context.** `README.md` is text only. `docs/screenshots/` holds per-item Playwright captures (latest
-`docs/screenshots/wq-030/start-landscape.png`, `picker-landscape.png`, `results-landscape.png`), none referenced
-anywhere. `.gitignore` excludes `*.png` globally, so those files were force-added; new ones need `git add -f` or a
-`!docs/screenshots/**` exception.
-
-**Scope.**
-- Capture two fresh 852×393 CSS px screenshots with Playwright from the current `index.html`: the trainer armed with
-  the finger on the frame (green strip, trace visible) and the drill picker, into `docs/screenshots/readme/`. Keep
-  them under 200 KB each.
-- Add `!docs/screenshots/**` to `.gitignore` (rewrites a hub file: say so in the commit; it is a one-line append).
-- Embed both at the top of `README.md` after the first paragraph with alt text.
-- Out of scope: real-phone photos (owner may replace later); any page change.
-
-**Acceptance.**
-- The README renders both images on GitHub; the files are tracked; `git status` clean after `git add .` (the
-  gitignore exception works).
-
-**Verification.** View the README on the pushed branch; completion entry notes the sizes.
 
 ---
 

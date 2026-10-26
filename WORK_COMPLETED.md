@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-041 — Put two screenshots in the README
+
+- **Closed:** 2026-10-26 · **Outcome:** done
+- **Executed by:** execution agent on sonnet (docs/tooling S item); orchestration session (Fable 5.1) viewed both images, checked the ignore rule and archived · **Round:** round-20261025-7
+- **Commits / PR:** df71bca "WQ-041: two README screenshots; .gitignore gains the docs/screenshots exception"; merge on the orchestration branch
+
+**What was done.** Two 852×393 Playwright captures of the current `index.html`: `docs/screenshots/readme/armed.png` (38.8 KB: SAFE pill, green frame strip, the shot radar with a short trace and "Last: Clean 0.51°" after one shot) and `docs/screenshots/readme/picker.png` (44.7 KB: the five drills). `.gitignore`: one appended line `!docs/screenshots/**` (hub file, append only). `README.md`: a centred two-image block with alt text after the first paragraph. Both PNGs were added with a plain `git add`, no `-f`.
+
+**Why.** Public-release review (2026-10-25): the README was text only, and the per-item screenshots were all force-added against the global `*.png` rule.
+
+**Deviations.** None in the work. The "armed with trace" shot needed one shot fired first, because the trace is drawn around a trigger press, not while resting on the frame; the page was not changed. Both images are Chromium captures, not phone photos (the owner may replace them later).
+
+**Verification.** Agent: both PNGs under 200 KB; `git add .` staged exactly the two PNGs, `.gitignore` and `README.md`; `git status` clean after the commit. Orchestrator: `armed.png` viewed (SAFE, strip, radar trace), README diff read. NOT run: `npm test` (no code changed); viewing the README on GitHub happens when the branch is pushed (the orchestration branch carries it now, the owner can open it there).
+
+**Follow-ups.** None. WQ-042 (social preview) can use `docs/screenshots/readme/armed.png`.
+
+---
+
+---
+
 ### WQ-036 — Make the trigger-reset smoke block deterministic
 
 - **Closed:** 2026-10-26 · **Outcome:** done
