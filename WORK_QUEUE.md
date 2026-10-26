@@ -35,10 +35,10 @@ updated: 2026-10-26
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
-| WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | claimed:round-20261025-6 | — | ui |
+| WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
 | WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | queued | — | docs |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
-| WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | queued | WQ-037 | platform |
+| WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | queued | — | platform |
 | WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
 | WQ-041 | Put two screenshots in the README | P3 | S | queued | — | docs |
@@ -268,8 +268,8 @@ WQ-022.
 
 ### WQ-037 — Add PNG home-screen icons for iOS and Android
 
-- **Status:** claimed:round-20261025-6 · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
-- **Added:** 2026-10-25 by public-release review session
+- **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** S · **Track:** ui · **Env:** any
+- **Added:** 2026-10-25 by public-release review session · **Updated:** 2026-10-26 by the orchestration session (round-20261025-6, execution agent on opus): the agent half landed in fafba65 (merged on the orchestration branch): `scripts/render-icons.js` (system Playwright Chromium, no dependency) renders `icon.svg` to `icon-180.png` (opaque, corners filled with the icon's #121417 since iOS masks itself), `icon-192.png`, `icon-512.png` (purpose `any`) and a fourth file `icon-maskable-512.png` (the artwork at 0.75 scale on a full-bleed background, farthest artwork pixel 198 px from the centre against the 204.8 px safe circle; the unpadded art reaches ~264 px, so `icon-512.png` is not marked maskable, D-127); `<link rel="apple-touch-icon" href="icon-180.png">` after the SVG icon link; the manifest keeps the SVG first and adds the three PNG entries; smoke block `// WQ-037` serves the tree over a throwaway HTTP server and checks 200 for the page, the manifest and every icon with its stated size; CLAUDE.md constraint 1 companions and layout, README "Develop" render command. `npm test` exit 0 (replay 46 recordings, smoke, roundtrip; 0 FAIL), engine `VERSION` 0.17.0 unchanged. Remaining, owner half, from the deployed page: (1) iPhone 15 Safari → Share → **Add to Home Screen** → the trainer icon (dark square, green strip), not a page screenshot; (2) Pixel 11 or S20+ Chrome → menu → **Add to Home screen** / Install → the icon in the prompt and on the launcher, with the round or squircle crop showing the whole pistol. Report both in a chat line. WQ-043 may proceed on the agent side (it only needs the files to exist)
 - **Depends on:** — · **Blocks:** WQ-043
 
 **Context.** The page ships one icon, `icon.svg` (512-unit viewBox: dark rounded square, grey slide, green frame strip,
@@ -395,7 +395,7 @@ with `minimal_output: false` shows `description`, `homepage`, `topics`).
 
 - **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** platform · **Env:** any
 - **Added:** 2026-10-25 by public-release review session (Ricky promoted idea I-11, D-121)
-- **Depends on:** WQ-037 · **Blocks:** —
+- **Depends on:** — (WQ-037's files landed 2026-10-26; its owner check is independent) · **Blocks:** —
 
 **Context.** Ranges and training halls often have no signal. After the first load the page needs nothing from the
 network (hard constraint 3), yet a reload with no connection fails, and the iOS home-screen app shows the Safari
