@@ -118,3 +118,8 @@ pattern `45`; alarms and trigger reset ask for longer ones, so read it straight 
 - `vib: false` — Chrome refused it (typically no user activation yet, fullscreen, or page not focused).
 - `vib: n/a` — the browser has no vibration (all iPhones; expected).
 - `vib: threw` — the call raised an error. `vib: -` — the page has not asked to vibrate yet.
+
+## Shot flash (WQ-044)
+Each shot flashes the whole screen white. For a student who is sensitive to flashing light, turn it off in
+Settings → Other → **Shot flash**: the trigger is then outlined briefly instead, and the shot sound stays. The flash is
+also replaced automatically when the phone's "reduce motion" accessibility setting is on.

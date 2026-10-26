@@ -2068,6 +2068,129 @@ const check = (name, cond, state) => {
     await fctx.close(); srv2.close(); srv2.closeAllConnections();
   }
 
+  // WQ-044 (D-129, D-130): accessibility pass. The shot flash follows prefers-reduced-motion and the page-only Shot flash
+  // setting (stored under tdt.shotFlash only when off); ARIA on the overlays, the live regions and the icon-only button;
+  // 4.5:1 contrast for the status pill texts and the .tip lines.
+  {
+    const actx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+    const ap = await actx.newPage();
+    ap.on('pageerror', e => errors.push('a11y page: ' + e.message));
+    await ap.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await ap.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await ap.reload();
+    const acdp = await actx.newCDPSession(ap);
+    const atouch = (type, pts) => acdp.send('Input.dispatchTouchEvent', {
+      type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 25, radiusY: 25 })) });
+    const amotion = async (n = 1) => { for (let i = 0; i < n; i++) {
+      await ap.evaluate(() => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+        rotationRate: { alpha: 0, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })));
+      await ap.waitForTimeout(16); } };
+    // Every class change on #flash and #trigZone is logged, with #flash's computed animation when .go is added,
+    // so the 120 ms animation cannot be missed between polls.
+    const watch = () => ap.evaluate(() => {
+      const log = window.__flashLog = { go: 0, anim: [], hit: 0 };
+      if (window.__flashObs) return; window.__flashObs = true;
+      const f = document.getElementById('flash'), z = document.getElementById('trigZone');
+      let fGo = false, zHit = false;
+      new MutationObserver(() => {
+        const l = window.__flashLog;
+        if (f.classList.contains('go') && !fGo) { l.go++; l.anim.push(getComputedStyle(f).animationName); }
+        if (z.classList.contains('hit') && !zHit) l.hit++;
+        fGo = f.classList.contains('go'); zHit = z.classList.contains('hit');
+      }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    });
+    const shotOnce = async () => {
+      await watch();
+      await atouch('touchEnd', []).catch(() => {});
+      await atouch('touchStart', [REST]); await amotion(25);
+      await atouch('touchEnd', []); await atouch('touchStart', [TRG]); await amotion(3);
+      for (let dx = 20; dx <= 70; dx += 25) { await atouch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await amotion(1); }
+      await amotion(2); await atouch('touchEnd', []); await amotion(3);
+      return ap.evaluate(() => Object.assign({ shots: window.__tdt().shots }, window.__flashLog));
+    };
+    const stored = () => ap.evaluate(() => localStorage.getItem('tdt.shotFlash'));
+    // The warning box names the flash, and the ARIA attributes are in place.
+    check('WQ-044: the start-screen warning box mentions the shot flash', /flash/i.test(await ap.textContent('.loud')));
+    const aria = await ap.evaluate(() => {
+      const g = id => document.getElementById(id);
+      return {
+        dialogs: ['startOv', 'settingsOv', 'summaryOv', 'drillOv', 'drillResOv'].map(id => {
+          const e = g(id), lb = e.getAttribute('aria-labelledby');
+          return e.getAttribute('role') === 'dialog' && e.getAttribute('aria-modal') === 'true' && !!lb && !!g(lb) && g(lb).textContent.trim().length > 0;
+        }),
+        live: ['status', 'drillLine'].map(id => g(id).getAttribute('aria-live')),
+        rec: g('recPill').getAttribute('aria-label'), gear: g('gear').getAttribute('aria-label'),
+        dr: g('downrangeBtn').getAttribute('aria-label'),
+        vp: document.querySelector('meta[name=viewport]').content,
+      };
+    });
+    check('WQ-044: the five overlays are labelled modal dialogs', aria.dialogs.every(Boolean), aria.dialogs);
+    check('WQ-044: the status pill and #drillLine are polite live regions', aria.live.every(v => v === 'polite'), aria.live);
+    check('WQ-044: the REC pill, the gear and Set downrange carry an aria-label', !!aria.rec && !!aria.gear && /^Set downrange/.test(aria.dr || ''), aria);
+    check('WQ-044: user-scalable=no is kept (D-130)', /user-scalable=no/.test(aria.vp), aria.vp);
+    // Contrast (WCAG relative luminance) of the status pill texts and the .tip lines, from the computed colours.
+    const contrast = await ap.evaluate(() => {
+      const rgb = c => c.match(/[\d.]+/g).slice(0, 3).map(Number);
+      const lum = c => { const v = rgb(c).map(x => x / 255).map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4);
+        return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; };
+      const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+      const out = {}, st = document.getElementById('status'), keep = st.className;
+      for (const k of ['', 'safe', 'warn', 'bad', 'trig']) {
+        st.className = 'pill ' + k; const cs = getComputedStyle(st);
+        out['pill.' + (k || 'plain')] = +ratio(cs.color, cs.backgroundColor).toFixed(2);
+      }
+      st.className = keep;
+      const rp = document.getElementById('recPill'), rcs = getComputedStyle(rp);
+      out.recPill = +ratio(rcs.color, rcs.backgroundColor).toFixed(2);
+      const tip = getComputedStyle(document.querySelector('#startOv p.tip')).color;
+      out['tip/overlay'] = +ratio(tip, getComputedStyle(document.getElementById('startOv')).backgroundColor).toFixed(2);
+      for (const [n, v] of [['bg', '--bg'], ['panel', '--panel']])
+        out['tip/' + n] = +ratio(tip, getComputedStyle(document.documentElement).getPropertyValue(v).trim().replace(/^#(..)(..)(..)$/, (m, r, g, b) => `rgb(${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)})`)).toFixed(2);
+      return out;
+    });
+    console.log('      WQ-044 contrast:', JSON.stringify(contrast));
+    check('WQ-044: status pill texts, the REC pill and .tip are at least 4.5:1', Object.values(contrast).every(v => v >= 4.5), contrast);
+    // Defaults: Shot flash on, nothing stored, the full-screen flash plays.
+    await ap.click('#startBtn'); await ap.waitForTimeout(150);
+    let f = await shotOnce();
+    check('WQ-044: defaults: a shot plays the #flash.go animation, no trigger outline', f.shots === 1 && f.go === 1 && f.anim[0] === 'flash' && f.hit === 0, f);
+    check('WQ-044: defaults: nothing stored under tdt.shotFlash', await stored() === null);
+    // prefers-reduced-motion: reduce: no #flash.go, the trigger is outlined instead.
+    await ap.emulateMedia({ reducedMotion: 'reduce' });
+    f = await shotOnce();
+    check('WQ-044: reduced motion: a shot adds no #flash.go and outlines the trigger', f.shots === 2 && f.go === 0 && f.hit === 1, f);
+    await ap.waitForTimeout(250);
+    check('WQ-044: the trigger outline clears after 150 ms', !(await ap.$eval('#trigZone', e => e.classList.contains('hit'))));
+    await ap.emulateMedia({ reducedMotion: 'no-preference' });
+    // Settings → Shot flash off, normal motion: same as reduced motion; stored only while off.
+    await ap.click('#gear'); await ap.waitForTimeout(100);
+    check('WQ-044: the Shot flash toggle is on by default', await ap.$eval('#shotFlashChk', e => e.checked));
+    await ap.$eval('#shotFlashChk', e => { e.checked = false; e.dispatchEvent(new Event('change')); });
+    check('WQ-044: turning Shot flash off stores tdt.shotFlash = off', await stored() === 'off');
+    check('WQ-044: the toggle does not touch tdt.settings.v2', await ap.evaluate(() => localStorage.getItem('tdt.settings.v2')) === null);
+    await ap.reload();
+    check('WQ-044: the off state survives a reload', (await ap.evaluate(() => window.__tdt().shotFlash)) === false && !(await ap.$eval('#shotFlashChk', e => e.checked)));
+    await ap.click('#startBtn'); await ap.waitForTimeout(150);
+    f = await shotOnce();
+    check('WQ-044: Shot flash off: a shot adds no #flash.go and outlines the trigger', f.shots === 1 && f.go === 0 && f.hit === 1, f);
+    await ap.click('#gear'); await ap.waitForTimeout(100);
+    await ap.$eval('#shotFlashChk', e => { e.checked = true; e.dispatchEvent(new Event('change')); });
+    check('WQ-044: back on removes the key', await stored() === null);
+    await ap.$eval('#shotFlashChk', e => { e.checked = false; e.dispatchEvent(new Event('change')); });
+    await ap.$eval('#resetDefaults', e => e.click());
+    check('WQ-044: Restore defaults turns Shot flash back on and removes the key',
+      await stored() === null && await ap.$eval('#shotFlashChk', e => e.checked) && (await ap.evaluate(() => window.__tdt().shotFlash)) === true);
+    if (process.env.WQ_SCREENSHOTS) {
+      const fs = require('fs'), dir = path.resolve(__dirname, '..', 'docs', 'screenshots', 'wq-044');
+      fs.mkdirSync(dir, { recursive: true });
+      await ap.$eval('#shotFlashChk', e => e.scrollIntoView({ block: 'center' }));
+      await ap.screenshot({ path: path.join(dir, 'settings-shot-flash.png') });
+      await ap.reload(); await ap.screenshot({ path: path.join(dir, 'start-warning.png') });
+    }
+    check('WQ-044: no page errors in this section', errors.filter(e => e.startsWith('a11y page')).length === 0, errors);
+    await actx.close();
+  }
+
   check('no page errors', errors.length === 0, errors);
   await browser.close();
   console.log(failures ? `\n${failures} failed` : '\nall passed');
