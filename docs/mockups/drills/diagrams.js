@@ -56,7 +56,7 @@ const lr = svg(`
   ${T(222,145,'↻ 5 reps',{fs:10.5,w:700})}
   ${done(229,166)}${T(244,170,'Finish tone after rep 5',{fs:10.5,c:C.safe})}`);
 
-const P = [[60,62],[180,62],[180,158],[60,158]];
+const P = [[180,158],[60,158],[60,62],[180,62]];
 const box = svg(`
   ${T(120,14,'▲ DOWNRANGE',{a:'middle',c:C.muted,fs:10,w:600})}
   ${target(85,30,11)}${target(155,30,11)}

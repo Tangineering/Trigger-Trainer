@@ -65,7 +65,8 @@ All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 
   is left out of the average), and the best average reaction of the session among runs with no alarm. **Again**
   starts a new five-rep run; **Change drill** goes back to the start screen.
 - **Box Drill** (five positions, student-paced movement): mark four spots on the floor, for example the corners of a
-  2–3 m square, numbered 1 to 4 going round. Every position faces downrange: the student walks sideways, forwards or
+  2–3 m square, numbered 1 to 4 going round clockwise from spot 1 at the lower right (facing downrange, the near spot
+  on the right). Every position faces downrange: the student walks sideways, forwards or
   backwards, never turns the muzzle off the range, and keeps the finger flat on the frame while walking (touching the
   trigger while walking alarms). Tap **Start** at spot 1, finger on the frame. After a random 1–4 s the start beep
   sounds: fire two or more, then put the finger back on the frame. Three short beeps (just after the OK tone) mean
