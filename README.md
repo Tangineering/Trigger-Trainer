@@ -70,6 +70,10 @@ npm test              # replays + browser state-machine test + record/replay rou
 npm run test:replay   # replays only (no browser needed)
 ```
 
+Home-screen icons (WQ-037): `icon.svg` is the source; after changing it, run `node scripts/render-icons.js` to
+re-render `icon-180.png` (apple-touch-icon), `icon-192.png`, `icon-512.png` and `icon-maskable-512.png`, and commit them
+with `git add -f` (`*.png` is gitignored).
+
 The replay suite runs in GitHub Actions on every push and pull request (`.github/workflows/test.yml`). The browser
 suites (`tests/smoke.js`, `tests/roundtrip.js`) are not in CI yet; run `npm test` locally before a merge.
 

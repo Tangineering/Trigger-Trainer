@@ -39,7 +39,8 @@ How the queue and the other documents fit together:
 
 1. **Static files, no build step.** `index.html` (markup, CSS, UI wiring) and `engine.js` (all logic, no DOM)
    are served as-is. No framework, no bundler, no runtime dependencies, no CDN scripts. Other companions:
-   `manifest.webmanifest`, `icon.svg`. (Was "one file"; relaxed by D-17, ratified 2026-10-20.)
+   `manifest.webmanifest`, `icon.svg`, and the PNG icons rendered from it (`icon-180.png`, `icon-192.png`,
+   `icon-512.png`, `icon-maskable-512.png`; WQ-037, D-127). (Was "one file"; relaxed by D-17, ratified 2026-10-20.)
 2. **Free static hosting** (GitHub Pages). It must work by opening a URL. HTTPS is required for motion
    sensors on iOS.
 3. **No data leaves the phone.** No analytics, no network calls, no cookies. Settings live in
@@ -222,6 +223,8 @@ index.html              UI, audio, input wiring, recorder
 engine.js               all trainer logic + record/replay helpers (no DOM)
 manifest.webmanifest    home-screen install (landscape, fullscreen)
 icon.svg
+icon-180.png, icon-192.png, icon-512.png, icon-maskable-512.png   PNG icons rendered from icon.svg (WQ-037)
+scripts/render-icons.js renders the PNG icons (Playwright Chromium; no new dependency)
 tests/replay.js         replays every recording; expectations + live==replay + axis diagnosis
 tests/expectations.js   what each drill label must produce
 tests/recordings/       real phone recordings (one folder per phone) + synthetic/ baseline

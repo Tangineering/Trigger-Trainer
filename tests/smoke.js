@@ -1960,6 +1960,46 @@ const check = (name, cond, state) => {
     await np.close(); await nctx.close();
   }
 
+  // WQ-037: home-screen icons (D-127). The page under test is loaded from file://, so this block serves the repo from
+  // a throwaway local HTTP server and fetches the manifest, every icon it lists and the apple-touch-icon over HTTP.
+  {
+    const http = require('http'), fs = require('fs');
+    const root = path.resolve(__dirname, '..');
+    const types = { '.html': 'text/html', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.js': 'text/javascript' };
+    const srv = http.createServer((req, res) => {
+      const f = path.join(root, decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html');
+      if (!f.startsWith(root + path.sep) || !fs.existsSync(f) || !fs.statSync(f).isFile()) { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res);
+    });
+    await new Promise(r => srv.listen(0, '127.0.0.1', r));
+    const base = `http://127.0.0.1:${srv.address().port}/`;
+    const ip = await ctx.newPage();
+    ip.on('pageerror', e => errors.push('icons page: ' + e.message));
+    const home = await ip.goto(base);
+    check('WQ-037: index.html served over HTTP', home.status() === 200, home.status());
+    const apple = await ip.$eval('link[rel="apple-touch-icon"]', l => l.getAttribute('href')).catch(() => null);
+    check('WQ-037: apple-touch-icon link points at icon-180.png', apple === 'icon-180.png', apple);
+    const r = await ip.evaluate(async () => {
+      const mHref = document.querySelector('link[rel="manifest"]').getAttribute('href');
+      const mRes = await fetch(mHref); let man = null;
+      try { man = JSON.parse(await mRes.text()); } catch (e) {}
+      const probe = async src => { const x = await fetch(src); const b = await x.blob();
+        let w = 0, h = 0; if (x.ok && b.type === 'image/png') { const bm = await createImageBitmap(b); w = bm.width; h = bm.height; }
+        return { src, status: x.status, type: b.type, w, h }; };
+      const icons = man ? await Promise.all(man.icons.map(async i => ({ ...i, got: await probe(i.src) }))) : [];
+      return { mStatus: mRes.status, parsed: !!man, icons, apple: await probe(document.querySelector('link[rel="apple-touch-icon"]').getAttribute('href')) };
+    });
+    check('WQ-037: the manifest is served (200) and parses as JSON', r.mStatus === 200 && r.parsed, r);
+    check('WQ-037: every manifest icon is served with 200', r.icons.length > 0 && r.icons.every(i => i.got.status === 200), r.icons);
+    const pngs = r.icons.filter(i => i.type === 'image/png');
+    const has = (sz, purpose) => pngs.some(i => i.sizes === `${sz}x${sz}` && i.purpose === purpose && i.got.w === sz && i.got.h === sz);
+    check('WQ-037: manifest lists 192 and 512 px PNG icons of their stated size', has(192, 'any') && has(512, 'any'), pngs);
+    check('WQ-037: manifest lists a 512 px maskable PNG', has(512, 'maskable'), pngs);
+    check('WQ-037: apple-touch-icon is a 180 px PNG served with 200',
+      r.apple.status === 200 && r.apple.type === 'image/png' && r.apple.w === 180 && r.apple.h === 180, r.apple);
+    await ip.close(); srv.close();
+  }
+
   check('no page errors', errors.length === 0, errors);
   await browser.close();
   console.log(failures ? `\n${failures} failed` : '\nall passed');
