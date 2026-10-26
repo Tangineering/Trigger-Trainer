@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-044 — Accessibility pass on the page (D-121)
+
+- **Closed:** 2026-10-26 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) read the page diff and archived · **Round:** round-20261025-7
+- **Commits / PR:** 2f94762 "WQ-044: accessibility pass (shot flash, ARIA, contrast)"; merge on the orchestration branch
+
+**What was done.** `index.html`: **Shot flash** checkbox under Settings → Other (`#shotFlashChk`), a page-only setting kept as `localStorage['tdt.shotFlash'] = 'off'` only while off (removed when turned back on and by **Restore defaults**, D-64 spirit, D-129); `flash()` adds `#flash.go` only when the setting is on and `prefers-reduced-motion: reduce` does not match, otherwise the trigger zone gets a still 3 px outline (`.trigger.hit`) for 150 ms; a CSS reduced-motion rule disables the animation as a second guard; the start-screen warning box gains a sentence about the flash; the five overlays are `role="dialog" aria-modal="true"` labelled by their `h1`; `#status` and `#drillLine` are `aria-live="polite"`; the REC pill and Set downrange have `aria-label`s; `user-scalable=no` stays with a comment saying why (D-130); `.pill.bad` and `#recPill` use #d13438, `.pill.trig` #2563eb (4.93:1 and 5.17:1, were 3.91 and 3.68); `__tdt()` adds `shotFlash`. Smoke block `// WQ-044` (18 checks, including the contrast ratios). Docs: `CLAUDE.md` block, D-129 / D-130, `docs/CLASS_USE.md` "Shot flash" section, screenshots `docs/screenshots/wq-044/`.
+
+**Why.** D-121 (Ricky, 2026-10-25): a bounded accessibility pass (flash, labels and live regions, contrast) after the public-release review listed it.
+
+**Deviations.** (1) With the flash off or reduced motion on, a brief trigger outline replaces it rather than nothing: iPhones have no vibration, so a shot would otherwise have no visual sign (D-129, Ricky's to overrule). (2) The setting lives under its own key, not in `tdt.settings.v2`, because `changedFrom` keeps only `DEFAULTS` keys and `engine.js` was out of scope; it is still stored only when changed. (3) The REC pill's contrast (3.91) was fixed too, though the item did not name it.
+
+**Verification.** Agent: `npm test` exit 0 (replay "all passed (46 recordings)"; smoke "all passed", 570 PASS lines, 0 FAIL, all 18 WQ-044 checks; roundtrip "all passed"); a default shot adds `#flash.go`; under `emulateMedia({reducedMotion: 'reduce'})` and separately with the toggle off, no `.go` and the trigger outlined; the off state stores `'off'`, survives a reload, is removed on re-enable and on Restore defaults; `tdt.settings.v2` untouched; contrast table before/after logged by the smoke block; engine `VERSION` 0.17.0. Orchestrator: page diff read in full; full suite re-run on the final branch (see the round report). NOT run: a screen reader; the system reduce-motion setting on a real phone (owner, informal: with it on, a shot outlines the trigger and the screen does not flash).
+
+**Follow-ups.** None required. D-129 (outline instead of nothing) awaits Ricky's nod.
+
+---
+
+---
+
 ### WQ-039 — Write docs/ARCHITECTURE.md for contributors and a documentation map in the README
 
 - **Closed:** 2026-10-26 · **Outcome:** done-with-deviations

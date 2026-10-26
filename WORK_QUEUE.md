@@ -40,7 +40,6 @@ updated: 2026-10-26
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | blocked:owner-machine | — | platform |
 | WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
-| WQ-044 | Accessibility pass on the page (D-121) | P3 | S | claimed:round-20261025-7 | — | ui |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -370,43 +369,6 @@ elsewhere). The manifest already declares `display: fullscreen`, `orientation: l
 
 **Verification.** The offline test in the suite; owner check recorded in the completion entry with the engine
 versions seen before and after a deploy.
-
----
-
-### WQ-044 — Accessibility pass on the page (D-121)
-
-- **Status:** claimed:round-20261025-7 · **Priority:** P3 · **Size:** S · **Track:** ui · **Env:** browser
-- **Added:** 2026-10-25 by public-release review session (Ricky promoted idea I-12, D-121)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** `index.html` carries three `aria-` attributes in total, `user-scalable=no` in the viewport meta
-(`index.html:5`), and a full-screen white flash on every shot (`#flash`, `index.html:103`–105, 0.75 → 0 opacity in
-120 ms) with no `prefers-reduced-motion` or reduced-flash handling. The alarms are loud by design and the start
-screen warns about them (`index.html:226`), but nothing warns about the flash. A motion drill is inherently visual
-and physical, so this is a bounded pass, not a WCAG programme.
-
-**Scope.**
-- Add one sentence about the shot flash to the start screen's warning box (`index.html:226`) and honour
-  `prefers-reduced-motion: reduce` by replacing the full-screen flash with a brief border or trigger highlight
-  (keep the `shot` sound unchanged).
-- Add a Settings toggle **Shot flash** (default on; stored only when changed, D-64) so a photosensitive student can
-  turn it off without changing the system setting. Keep the audible and vibration cues.
-- Label the interactive controls: `aria-label` on icon-only buttons (**● REC**, Set downrange, the picker's
-  Choose/Cancel if they are icon-only), `role="dialog"` + `aria-modal` on the overlays (`#startOv`, Settings,
-  summary, `#drillOv`, `#drillResOv`), `aria-live="polite"` on `#drillLine` and the status pill so a screen reader
-  announces the phase. Keep `user-scalable=no` (the drill needs a stable layout) but document why in a comment.
-- Check colour contrast of the status pill texts and the `tip` class against the dark background with a contrast
-  checker; fix anything under 4.5:1 that is text.
-- Out of scope: engine changes; keyboard operation of the drill itself (it is a touch and motion drill); redesign.
-  Touches `index.html`: not in parallel with WQ-032, WQ-034, WQ-037, WQ-043.
-
-**Acceptance.**
-- With `prefers-reduced-motion: reduce` emulated in Playwright, a shot produces no `#flash.go` opacity animation;
-  with the toggle off the same holds under normal motion settings; with both default the flash is unchanged.
-- The ARIA attributes are present (Playwright assertions); contrast figures recorded.
-- `npm test` passes; engine `VERSION` unchanged; the setting round-trips through `localStorage` only when changed.
-
-**Verification.** New smoke checks; contrast numbers and screenshots in the completion entry.
 
 ---
 
