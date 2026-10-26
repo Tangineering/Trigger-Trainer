@@ -1294,6 +1294,12 @@ const check = (name, cond, state) => {
     check('WQ-029: highlighting Box Drill moves .sel and shows its own <svg> (the box diagram, different from the other three), selectable',
       await bp.$eval('#drillList .drillOpt.sel', e => e.dataset.id) === 'box' && /^<svg/.test(svgs.box.trim()) && /fire 2 or more/.test(svgs.box) &&
       ['freestyle', 'lowready', 'bill'].every(k => svgs[k] !== svgs.box) && !(await bp.$eval('#drillList .drillOpt[data-id="box"]', e => e.disabled || e.classList.contains('disabled'))));
+    // WQ-048 (D-132): spot 1·5 is the lower-right circle (largest cy and largest cx of the four r=15 spots)
+    const spots = [...svgs.box.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)" r="15"[^>]*><\/circle><text[^>]*>([^<]*)<\/text>|<circle cx="([\d.]+)" cy="([\d.]+)" r="15"[^>]*\/><text[^>]*>([^<]*)<\/text>/g)]
+      .map(m => ({ cx: +(m[1] || m[4]), cy: +(m[2] || m[5]), label: m[3] || m[6] }));
+    const s15 = spots.find(p => p.label === '1·5');
+    check('WQ-048: the Box diagram has four spots and 1·5 sits at the largest cy and the largest cx (lower right; 2, 3, 4 follow clockwise)',
+      spots.length === 4 && !!s15 && spots.every(p => p.cy <= s15.cy && p.cx <= s15.cx), spots);
     const howBox = await bp.textContent('#drillHow');
     check('WQ-029: the Box how-to mentions the four spots, the three beeps and finishing back at spot 1', /four spots/i.test(howBox) && /three beeps/i.test(howBox) && /spot 1/i.test(howBox), howBox);
     for (const [name, vw, vh] of [['landscape', W, H], ['portrait', H, W]]) {
