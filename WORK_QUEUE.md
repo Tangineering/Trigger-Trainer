@@ -23,7 +23,7 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-048
+next_id: WQ-049
 updated: 2026-10-26
 ```
 
@@ -33,6 +33,7 @@ updated: 2026-10-26
 |----|-------|-----|------|--------|------------|-------|
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
+| WQ-048 | Box Drill diagram: position 1 at the lower right (D-132) | P1 | S | queued | — | drills |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
@@ -124,6 +125,47 @@ fix the remaining details; D-114 (a) is superseded by D-115. Real recordings con
 
 **Verification.** `npm run test:replay` output before/after (outcome changes quoted in the completion entry);
 `npm test` totals; the orchestrator returns the item `blocked:owner-machine` for the phone half.
+
+---
+
+### WQ-048 — Box Drill diagram: position 1 at the lower right (D-132)
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** drills · **Env:** browser
+- **Added:** 2026-10-26 by the orchestration session (Ricky's request, D-132)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** D-132 (Ricky, 2026-10-26): the Box Drill picker diagram must start at the lower-right spot. Today the
+diagram's source, `docs/mockups/drills/diagrams.js:59`, defines `P = [[60,62],[180,62],[180,158],[60,158]]` and
+labels the spots in that order (`1·5`, `2`, `3`, `4` at `diagrams.js:65`), so 1·5 sits at the upper left and the walk
+runs upper left → upper right → lower right → lower left. The same SVG is inlined verbatim as `DRILL_SVG.box` in
+`index.html:634` (one line; the four `<circle … r="15" …>` + `<text>` pairs carry the labels, the `1·5` label uses
+font-size 10.5, the others 13, text `y` = cy + 4.5). The arrows are drawn between consecutive `P` entries. With
+downrange at the top (`▲ DOWNRANGE`), "lower right" is the spot nearest the student on the right. The engine, the
+results and the status line say "Spot n" with no geometry, so nothing but the diagram and the class notes changes.
+
+**Scope.**
+- `docs/mockups/drills/diagrams.js`: reorder `P` to `[[180,158],[60,158],[60,62],[180,62]]` (lower right, lower left,
+  upper left, upper right) so `1·5` is at the lower right and the labels 2, 3, 4 follow clockwise; the arrow segments
+  keep their directions (the walk is still clockwise). The caption "Start at 1, clockwise, finish back at 1" stays.
+- `index.html` `DRILL_SVG.box`: regenerate from the builder (`node -e "console.log(require('./docs/mockups/drills/diagrams.js').box)"`
+  or by hand, byte-for-byte what the builder prints) and replace the one-line string; nothing else in `index.html`.
+- `docs/CLASS_USE.md` "Box Drill" bullet (`docs/CLASS_USE.md:67`): say where spot 1 is (lower right, nearest the
+  student on the right, facing downrange) and that the walk is clockwise, in one clause.
+- A `// WQ-048` smoke check next to the WQ-029 picker checks (`tests/smoke.js:1293`–1296): the box diagram's `1·5`
+  label sits at the largest `cy` and the largest `cx` among the four spot circles (the lower-right one).
+- Out of scope: the engine, the Box Drill rules or results, the other four diagrams, screenshots of the picker
+  (`docs/screenshots/readme/picker.png` shows Freestyle highlighted, not Box), `CHANGELOG.md` (no `VERSION` bump; the
+  orchestrator adds the line to the Unreleased section).
+
+**Acceptance.**
+- In the picker with Box Drill highlighted, the diagram shows `1·5` at the lower right, `2` lower left, `3` upper
+  left, `4` upper right, arrows clockwise; the WQ-029 picker checks and the new WQ-048 check pass.
+- `DRILL_SVG.box` in `index.html` equals the builder's output exactly.
+- `npm test` passes; engine `VERSION` unchanged (0.17.0); no recording changes.
+- A screenshot of the picker with Box Drill highlighted at 852×393 in `docs/screenshots/wq-048/`.
+
+**Verification.** `npm test`; `node -e` diff of the builder output against the `index.html` string; the screenshot; the
+completion entry names the four label positions.
 
 ---
 
