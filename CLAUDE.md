@@ -102,6 +102,8 @@ tool, debug readout, mouse fallback for laptop demos.
 pixels. That's what makes recordings replay exactly. Never read `performance.now()`, `window`, or the DOM
 inside the engine.
 
+Contributor version: `docs/ARCHITECTURE.md` (WQ-039); this manual stays the source of truth.
+
 ### `engine.js` (works in the browser as `TDT`, and in Node via `require`)
 
 | Piece | What it does |

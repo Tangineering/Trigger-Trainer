@@ -104,3 +104,23 @@ coding agents that do most of the work, with the skills in `.claude/skills/`). R
 
 **Report a problem:** open an issue at https://github.com/Tangineering/Trigger-Trainer/issues (name the phone, OS and
 browser; a recording from Settings → **Record test data** helps most).
+
+## Documentation
+
+Where to read more (WQ-039):
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the trainer works, for contributors (engine / page split, state
+  machine, zones and axes, recordings as tests, adding a drill).
+- [docs/CLASS_USE.md](docs/CLASS_USE.md): how to run it in a class, step by step for students.
+- [docs/RECORDINGS.md](docs/RECORDINGS.md): how to record drills on a phone and the recording file format.
+- [docs/DECISIONS.md](docs/DECISIONS.md): every decision, with who made it.
+- [docs/IDEAS.md](docs/IDEAS.md): ideas for later, not committed to.
+- [docs/PROPOSAL_2026-10-20.md](docs/PROPOSAL_2026-10-20.md): the rationale behind the first round of work (axis
+  order, platform check, estimators).
+- [docs/axis-estimate-2026-10-20.txt](docs/axis-estimate-2026-10-20.txt): output of the gyro axis-order estimators
+  over the Pixel 11 and synthetic recordings of 2026-10-20 (`npm run axis-estimate`).
+- [docs/mockups/](docs/mockups/): design mockups (the drill diagrams in `drills/diagrams.js`).
+- [docs/screenshots/](docs/screenshots/): screenshots kept with the changes that made them.
+- [CONTRIBUTING.md](CONTRIBUTING.md): reporting a problem, contributing a recording, opening a pull request.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and [SECURITY.md](SECURITY.md).
+- [CHANGELOG.md](CHANGELOG.md): what changed in each engine version.
