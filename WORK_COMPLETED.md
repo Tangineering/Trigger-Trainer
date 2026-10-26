@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-048 — Box Drill diagram: position 1 at the lower right (D-132)
+
+- **Closed:** 2026-10-26 · **Outcome:** done
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) checked the screenshot and the diff, re-ran the suite and archived · **Round:** round-20261026-2
+- **Commits / PR:** 245dd20 "WQ-048: Box Drill diagram starts at the lower-right spot"; merge on the orchestration branch; the changelog line by the orchestrator. On `release`: yes (pushed with `main` at the close of the round).
+
+**What was done.** `docs/mockups/drills/diagrams.js`: `P = [[180,158],[60,158],[60,62],[180,62]]`, so `1·5` is at the lower right, 2 lower left, 3 upper left, 4 upper right; the arrows still run clockwise and the caption is unchanged. `index.html` `DRILL_SVG.box` regenerated from the builder (newlines collapsed to one space, as the other inlined diagrams are). `docs/CLASS_USE.md` Box Drill bullet: "numbered 1 to 4 going round clockwise from spot 1 at the lower right (facing downrange, the near spot on the right)". `tests/smoke.js`: a `// WQ-048` check that `1·5` has the largest `cy` and `cx` of the four spot circles in the picker's diagram. `CLAUDE.md` WQ-029 block: one sentence with the spot order. Screenshot `docs/screenshots/wq-048/picker-box-852x393.png`. Changelog: one Unreleased line.
+
+**Why.** D-132 (Ricky, 2026-10-26): "have it start with position #1 in the lower right position".
+
+**Deviations.** None in the result. The inlined string is the builder output with newlines collapsed, which is the existing convention for `DRILL_SVG` (the item said byte-for-byte; the agent verified equality after the collapse).
+
+**Verification.** Agent: `npm test` exit 0 (replay "all passed (46 recordings)"; smoke "all passed" including the new check and the WQ-029 picker checks; roundtrip "all passed"; 0 FAIL); node comparison of the inlined string against the builder output true; engine `VERSION` 0.17.0; no recording changed. Orchestrator: screenshot viewed (1·5 lower right, 2 lower left, 3 upper left, 4 upper right, clockwise arrows); diff read; `npm test` on the merged branch (see below). Not applicable: phones (diagram only).
+
+**Follow-ups.** None.
+
+---
+
+---
+
 ### WQ-046 — Deploy the public page from a release branch instead of main (Q19)
 
 - **Closed:** 2026-10-26 · **Outcome:** done
