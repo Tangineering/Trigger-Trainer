@@ -35,6 +35,26 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-039 — Write docs/ARCHITECTURE.md for contributors and a documentation map in the README
+
+- **Closed:** 2026-10-26 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestration session (Fable 5.1) read the state-machine and files sections against CLAUDE.md and archived · **Round:** round-20261025-7
+- **Commits / PR:** e07e5b9 "WQ-039: add docs/ARCHITECTURE.md and a README documentation list"; merge on the orchestration branch
+
+**What was done.** `docs/ARCHITECTURE.md` (new, about 1300 words, plain prose with D-numbers only as asides): Two files, one rule; Files served (manifest, SVG and the four PNG icons, the render script); The engine's contract (the `createEngine` calls, all 14 events, `summarize`, the page-side `onMotion` / `onTouch` / `onMouse` / `tick` / `onEvent` / `Snd` / `window.__tdt`); The state machine (debounce, press jerk allowance, off-frame drift, 180 rule, trigger wins, one finger, pauses); Zones and axes; Recordings are tests; Adding a drill (`DRILL_DEFS`, `tickDrill`, `drillShot`, `mulberry32`, `DRILL_MODES`, `DRILL_SVG`, `drillLineText`, `showDrillResult` and its row builders, sounds, recorder labels, tests, and that a new drill needs a Ricky decision). `README.md`: a "## Documentation" list, one line per file and folder in `docs/` plus `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CHANGELOG.md`. `CLAUDE.md`: one pointer sentence under the Architecture rule.
+
+**Why.** Public-release review (2026-10-25): the only description of how the trainer works was CLAUDE.md, written for agents and 42 KB long, and the README never listed `docs/`.
+
+**Deviations.** (1) The README list's lead-in carries "(WQ-039)" per the hub-file rule (the orchestrator strips the WQ ids from the public README in the round's tidy commit). (2) The agent reported, rather than fixed, CLAUDE.md "Layout of this repo" being behind the files added in rounds 5–7 (CHANGELOG, CONTRIBUTING, conduct, security, the workflow, `tests/axis-estimate.js`, `docs/axis-estimate-2026-10-20.txt`, `docs/mockups/`, `docs/screenshots/`, `docs/ARCHITECTURE.md`); its second report, that hard constraint 1 lacks the PNG icons, was wrong on the merged tree (WQ-037 appended them).
+
+**Verification.** Agent: grep pass over every engine, page, event, file and decision name written (all found; listed in its report); `npm test` all three suites passed; `node tests/replay.js` "all passed (46 recordings)". Orchestrator: "Files served" and "The state machine" sections read against CLAUDE.md (accurate), README and CLAUDE.md diffs read (appends only).
+
+**Follow-ups.** The orchestrator refreshes CLAUDE.md "Layout of this repo" in the round's tidy commit (a docs follow-through, not a new item). README "Develop" could link `docs/ARCHITECTURE.md` in its one-line split sentence (same tidy commit).
+
+---
+
+---
+
 ### WQ-041 — Put two screenshots in the README
 
 - **Closed:** 2026-10-26 · **Outcome:** done

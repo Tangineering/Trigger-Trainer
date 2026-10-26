@@ -36,7 +36,6 @@ updated: 2026-10-26
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
-| WQ-039 | Write docs/ARCHITECTURE.md for contributors and a documentation map in the README | P2 | S | claimed:round-20261025-7 | — | docs |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | claimed:round-20261025-7 | — | platform |
 | WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
@@ -297,39 +296,6 @@ the launcher. Hard constraint 1 (CLAUDE.md line 40) names the static companions;
 
 **Verification.** `npm test`; the icon fetch check; owner screenshots of the two home screens recorded in the
 completion entry.
-
----
-
-### WQ-039 — Write docs/ARCHITECTURE.md for contributors and a documentation map in the README
-
-- **Status:** claimed:round-20261025-7 · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
-- **Added:** 2026-10-25 by public-release review session
-- **Depends on:** — · **Blocks:** —
-
-**Context.** The clearest description of how the trainer works is CLAUDE.md "Architecture" (line 97: the engine /
-page split, every input carries its timestamp, the state machine) and "Known platform facts" (line 157), written as
-an operating manual for agents and sprinkled with queue and decision numbers. `README.md` "Develop" (line 40) says
-only "`index.html` is the UI; `engine.js` is the logic" and never lists `docs/` (`CLASS_USE.md`, `RECORDINGS.md`,
-`DECISIONS.md`, `IDEAS.md`, `PROPOSAL_2026-10-20.md`). A contributor has to find CLAUDE.md and read 42 KB.
-
-**Scope.**
-- Add `docs/ARCHITECTURE.md` (one to two screens): the two-file split and why (replayable recordings, D-17), the
-  input/event contract of `createEngine` (the table in CLAUDE.md "Architecture" condensed), the state machine
-  paragraph, the zones and axis-mapping summary, how a recording becomes a test (pointer to `docs/RECORDINGS.md`),
-  and how to add a drill (where `DRILL_DEFS`, `DRILL_MODES`, `drillLineText` and `showDrillResult` live). Plain
-  prose, no WQ/D numbers except as "see DECISIONS.md D-nn" asides. Do not move text out of CLAUDE.md; the manual
-  stays the source of truth for agents and may say "contributor version: docs/ARCHITECTURE.md".
-- Append a "Documentation" list to `README.md` naming every file in `docs/` with one line each, plus
-  `CONTRIBUTING.md` and `CHANGELOG.md` when they exist.
-- Out of scope: changing any behaviour; editing CLAUDE.md beyond the one pointer; the known-issues section (WQ-040).
-
-**Acceptance.**
-- `docs/ARCHITECTURE.md` exists; every function, constant and file it names exists (`grep` each one).
-- The README documentation list names every file in `docs/` that exists at merge time.
-- `npm test` unchanged.
-
-**Verification.** The grep pass over the names; completion entry lists any CLAUDE.md statement found to be stale on
-the way (fix in CLAUDE.md only if trivially wrong, else report).
 
 ---
 
