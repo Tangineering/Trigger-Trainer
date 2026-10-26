@@ -38,7 +38,7 @@ updated: 2026-10-26
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | blocked:owner-machine | — | platform |
-| WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
+| WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | queued | — | hygiene |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -416,8 +416,8 @@ condition (`#rotateOv`, `index.html:354`) and a status pill (`#status`, `index.h
 
 ### WQ-046 — Deploy the public page from a release branch instead of main (Q19)
 
-- **Status:** blocked:user · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
-- **Added:** 2026-10-25 by public-release review session
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
+- **Added:** 2026-10-25 by public-release review session · **Updated:** 2026-10-26 by the orchestration session: Q19 resolved, option (a) (D-131). The `release` branch exists on `origin`, created from `main` at 1ba8c5e; the orchestration session cannot change the Pages source, so the owner switches it (Settings → Pages → Branch `release`, folder `/ (root)`), which is this item's owner-verifiable half. The agent half is the docs: README "Deploy", `docs/CLASS_USE.md` "Before class", the run skill's archive step
 - **Depends on:** — · **Blocks:** —
 
 **Context.** GitHub Pages serves `main` from the root (README "Deploy", `README.md:31`–35; the Pages workflow runs on
@@ -425,18 +425,11 @@ every push to `main`, 49 runs so far). Every merged item is therefore live at on
 WQ-031 (one-finger rule) reached the public page on 2026-10-25 with its iPhone and Android checks still open. With
 the link now public, "merged" and "released" should be different states.
 
-**Owner decision needed.** (Q19 in `OPEN_QUESTIONS.md`) Which of these:
-- (a) A `release` branch: Pages serves `release`; you fast-forward it to `main` after the phone pass (one command, or
-  a button in a tiny manual workflow). Simple, visible in the branch list, no tags required.
-- (b) Tags: Pages deploys via a GitHub Actions workflow triggered by pushing a `vX.Y.Z` tag (WQ-038's convention),
-  so a release is exactly a tag. Cleaner history, one more workflow file, and the Pages source switches from
-  "branch" to "GitHub Actions".
-- (c) Keep deploying `main` and accept that the phone pass happens on the live page (status quo).
-One line answers it; (a) is the smaller change.
+**Decision.** Q19 → (a), D-131 (Ricky, 2026-10-26): a `release` branch; Pages serves `release`; `main` stays the development branch.
 
-**Scope.** (once decided; written for (a), adjust for (b))
-- Create `release` from the current `main` and switch Pages to it (owner: repository Settings → Pages → Branch;
-  record the step in the completion entry).
+**Scope.**
+- `release` exists (created 2026-10-26 from `main` at 1ba8c5e). Owner: switch Pages to it (repository Settings → Pages → Branch
+  `release`, folder `/ (root)`); record the step in the completion entry.
 - README "Deploy" and `docs/CLASS_USE.md` "Before class" (append): the public page follows `release`; `main` is the
   development branch; how to release (`git push origin main:release` after the owner check).
 - `.claude/skills/work-queue-run/SKILL.md`: the archive step notes whether an item is on `release` yet, so the
