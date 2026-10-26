@@ -9,6 +9,8 @@
 - For a quick looser or stricter class setting, use Settings → Movement alarm → **Overall sensitivity**: Low, Default and High set the rotation, linear and max-drift sliders to fixed values (Low 32.5 °/s, 1.95 m/s², 6.5°; Default 25 °/s, 1.5 m/s², 5°; High 17.5 °/s, 1.05 m/s², 3.5°). You can fine-tune any of the three sliders afterwards; the drop-down then shows **Custom**.
 - A phone keeps only the settings that were changed on it; every other setting follows the current version of the page.
   **Restore defaults** (Settings) removes all changes on that phone.
+- WQ-046: the public page follows the `release` branch; `main` is the development branch. Work merged to `main` reaches
+  students only after the owner's phone check and `git push origin main:release`.
 
 ## Student setup (about 1 minute)
 1. Open the link, tap **Start**. iPhone: tap **Allow** for motion access.

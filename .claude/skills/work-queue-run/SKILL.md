@@ -180,6 +180,8 @@ For each finished item:
    satisfied, and the index row's "Depends on" cell must agree.
 4. `python scripts/wq.py check`, then commit both files together:
    `queue: archive WQ-NNN, WQ-MMM (round …)`. Push.
+5. In each completion entry, say whether the item is on `release` yet (`git branch -r --contains <commit>`), i.e. whether
+   it has reached the phones; the public page follows `release`, not `main` (D-131).
 
 ## 6. Round report
 
