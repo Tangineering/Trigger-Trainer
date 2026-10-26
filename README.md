@@ -58,9 +58,15 @@ Chrome 155). Other phones and browsers may work but have not been checked.
 
 ## Deploy (GitHub Pages)
 
+The public page follows the `release` branch (WQ-046, D-131). `main` is the development branch: a merged item is on
+`main` but not yet on the phones.
+
 1. Push this repo to GitHub.
-2. Repo **Settings → Pages → Build and deployment → Deploy from a branch**, branch `main`, folder `/ (root)`.
+2. Repo **Settings → Pages → Build and deployment → Deploy from a branch**, branch `release`, folder `/ (root)`.
 3. The site appears at `https://<user>.github.io/<repo>/`. Make a QR code of that URL for class.
+4. To release: after the phone check of what is on `main`, run `git push origin main:release` (a fast-forward). The Pages
+   workflow then runs for `release`. A release normally goes with the `vX.Y.Z` tag on `main` (see `CHANGELOG.md`).
+5. Check the release: Settings on the live page shows the `Engine x.y.z` line of what was published.
 
 Motion sensors need HTTPS, which GitHub Pages provides. Opening `index.html` from disk or plain HTTP on a
 LAN won't get motion data on iPhone.

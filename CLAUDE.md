@@ -42,7 +42,7 @@ How the queue and the other documents fit together:
    `manifest.webmanifest`, `icon.svg`, and the PNG icons rendered from it (`icon-180.png`, `icon-192.png`,
    `icon-512.png`, `icon-maskable-512.png`; WQ-037, D-127), and the offline service worker `sw.js` (WQ-043, D-121).
    (Was "one file"; relaxed by D-17, ratified 2026-10-20.)
-2. **Free static hosting** (GitHub Pages). It must work by opening a URL. HTTPS is required for motion
+2. **Free static hosting** (GitHub Pages, served from the `release` branch; `main` is development, D-131). It must work by opening a URL. HTTPS is required for motion
    sensors on iOS.
 3. **No data leaves the phone.** No analytics, no network calls, no cookies. Settings live in
    `localStorage` (wrapped in try/catch; the page must work without it).
