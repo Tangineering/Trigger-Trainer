@@ -376,7 +376,7 @@ on the frame, wait for the beep", "Spot 1 of 5 · fire 2 or more", "Move to spot
 fire 2 or more", "Spot n · shot 1 of 2" ("Spot 1 (last) · …" at position 5), "Finger on the frame to move" / "to
 finish", "Done". `showDrillResult` branches on `r.drill`; `boxRows(r)`: one row per position ("Spot 1 (last)" for
 position 5: time, split(s), grades, alarm / early marks), "Total (beep to last shot)", then the shared rows and "Best
-clean total this session" (as Bill: a Box total holds no seeded delay after the beep). Recorder label `drill-box`. The diagram (`DRILL_SVG.box`, D-132, WQ-048) puts `1·5` at the lower right, then 2 lower left, 3 upper left, 4 upper right (clockwise, downrange at the top).
+clean total this session" (as Bill: a Box total holds no seeded delay after the beep). Recorder label `drill-box`. The diagram (`DRILL_SVG.box`, D-132 as corrected by D-133, WQ-048) puts `1·5` at the lower left, then 2 upper left, 3 upper right, 4 lower right (clockwise, downrange at the top).
 
 ## WQ-030 — Transitions (D-111, D-112)
 

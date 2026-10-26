@@ -45,6 +45,8 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 **Why.** D-132 (Ricky, 2026-10-26): "have it start with position #1 in the lower right position".
 
+**Follow-up (2026-10-26, D-133).** Ricky meant the lower *left*. The orchestration session corrected it directly on the orchestration branch: `P = [[60,158],[60,62],[180,62],[180,158]]` (`1·5` lower left, 2 upper left, 3 upper right, 4 lower right, still clockwise), `DRILL_SVG.box` regenerated, class notes, changelog line, `CLAUDE.md` sentence and the smoke check (`1·5` at the largest `cy` and the *smallest* `cx`) updated; D-132 marked superseded by D-133. Screenshot re-taken.
+
 **Deviations.** None in the result. The inlined string is the builder output with newlines collapsed, which is the existing convention for `DRILL_SVG` (the item said byte-for-byte; the agent verified equality after the collapse).
 
 **Verification.** Agent: `npm test` exit 0 (replay "all passed (46 recordings)"; smoke "all passed" including the new check and the WQ-029 picker checks; roundtrip "all passed"; 0 FAIL); node comparison of the inlined string against the builder output true; engine `VERSION` 0.17.0; no recording changed. Orchestrator: screenshot viewed (1·5 lower right, 2 lower left, 3 upper left, 4 upper right, clockwise arrows); diff read; `npm test` on the merged branch (see below). Not applicable: phones (diagram only).
