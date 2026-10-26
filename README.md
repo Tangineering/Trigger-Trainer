@@ -34,6 +34,7 @@ tool never asks for it and nothing is unlocked by it.
 
 Open **https://tangineering.github.io/Trigger-Trainer/** on a phone, tap **Start**, and turn the phone sideways. On iPhone, allow motion
 access when asked and turn off Silent mode if there's no sound. See `docs/CLASS_USE.md`.
+After the first load the page works without a connection (WQ-043), so it still opens at a range with no signal.
 
 ### Supported browsers
 

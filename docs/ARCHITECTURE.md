@@ -27,6 +27,12 @@ fullscreen), `icon.svg` (the source icon) and the PNG icons rendered from it by 
 `icon-180.png`, `icon-192.png`, `icon-512.png` and `icon-maskable-512.png`. Nothing else is fetched; no data leaves
 the phone.
 
+`sw.js` is the offline cache (WQ-043, D-121). The page registers it after **Start** as `sw.js?v=<engine VERSION>`
+(skipped on a `file://` page or where service workers are missing); the worker caches the files above under the name
+`tdt-<VERSION>`, answers the page and the engine network first with the cache as fallback and the icons cache first, and
+on activate deletes the caches of older versions. It handles only those same-origin files and adds no request to any
+other origin. Settings' version line adds "offline ready" once the worker controls the page.
+
 ## The engine's contract
 
 `createEngine(S, {onEvent})` takes the full settings object (`DEFAULTS` merged with the user's changes) and returns:
