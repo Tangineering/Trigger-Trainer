@@ -15,6 +15,8 @@ Page and project changes with no engine change (`Engine 0.17.0` still shows in S
 - Home-screen icons for iPhone and Android (PNG renders of the SVG icon, including a maskable one).
 - Offline use: after the first load the page opens with no connection (a service worker caches the site's own
   files; Settings shows "offline ready").
+- Box Drill: the picker diagram starts at the lower-right spot (spot 1, nearest you on the right, then clockwise);
+  the class notes say so too.
 - Accessibility: a **Shot flash** switch in Settings → Other, the flash replaced by a brief trigger outline when
   it is off or the phone asks for reduced motion, dialog and live-region labels, and higher-contrast alarm and
   trigger pills.
