@@ -37,7 +37,7 @@ updated: 2026-10-26
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
-| WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | claimed:round-20261025-7 | — | platform |
+| WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | blocked:owner-machine | — | platform |
 | WQ-046 | Deploy the public page from a release branch instead of main (Q19) | P2 | S | blocked:user | — | hygiene |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
 | WQ-044 | Accessibility pass on the page (D-121) | P3 | S | claimed:round-20261025-7 | — | ui |
@@ -331,8 +331,8 @@ with `minimal_output: false` shows `description`, `homepage`, `topics`).
 
 ### WQ-043 — Offline use: cache the page with a service worker (D-121)
 
-- **Status:** claimed:round-20261025-7 · **Priority:** P2 · **Size:** M · **Track:** platform · **Env:** any
-- **Added:** 2026-10-25 by public-release review session (Ricky promoted idea I-11, D-121)
+- **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** M · **Track:** platform · **Env:** any
+- **Added:** 2026-10-25 by public-release review session (Ricky promoted idea I-11, D-121) · **Updated:** 2026-10-26 by the orchestration session (round-20261025-7, execution agent on opus): the agent half landed in 6c7bcec (merged on the orchestration branch): `sw.js` (version from `?v=`, cache `tdt-<VERSION>` holding `./`, `index.html`, `engine.js`, `manifest.webmanifest`, `icon.svg` and the four PNG icons; page, engine and manifest network first with cache fallback, icons cache first; only GET, only this origin, only the listed paths; old `tdt-` caches deleted on activate; `skipWaiting` + `clients.claim`, D-128); `registerOffline()` at the end of `start()` registers `sw.js?v=<TDT.VERSION>` with `updateViaCache: 'none'` only on http(s) with service workers, in a try/catch; `renderVersionLine()` appends " · offline ready" once a worker controls the page; smoke block `// WQ-043` (9 checks on a localhost server: registration, cache name and contents, offline reload shows `#startOv` with the same `TDT.VERSION`, no request leaves the origin, a new version string leaves only the new cache); README "Use it" line, CLAUDE.md constraint 1 and layout, `## WQ-043` block, ARCHITECTURE "Files served" paragraph. `npm test` exit 0 (replay 46 recordings, smoke, roundtrip; 0 FAIL); engine `VERSION` 0.17.0 unchanged. Deviations: manifest network first (D-128 b); no network timeout before the cache answers (D-128 e, a follow-up if reloads on a weak signal feel slow). Remaining, owner half, from the deployed page: (1) iPhone 15, as a home-screen app and as a Safari tab, and (2) a Pixel 11 or S20+: load once online, tap Start (the worker registers at Start; Settings then shows "Engine 0.17.0 · offline ready" on the next open), turn on flight mode, close and reopen → the trainer starts and a drill runs; (3) after the next deploy, open online: the Settings engine line shows the new version within two loads. Report in a chat line
 - **Depends on:** — (WQ-037's files landed 2026-10-26; its owner check is independent) · **Blocks:** —
 
 **Context.** Ranges and training halls often have no signal. After the first load the page needs nothing from the
