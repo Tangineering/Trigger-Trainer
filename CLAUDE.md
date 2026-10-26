@@ -479,3 +479,17 @@ paths are handled; everything else passes through untouched. `renderVersionLine(
 worker controls the page (checked at load and on `controllerchange`), ` · offline ready`. Nothing reaches the engine or a
 recording. Test: the `WQ-043` block at the end of `tests/smoke.js` (local HTTP server, fresh context, offline reload,
 cache-name swap).
+
+## WQ-044 — accessibility pass (D-129, D-130)
+
+**Shot flash.** A page-only setting (not in `DEFAULTS`, not in `S`): `shotFlash` in `index.html`, kept in
+`localStorage['tdt.shotFlash']` as `'off'` only while off (removed when turned on; **Restore defaults** turns it on and
+removes the key). Settings → Other → **Shot flash** (`#shotFlashChk`). `flash()` adds `#flash.go` only when `shotFlash`
+is on and `prefers-reduced-motion: reduce` does not match (`reducedMotion()`); otherwise it puts `.hit` on `#trigZone`
+(static 3 px white outline) for 150 ms. Sound and vibration are unchanged. A `@media (prefers-reduced-motion: reduce)`
+rule also sets `#flash.go { animation: none }`. The start screen's warning box names the flash.
+**ARIA.** The five overlays (`#startOv`, `#settingsOv`, `#summaryOv`, `#drillOv`, `#drillResOv`) are `role="dialog"`
+`aria-modal="true"` labelled by their `h1`; `#status` and `#drillLine` are `aria-live="polite"`; the REC pill and Set
+downrange carry an `aria-label` (the gear already had one). `user-scalable=no` stays, with a comment in the head.
+**Contrast.** `.pill.bad` and `#recPill` use #d13438, `.pill.trig` #2563eb (white text ≥ 4.5:1); `--bad` and `--trig`
+are unchanged. `window.__tdt()` adds `shotFlash`. The `WQ-044` smoke section checks all of this and logs the ratios.

@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- WQ-044 (D-130): user-scalable=no stays. The screen is the side of the gun: the frame strip and the trigger must stay
+     where the engine hit-tests them, and a pinch or double-tap zoom mid-drill would move them under the finger. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -87,8 +89,10 @@
           background: #3a3f46; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .pill.safe { background: var(--safe); color: #062814; }
   .pill.warn { background: var(--warn); color: #2a1a00; }
-  .pill.bad  { background: var(--bad); }
-  .pill.trig { background: var(--trig); }
+  /* WQ-044 (D-130): white text needs 4.5:1. On var(--bad) it was 3.91 and on var(--trig) 3.68; these darker shades
+     give 4.93 and 5.17. The variables themselves (alarm wash, blade, dir line) are unchanged. */
+  .pill.bad  { background: #d13438; }
+  .pill.trig { background: #2563eb; }
   #stats { font-size: 12px; color: #d5dade; white-space: nowrap; }
   #warnLine { font-size: 11px; line-height: 1.35; color: var(--warn); }
   /* WQ-045 (D-123): no devicemotion sample after Start (2 s) or for 5 s while running. Non-modal: it sits in the
@@ -98,7 +102,7 @@
                   color: #ffe2b0; font-size: 11px; line-height: 1.25; overflow: hidden; pointer-events: none; }
   #motionBanner.show { display: flex; flex-direction: column; justify-content: center; }
   #motionBanner b { color: #fff; }
-  #recPill { pointer-events: auto; font: inherit; font-size: 12px; font-weight: 700; color: #fff; background: var(--bad);
+  #recPill { pointer-events: auto; font: inherit; font-size: 12px; font-weight: 700; color: #fff; background: #d13438;   /* 4.93:1, D-130 */
              border: none; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
   #recPill[hidden] { display: none; }
   #gear { pointer-events: auto; flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25);
@@ -111,6 +115,10 @@
   #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
   #flash.go { animation: flash .12s ease-out; }
   @keyframes flash { from { opacity: .75; } to { opacity: 0; } }
+  /* WQ-044 (D-129): with reduced motion or Settings → Shot flash off, a shot outlines the trigger zone for 150 ms
+     instead (no animation); flash() never adds .go then, and this rule is a second guard. */
+  @media (prefers-reduced-motion: reduce) { #flash.go { animation: none; } }
+  .trigger.hit { outline: 3px solid #fff; outline-offset: -3px; border-radius: 8px; }
   #stage.alarm::after { content: ""; position: absolute; inset: 0; pointer-events: none;
                         background: rgba(229,72,77,.35); animation: pulse .5s infinite alternate; }
   @keyframes pulse { from { opacity: .3; } to { opacity: 1; } }
@@ -206,11 +214,11 @@
   <div id="readout" data-z="slide">
     <div id="motionBanner" role="status"><b>No motion data. The alarms cannot work.</b><span id="motionFix"></span></div>
     <div id="statusBox">
-      <div id="status" class="pill">TAP START</div>
-      <div id="drillLine"></div>
+      <div id="status" class="pill" aria-live="polite">TAP START</div>
+      <div id="drillLine" aria-live="polite"></div>
       <div class="subrow">
         <div id="stats"></div>
-        <button id="recPill" class="ui" hidden>● REC</button>
+        <button id="recPill" class="ui" aria-label="Recording, tap to stop and save" hidden>● REC</button>
       </div>
     </div>
     <button id="gear" class="ui" aria-label="Settings and pause">⚙︎</button>
@@ -220,7 +228,7 @@
       <div id="dirLine"></div>
       <div id="lastShot"></div>
       <div id="warnLine"></div>
-      <button id="downrangeBtn" class="btn ui" type="button">Set downrange</button>
+      <button id="downrangeBtn" class="btn ui" type="button" aria-label="Set downrange: the muzzle direction now is downrange for the 180 rule">Set downrange</button>
     </div>
     <canvas id="target"></canvas>
   </div>
@@ -228,11 +236,12 @@
   <div id="flash"></div>
 </div>
 
-<div id="startOv" class="ov show ui">
+<div id="startOv" class="ov show ui" role="dialog" aria-modal="true" aria-labelledby="startTitle">
   <div class="inner">
-    <h1>Trigger Discipline Trainer</h1>
+    <h1 id="startTitle">Trigger Discipline Trainer</h1>
     <div class="loud" role="alert">
       <b>⚠ Loud alarms.</b> Hold <b>Test sound</b> and set the volume before you start. Keep the phone away from your ears.
+      <b>Bright flash:</b> each shot flashes the whole screen white; turn it off in Settings → Other → Shot flash (it is also off when the phone asks for reduced motion).
       <div id="slidersStart"></div>
       <div class="row"><button class="btn hold" id="testSoundStart">Test sound (hold)</button></div>
     </div>
@@ -254,9 +263,9 @@
   </div>
 </div>
 
-<div id="settingsOv" class="ov ui">
+<div id="settingsOv" class="ov ui" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
   <div class="inner">
-    <h1>Settings <span style="font-size:13px;color:var(--muted);font-weight:400">(training paused)</span></h1>
+    <h1 id="settingsTitle">Settings <span style="font-size:13px;color:var(--muted);font-weight:400">(training paused)</span></h1>
     <div class="row">
       <button class="btn primary" id="doneBtn">Resume</button>
       <button class="btn" id="finishBtn">Finish</button>
@@ -311,6 +320,7 @@
     <h2>Other</h2>
     <div id="sliders4"></div>
     <div class="row"><button class="btn hold" id="testSoundSettings">Test sound (hold)</button></div>
+    <div class="chk"><input type="checkbox" id="shotFlashChk"><label for="shotFlashChk">Shot flash (whole screen flashes white on each shot; off: the trigger is outlined instead)</label></div>
     <div class="chk"><input type="checkbox" id="debugChk"><label for="debugChk">Show sensor readout on the trainer screen</label></div>
     <div class="row">
       <button class="btn" id="resetStats">Reset stats &amp; target</button>
@@ -320,9 +330,9 @@
   </div>
 </div>
 
-<div id="summaryOv" class="ov ui">
+<div id="summaryOv" class="ov ui" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
   <div class="inner">
-    <h1>Session summary</h1>
+    <h1 id="summaryTitle">Session summary</h1>
     <div class="row">
       <button class="btn primary" id="sumNew">New session</button>
       <button class="btn" id="sumBack">Keep training</button>
@@ -335,9 +345,9 @@
   </div>
 </div>
 
-<div id="drillOv" class="ov ui">
+<div id="drillOv" class="ov ui" role="dialog" aria-modal="true" aria-labelledby="drillTitle">
   <div class="inner">
-    <h1>Choose a drill</h1>
+    <h1 id="drillTitle">Choose a drill</h1>
     <div id="drillBody">
       <div id="drillList"></div>
       <div id="drillDiagram"></div>
@@ -350,7 +360,7 @@
   </div>
 </div>
 
-<div id="drillResOv" class="ov ui">
+<div id="drillResOv" class="ov ui" role="dialog" aria-modal="true" aria-labelledby="drillResTitle">
   <div class="inner">
     <h1 id="drillResTitle">Bill Drill</h1>
     <div class="row">
@@ -494,7 +504,23 @@ const buzz = p => {
   vibPat = String(p);
   try { vibLast = navigator.vibrate ? String(navigator.vibrate(p)) : 'n/a'; } catch (e) { vibLast = 'threw'; }
 };
-function flash() { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+/* WQ-044 (D-129): Shot flash is a page-only setting, like the drill selection: kept under its own key, stored only
+   when off (its default is on), removed by Restore defaults. With it off, or with prefers-reduced-motion: reduce, a
+   shot outlines the trigger zone for 150 ms instead of flashing the whole screen. Sound and vibration are unchanged. */
+const FLASH_KEY = 'tdt.shotFlash';
+let shotFlash = true;
+try { if (localStorage.getItem(FLASH_KEY) === 'off') shotFlash = false; } catch (e) {}
+const setShotFlash = on => {
+  shotFlash = !!on;
+  try { if (shotFlash) localStorage.removeItem(FLASH_KEY); else localStorage.setItem(FLASH_KEY, 'off'); } catch (e) {}
+};
+const reducedMotion = () => { try { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; } };
+let hitTimer = null;
+function flash() {
+  if (shotFlash && !reducedMotion()) { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); return; }
+  const z = $('trigZone'); z.classList.add('hit');
+  clearTimeout(hitTimer); hitTimer = setTimeout(() => z.classList.remove('hit'), 150);
+}
 
 /* ======================= geometry ======================= */
 function screenAngle() {
@@ -1178,6 +1204,7 @@ function buildSettings() {
   $('axisMode').value = S.axisMode;
   ['flipH', 'flipV', 'rule180'].forEach(k => { $(k).checked = !!S[k]; });
   $('debugChk').checked = !!S.debug;
+  $('shotFlashChk').checked = shotFlash;
   updateRecUi();
 }
 let axisZero = { h: 0, v: 0 };
@@ -1187,9 +1214,10 @@ function bindSettings() {
   $('axisMode').addEventListener('change', e => { S.axisMode = e.target.value; save(); });
   ['flipH', 'flipV', 'rule180'].forEach(k => $(k).addEventListener('change', e => { S[k] = e.target.checked; save(); renderStats(); }));
   $('debugChk').addEventListener('change', e => { S.debug = e.target.checked; save(); layout(); });
+  $('shotFlashChk').addEventListener('change', e => setShotFlash(e.target.checked));
   $('axisZero').addEventListener('click', () => { axisZero = { h: engine.state.aimH, v: engine.state.aimV }; });
   $('resetStats').addEventListener('click', () => { engine.resetStats(); sessionT0 = running ? now() : 0; renderStats(); drawTarget(engine.state); });
-  $('resetDefaults').addEventListener('click', () => { S = Object.assign({}, DEFAULTS); clearSaved(); newEngine(); if (running) beginDrillRun(now()); buildSettings(); Snd.setVolume(S.volume); layout(); });
+  $('resetDefaults').addEventListener('click', () => { S = Object.assign({}, DEFAULTS); clearSaved(); setShotFlash(true); newEngine(); if (running) beginDrillRun(now()); buildSettings(); Snd.setVolume(S.volume); layout(); });
 
   $('recLabel').innerHTML = DRILLS.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
   const showHint = () => { $('recHint').textContent = (DRILLS.find(d => d.id === $('recLabel').value) || {}).hint || ''; };
@@ -1402,7 +1430,7 @@ window.__tdt = () => {
                        cuePending: s.drill.cueDueAt != null, dueSet: s.drill.dueAt != null, freeOnTrigger: !!s.drillFree,
                        result: s.drill.result ? JSON.parse(JSON.stringify(s.drill.result)) : null } : null,
     drillRuns: s.drillRuns.length, drillSel, drillResOpen: $('drillResOv').classList.contains('show'),
-    pickerOpen: $('drillOv').classList.contains('show') };
+    pickerOpen: $('drillOv').classList.contains('show'), shotFlash };
 };
 })();
 </script>
