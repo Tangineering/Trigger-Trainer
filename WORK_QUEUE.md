@@ -35,11 +35,13 @@ updated: 2026-10-27
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
+| WQ-050 | Stale motion data pauses the trainer and opens Settings (D-134) | P1 | M | queued | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | blocked:owner-machine | — | platform |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
+| WQ-049 | Run the browser suites (smoke, roundtrip) in GitHub Actions | P2 | S | queued | — | hygiene |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -506,7 +508,7 @@ condition (`#rotateOv`, `index.html:354`) and a status pill (`#status`, `index.h
 ### WQ-047 — Protect main: require a pull request and the replay check
 
 - **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** owner-machine
-- **Added:** 2026-10-25 by public-release review session
+- **Added:** 2026-10-25 by public-release review session · **Updated:** 2026-10-27 by review-triage session: WQ-049 adds a `browser` job; keep `replay` as the only required check until that job has a record of green runs, then add `browser`
 - **Depends on:** — (WQ-033 landed 2026-10-25: the `replay` job exists) · **Blocks:** —
 
 **Context.** `main` has no protection: any push lands and deploys. Once WQ-033 gives the repository a `replay` check
@@ -533,15 +535,108 @@ records it in this item's completion entry.
 
 ---
 
+### WQ-049 — Run the browser suites (smoke, roundtrip) in GitHub Actions
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
+- **Added:** 2026-10-27 by review-triage session (promoted from the parking lot; ChatGPT's blind review of 2026-10-26 raised it as its first finding)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** `.github/workflows/test.yml` (WQ-033) runs one job, `replay`, which executes `node tests/replay.js` only.
+`tests/smoke.js` (browser state machine, icons, offline, accessibility) and `tests/roundtrip.js` (record in the page,
+replay in Node) run only when a contributor remembers `npm test` locally; `README.md:89`–90 says so. A change can pass
+the replay suite and still break Start, the touch wiring, the recorder or the service worker. WQ-036 (D-126) made the
+smoke press block deterministic (held test clock), which was the reason the browser suites were kept out of CI.
+Both suites use `require('playwright')` and `chromium.launch()` with no options (`tests/smoke.js:3`, `:19`;
+`tests/roundtrip.js:4`, `:22`); `package.json` pins `playwright` 1.63.0 and has no lockfile.
+
+**Scope.**
+- Add a second job `browser` to `.github/workflows/test.yml`: checkout, `actions/setup-node` with Node 22, `npm install`
+  (no lockfile, so not `npm ci`), `npx playwright install --with-deps chromium`, then `node tests/smoke.js` and
+  `node tests/roundtrip.js` as two steps so the log shows which suite failed. Same `permissions: contents: read`.
+- Move `actions/checkout` and `actions/setup-node` to v5 in both jobs (WQ-033 saw the Node 20 runner deprecation
+  warning on v4).
+- Keep `replay` as the only check WQ-047 requires until `browser` has a record of green runs; say so in a comment in
+  the workflow file and in WQ-047's Updated line.
+- `README.md:89`–90: the two sentences become "All three suites run in GitHub Actions on every push and pull request
+  (`.github/workflows/test.yml`, jobs `replay` and `browser`)". `CLAUDE.md` layout line for `test.yml` (append the job name).
+- If a smoke or roundtrip check fails on the runner but passes locally, fix the test's timing (held clock, waits on
+  state rather than sleeps), never the page, and record the flaky check in the completion entry; if it cannot be made
+  stable in this item, leave the step `continue-on-error: true` with a comment naming the check and open a follow-up.
+- Out of scope: the replay job's content; branch protection (WQ-047); any change to `index.html` or `engine.js`.
+
+**Acceptance.**
+- Agent-verifiable: the workflow file parses; `npm test` passes locally; the Actions run on the pushed branch shows
+  both jobs green (the executing session reads the run via the GitHub tools or the owner reports it); the three
+  suites' PASS/FAIL counts in the Actions log equal the local counts.
+- README and CLAUDE.md updated as above.
+
+**Verification.** The Actions run URL and both jobs' durations in the completion entry.
+
+---
+
+### WQ-050 — Stale motion data pauses the trainer and opens Settings (D-134)
+
+- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** platform · **Env:** any
+- **Added:** 2026-10-27 by review-triage session (Ricky's decision D-134 in chat, 2026-10-27, on ChatGPT's blind review finding "missing motion must never read as stationary")
+- **Depends on:** — (WQ-045's agent half landed 7d4cdc3; its owner check is independent) · **Blocks:** —
+
+**Context.** When `devicemotion` samples stop, the engine has no way to know: `motion()` is simply not called, so
+`st.rotNow`, the rate EMA, the orientation `st.q` and `devOff` all freeze at their last values (`engine.js:310`–321 run
+only per sample). The engine reads no clock of its own (CLAUDE.md, Architecture), so from its view the phone is
+perfectly still: a finger off the frame never alarms, a muzzle swing past 90° is not seen, and the OK tone still
+plays. WQ-045 (D-123, D-124) added the page-side banner `#motionBanner` ("No motion data. The alarms cannot work."),
+shown by `updateMotionBanner(t)` (`index.html:975`) after `NO_MOTION_START_MS` 2 s with no sample this run or
+`NO_MOTION_GAP_MS` 5 s after samples (`index.html:967`), with the pill prefixed "NO MOTION · "; D-123 chose to inform
+only and never pause, so a laptop demo with the mouse fallback (`onMouse`, `index.html:953`) keeps working. Ricky
+decided (D-134): once the data is stale enough that the trainer is no longer useful, the page takes the user to the
+pause / Settings screen instead of training on. The existing pause path is `setEnginePaused(...)` in `tick()`
+(`index.html:1002`), which already pauses while Settings is open (`settingsOpen`); `openSettings(section)`
+(`index.html:1294`) opens Settings scrolled to a section.
+
+**Scope.**
+- `index.html` only; the engine stays at 0.17.0 and nothing new is logged in a recording (the pause itself is already
+  logged as a `['p', t, 1]` row, so replays stay identical).
+- When `updateMotionBanner(t)` turns the banner on (both the 2 s and the 5 s condition; it already only watches while
+  running, visible and landscape), and no recording is in progress, call `openSettings('motion')`: Settings opens,
+  which pauses and disarms the engine through the existing `settingsOpen` path (alarm silenced, drill run cancelled
+  by `setPaused`, D-98 e / D-107). During a recording, stop it first (`stopRecording(false)` already reopens Settings at
+  the recorder) and then show the notice as below.
+- Settings gets a **Motion data** section at the top (`section` id `motion`): the banner's text and the feature-checked
+  fix line from `motionFixText()`; while Settings is open the live readout (`renderLive`) keeps updating it, so the
+  user sees when samples resume ("Motion data OK").
+- Closing Settings resumes as today. To keep a laptop demo (never any motion) usable, the automatic opening is armed
+  once per no-motion episode: after the user closes Settings with motion still absent, it does not reopen until a
+  sample has arrived and the data has gone stale again (new page flag, e.g. `motionPauseArmed`). The banner and the
+  pill prefix keep showing meanwhile (D-124 unchanged).
+- `window.__tdt()` adds `motionPaused` (true while Settings was opened by this path and motion is still absent).
+- Hub files (append-only blocks): `CLAUDE.md` gets a `## WQ-050` block after `## WQ-045` describing the rule and the
+  one-per-episode arming; `docs/CLASS_USE.md` student setup note (the trainer opens Settings when motion data stops;
+  follow the fix line); `docs/DECISIONS.md` rows for anything the agent decides beyond this text (`Claude (proposed)`,
+  numbers from `python scripts/wq.py next`), in particular the once-per-episode arming if kept.
+- Out of scope: engine changes; the recorder format; the thresholds (2 s / 5 s stay; a Ricky decision if they move);
+  the 180 rule's own gap handling (`ORIENT_GAP_MS`). Touches `index.html`: do not run in parallel with another item
+  that edits it.
+
+**Acceptance.**
+- Agent-verifiable: the `WQ-045` smoke section (`tests/smoke.js:1921`ff) is updated: 2 s after Start with no motion,
+  Settings is open, the engine is paused (`__tdt().paused`), the Motion data section shows the fix line and the pill
+  prefix still reads NO MOTION; closing Settings resumes and does not reopen while motion stays absent; one sample,
+  then 5 s without, reopens Settings; a drill run in standby at that moment is cancelled with no completion tone. The
+  mouse-fallback checks elsewhere in the smoke suite still pass (close Settings once where needed). `npm test` passes;
+  every recording replays to identical events; engine `VERSION` unchanged.
+- Owner-verifiable: iPhone 15, Safari, tap **Don't Allow** on the motion prompt → about 2 s after Start, Settings opens
+  with the Motion data section and the Safari steps; follow them → the trainer runs and Settings does not reopen.
+  Pixel 11 or S20+: normal use never opens Settings by itself, including after a return from the background.
+
+**Verification.** The smoke section; `npm test` output and the owner's two reports in the completion entry.
+
+---
+
 ## Parking lot
 
 Ideas noted but not yet turned into items (an exploratory session may
 promote one with `work-queue-add`):
 
-- **Browser suites in CI** (from WQ-036, 2026-10-26): the smoke press block is deterministic now (held test clock, D-126), so a
-  `browser` job in `.github/workflows/test.yml` (install Playwright's Chromium, run `tests/smoke.js` and `tests/roundtrip.js`)
-  is possible; keep `replay` as the only required check until the browser job has a record. Also move `actions/checkout`
-  and `actions/setup-node` to v5 (WQ-033 saw the Node 20 runner deprecation warning).
 - **Compact landscape start screen** (from WQ-032, 2026-10-25): at 375–393 px height **Start** sits 500 px down `#startOv`,
   below the fold; a smaller landscape layout would show it without scrolling. Pre-existing, not caused by WQ-032.
 - **Auto-switch of the axis mapping with a confidence gate** (proposal 3.6 steps 2–3). The advisory
