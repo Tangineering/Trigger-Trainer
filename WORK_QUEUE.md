@@ -23,14 +23,15 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-049
-updated: 2026-10-26
+next_id: WQ-052
+updated: 2026-10-27
 ```
 
 ## Index
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
+| WQ-051 | Class Low Ready: room-wide start beeps from the shared wall clock (D-135) | P1 | L | blocked:user | — | drills |
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
@@ -53,6 +54,78 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 ---
 
 ## Items
+
+### WQ-051 — Class Low Ready: room-wide start beeps from the shared wall clock (D-135)
+
+- **Status:** blocked:user · **Priority:** P1 · **Size:** L · **Track:** drills · **Env:** any
+- **Added:** 2026-10-27 by queue-add session (Ricky's request)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** Ricky (2026-10-27): Low Ready is meant to run in class with the whole room on it at once, but every
+phone draws its own start-beep delay (`engine.js:567-569`, `d.dueAt = t + lo + d.rng() * (hi - lo)` from the run's
+seeded `mulberry32`, and again after each cue at `engine.js:628-629`), and the delay only starts when *that* phone's
+finger is on the frame. Twenty phones therefore beep at twenty different moments, every student hears everyone
+else's beeps, and reaction times cannot be compared. The phones have no connection to each other and must not get one
+(hard constraint 3: no network calls), so synchronisation has to come from something every phone already shares:
+the wall clock. Phones set their clocks from the network time service, so `Date.now()` agrees across the room to
+within tens of milliseconds, well inside a 2 s reaction time. D-135 (Claude, proposed) describes the design; it
+waits for Ricky's answer to Q22.
+
+**Owner decision needed.** Q22 in `OPEN_QUESTIONS.md`: (a) accept the shared-clock design of D-135 (every phone
+computes the same beep schedule from the wall clock, no connection), or prefer (b) a plain cadence with no random
+jitter, or (c) an instructor-called start with no reaction time (the phone times only from the first shot); (d) the
+default cycle length (D-135 proposes 10 s between beeps, Settings slider 6–30 s); (e) a phone whose finger is not on
+the frame at a room beep: beep anyway and mark the rep **Not ready** (D-135), or stay silent and wait for the next
+slot.
+
+**Scope.**
+- `engine.js` (`VERSION` 0.17.0 → 0.18.0): a new ready def `DRILL_DEFS.lowreadyclass` (next to `lowready`,
+  `engine.js:128`) with `reps: 5`, `shotsPerRep: 2`, `cueHoldMs: 750`, `cue: 'lowready'`, `next: 'standby'` and a new
+  flag `wallBeeps: true`. `startDrill(t, id, seed, wall)` (`engine.js:691`) takes the page's wall-clock reading
+  (`Date.now()` at the same instant as `t`) and keeps `d.wallOff = wall - t`; a `wallBeeps` def with no `wall`
+  returns `false`. Beep schedule as D-135: slot `k` beeps at wall time `k * S.classCycleMs + jitter(k)`,
+  `jitter(k) = mulberry32(k)() * K.CLASS_JITTER_MS` (3000) — a pure function of the wall clock, so every phone
+  agrees. In `tickDrill` (`engine.js:561`), for a `wallBeeps` def: the standby due time is the first slot at least
+  `K.CLASS_JOIN_MS` (1500) after the finger came onto the frame (rep 1) or after the cue (later reps); the beep fires
+  at the first tick at or after the slot **whether or not the finger is on the frame**; if it is not (or has been
+  for less than `DRILL_BEEP_HOLD_MS`), `cur.notReady = true`. The run's `rng` is unused by this def (the seed row
+  stays for the row format). New setting `classCycleMs` in `DEFAULTS` (default 10000), read in `tickDrill` only.
+  Row format (`docs/RECORDINGS.md`, `engine.js:835`): `['r', t, drill, seed, wall]` — a fifth element, absent in every
+  existing recording (`replay` passes `undefined`, which only a `wallBeeps` def reads); plus `['w', t, wall]` →
+  `syncWall(t, wall)` (new engine method, updates `d.wallOff`), which the page logs whenever running resumes, since
+  `performance.now()` and `Date.now()` can part company while the page is hidden. Rep result adds `notReady`; run
+  result adds `notReady` (count). Everything with `st.drill` null or another def is unchanged: all 46 recordings
+  must replay to identical events.
+- `index.html`: sixth `DRILL_MODES` entry after Low Ready (`id: 'lowreadyclass'`, name "Low Ready · Class", sub
+  "Whole room, beeps at the same time"; the compact landscape picker rule for 844×390 may need one more row — check
+  it does not scroll); `beginDrillRun(t)` passes `Date.now()` and logs the fifth element; `['w', t, wall]` on resume.
+  Settings → Other: slider **Class cycle** (6–30 s, step 1 s, shows seconds). `drillLineText`: "Class · finger on
+  the frame, next beep in n s" (countdown to the joined slot), then Low Ready's texts; results `lowReadyRows` with a
+  **Not ready** mark per rep and a Not ready row. Recorder label `drill-low-ready-class`.
+- `tests/`: synthetic recording + expectation (`tests/make-synthetic.js`, `tests/expectations.js`) with a known
+  `wall`, so the beep times are asserted exactly; smoke section `WQ-051` (join margin, beep with the finger off the
+  frame marks the rep Not ready, two engines started with the same wall reading beep at the same `t`); roundtrip
+  press sequence for the new drill. `window.__tdt().drill` adds `notReady`, `nextBeepIn`.
+- Docs: `CLAUDE.md` WQ-051 block (append) and the Behavior spec drill line; `docs/CLASS_USE.md` a Class Low Ready
+  bullet with the instructor's script ("everyone finger on the frame right after a beep, you all join the next
+  one"); `CHANGELOG.md` section for 0.18.0; `docs/RECORDINGS.md` row format; D-135 status → active.
+- Out of scope: changing Low Ready itself (D-96), Bill, Box or Transitions; any instructor "master phone"
+  (needs a connection, hard constraint 3); microphone beep detection (I-34 if wanted).
+
+**Acceptance.**
+- `npm test` passes; `npm run test:replay` reports every existing recording unchanged.
+- Two engines created in Node with the same `wall` and different `t` / seeds emit `drillBeep` at the same wall times
+  (`t + wallOff`), to the millisecond, for all five reps.
+- A phone whose finger is off the frame at a slot still beeps and its rep carries `notReady: true`.
+- Owner-verifiable (iPhone 15 and Pixel 11 side by side, deployed page): both phones on Class Low Ready, fingers on
+  the frame right after a beep → the next five beeps sound as one (no audible echo); results open on both with five
+  reps; a phone that lifts the finger before a beep still beeps and shows Not ready on that rep.
+
+**Verification.** `npm test`; the two-engine check as a replay-suite or smoke assertion; screenshots of the picker
+(844×390 and portrait), the countdown drill line and the results in `docs/screenshots/wq-051/`. Record in the
+completion entry the default cycle chosen and whether the compact picker rule changed.
+
+---
 
 ### WQ-031 — Let only one fresh touch control the engine; ignore later fingers (D-113, D-115)
 
