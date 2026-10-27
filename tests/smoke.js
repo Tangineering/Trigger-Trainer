@@ -62,8 +62,8 @@ const check = (name, cond, state) => {
   check('after Restore defaults a reload keeps the default volume', await page.$eval('#s_slidersStart_volume', el => el.value) === defVol);
   await setVol('0.35');                       // leave the page as before these checks
   // D-110: drill start beep pitch and length are settings, the last two sliders of the Other section.
-  check('D-110: Other section ends with the start-beep pitch and length sliders at 1650 Hz / 350 ms',
-    await page.$$eval('#sliders4 input[type=range]', els => els.map(e => e.dataset.k + (e.dataset.k === 'volume' ? '' : '=' + e.value)).join(',')) === 'volume,beepHz=1650,beepMs=350');
+  check('D-110 (+ WQ-051 class cycle): Other section ends with the start-beep pitch and length sliders at 1650 Hz / 350 ms, then Class cycle',
+    await page.$$eval('#sliders4 input[type=range]', els => els.map(e => e.dataset.k + (e.dataset.k === 'volume' ? '' : '=' + e.value)).join(',')) === 'volume,beepHz=1650,beepMs=350,classCycleMs=10000');
   await page.$eval('#s_sliders4_beepHz', el => { el.value = '1500'; el.dispatchEvent(new Event('input')); });
   check('D-110: a moved beep slider is stored under its own key only (D-64)', await stored() === JSON.stringify({ volume: 0.35, beepHz: 1500 }));
   await page.$eval('#s_sliders4_beepHz', el => { el.value = '1650'; el.dispatchEvent(new Event('input')); });
@@ -2195,6 +2195,169 @@ const check = (name, cond, state) => {
     }
     check('WQ-044: no page errors in this section', errors.filter(e => e.startsWith('a11y page')).length === 0, errors);
     await actx.close();
+  }
+
+  // WQ-051 (D-135, D-136): shared Low Ready. Class code field in the picker (Low Ready only), its storage, the FNV-1a seed, the
+  // Class cycle slider, and a shared run's page state. Real time throughout: the clock is never held here (the schedule
+  // depends on Date.now()). Fresh context so localStorage starts clean.
+  {
+    const cctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+    const cp = await cctx.newPage();
+    cp.on('pageerror', e => errors.push('class page: ' + e.message));
+    await cp.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await cp.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await cp.reload();
+    const cst = () => cp.evaluate(() => window.__tdt());
+    const ccdp = await cctx.newCDPSession(cp);
+    const ctouch = (type, pts) => ccdp.send('Input.dispatchTouchEvent', {
+      type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 25, radiusY: 25 })) });
+    const cmotion = async (n = 1) => { for (let i = 0; i < n; i++) {
+      await cp.evaluate(() => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
+        rotationRate: { alpha: 0, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })));
+      await cp.waitForTimeout(16); } };
+    const ls = k => cp.evaluate(k => { try { return localStorage.getItem(k); } catch (e) { return 'ERR'; } }, k);
+    const rowShown = () => cp.$eval('#classRow', e => !e.hidden && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0);
+    const choose = async (id, code) => {
+      await cp.click('#drillBtn');
+      await cp.click(`#drillList .drillOpt[data-id="${id}"]`);
+      if (code !== undefined && await rowShown()) await cp.fill('#classCode', code);
+      await cp.click('#drillChoose');
+    };
+    // Independent FNV-1a (32-bit) over the lower-cased, trimmed UTF-16 code units.
+    const fnv = str => { let h = 0x811c9dc5; for (const ch of str.trim().toLowerCase()) for (let i = 0; i < ch.length; i++) { h ^= ch.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h >>> 0; };
+
+    // --- picker: the class row shows for Low Ready only
+    await cp.click('#drillBtn');
+    const shown = {};
+    for (const id of ['freestyle', 'box', 'bill', 'transitions', 'lowready']) {
+      await cp.click(`#drillList .drillOpt[data-id="${id}"]`);
+      shown[id] = await rowShown();
+    }
+    check('WQ-051: #classRow is hidden for Freestyle, Box, Bill and Transitions and visible for Low Ready', JSON.stringify(shown) === '{"freestyle":false,"box":false,"bill":false,"transitions":false,"lowready":true}', shown);
+    await cp.click('#drillList .drillOpt[data-id="bill"]');
+    check('WQ-051: highlighting another drill hides the row again', !(await rowShown()));
+    check('WQ-051: the field has a label and a hint; the hint explains the shared beeps',
+      !!(await cp.$eval('#classCode', e => e.getAttribute('aria-label'))) && /same/i.test(await cp.textContent('#classHint')));
+    await cp.click('#drillCancelBtn');
+
+    // --- Choose with a code stores it (trimmed) and the button names the class
+    await choose('lowready', '  Room 7 ');
+    check("WQ-051: Choose stores the trimmed code in tdt.classCode and the drill key in tdt.drill", await ls('tdt.classCode') === 'Room 7' && await ls('tdt.drill') === 'lowready', [await ls('tdt.classCode'), await ls('tdt.drill')]);
+    check('WQ-051: the start-screen drill button names the class', /class/i.test(await cp.textContent('#drillBtn')) && /Room 7/.test(await cp.textContent('#drillBtn')), await cp.textContent('#drillBtn'));
+    check('WQ-051: __tdt().classCode is the stored code', (await cst()).classCode === 'Room 7');
+    await cp.reload();
+    check('WQ-051: the code survives a reload (state, button text and the field when the picker opens)',
+      (await cst()).classCode === 'Room 7' && /class/i.test(await cp.textContent('#drillBtn')));
+    await cp.click('#drillBtn');
+    check('WQ-051: reopening the picker shows the stored code in the field', await cp.$eval('#classCode', e => e.value) === 'Room 7');
+    await cp.click('#drillCancelBtn');
+
+    // --- seed: FNV-1a of the trimmed lower-cased code, computed here independently
+    const seeds = await cp.evaluate(() => [window.__tdtClassSeed('Abc '), window.__tdtClassSeed('abc'), window.__tdtClassSeed(' ABC'), window.__tdtClassSeed('Room 7'), window.__tdtClassSeed('')]);
+    check('WQ-051: __tdtClassSeed ignores case and surrounding spaces', seeds[0] === seeds[1] && seeds[1] === seeds[2], seeds);
+    check('WQ-051: __tdtClassSeed equals an independent FNV-1a (32-bit): abc, room 7 and the empty string',
+      seeds[1] === fnv('abc') && seeds[3] === fnv('room 7') && seeds[4] === 0x811c9dc5, [seeds, fnv('abc'), fnv('room 7')]);
+    check('WQ-051: the FNV-1a reference value for "abc" is 0x1A47E90B (independent of both implementations)', fnv('abc') === 0x1A47E90B, fnv('abc').toString(16));
+    check('WQ-051: different codes give different seeds', seeds[1] !== seeds[3]);
+
+    // --- a code typed while another drill is highlighted is not stored; blank Low Ready removes the key
+    await cp.click('#drillBtn');
+    await cp.click('#drillList .drillOpt[data-id="lowready"]'); await cp.fill('#classCode', 'ghost');
+    await cp.click('#drillList .drillOpt[data-id="box"]'); await cp.click('#drillChoose');
+    check('WQ-051: Choose with Box highlighted leaves the stored code untouched (only Low Ready stores it)', await ls('tdt.classCode') === 'Room 7' && (await cst()).drillSel === 'box', await ls('tdt.classCode'));
+    check('WQ-051: ... and the button names Box without a class', !/class/i.test(await cp.textContent('#drillBtn')) && /Box/.test(await cp.textContent('#drillBtn')));
+    await choose('lowready', '');
+    check('WQ-051: Choose with the field blank removes tdt.classCode', await ls('tdt.classCode') === null && (await cst()).classCode === '', [await ls('tdt.classCode'), (await cst()).classCode]);
+    check('WQ-051: ... and the button no longer names a class', !/class/i.test(await cp.textContent('#drillBtn')));
+    await choose('lowready', '   ');
+    check('WQ-051: a whitespace-only code counts as blank', await ls('tdt.classCode') === null);
+    await choose('lowready', 'x'.repeat(40));
+    check('WQ-051: a very long code is capped at 24 characters', (await ls('tdt.classCode')).length === 24, await ls('tdt.classCode'));
+    await choose('lowready', '<b>"&');
+    check('WQ-051: a code with markup characters shows as text on the button (no injected element)',
+      (await cp.textContent('#drillBtn')).includes('<b>"&') && (await cp.$$('#drillBtn b b')).length === 0);
+
+    // --- Settings: the Class cycle slider
+    await cp.click('#startBtn'); await cp.waitForTimeout(150);
+    await cp.click('#gear'); await cp.waitForTimeout(100);
+    const cyc = await cp.evaluate(() => { const i = document.getElementById('s_sliders4_classCycleMs'); return i && { v: i.value, min: i.min, max: i.max, out: i.parentElement.querySelector('output').textContent.trim(), label: i.parentElement.querySelector('label').textContent }; });
+    check('WQ-051: Settings → Other has a Class cycle slider, 6-30 s, showing "10 s" at its default', !!cyc && cyc.v === '10000' && cyc.min === '6000' && cyc.max === '30000' && cyc.out === '10 s' && /class cycle/i.test(cyc.label), cyc);
+    await cp.$eval('#s_sliders4_classCycleMs', el => { el.value = '12000'; el.dispatchEvent(new Event('input')); });
+    check('WQ-051: moving it shows "12 s" and stores only classCycleMs (D-64)',
+      await cp.$eval('#s_sliders4_classCycleMs', el => el.parentElement.querySelector('output').textContent.trim()) === '12 s' && await ls('tdt.settings.v2') === JSON.stringify({ classCycleMs: 12000 }), await ls('tdt.settings.v2'));
+    await cp.$eval('#resetDefaults', e => e.click());
+    check('WQ-051: Restore defaults brings the slider back to 10 s and drops the key',
+      await cp.$eval('#s_sliders4_classCycleMs', el => el.parentElement.querySelector('output').textContent.trim()) === '10 s' && await ls('tdt.settings.v2') === null);
+    check('WQ-051: Restore defaults keeps the class code (it is not a setting)', await ls('tdt.classCode') !== null);
+
+    // --- a shared run: start with a code
+    await cp.reload();
+    await choose('lowready', 'Room 7');
+    const wall0 = Date.now();
+    await cp.click('#startBtn'); await cp.waitForTimeout(150);
+    let d = await cst();
+    check('WQ-051: Start with a code: the run is shared, in standby, nothing scheduled before the finger is on the frame',
+      d.drill && d.drill.id === 'lowready' && d.drill.shared === true && d.drill.phase === 'standby' && d.drill.nextBeepIn === null && d.drill.slot === null, d.drill);
+    await ctouch('touchStart', [REST]); await cmotion(6);
+    // The line and nextBeepIn read in ONE evaluate after two forced frames, so they describe the same tick.
+    const both = await cp.evaluate(async () => { await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); return { line: document.getElementById('drillLine').textContent, s: window.__tdt() }; });
+    d = both.s; const line = both.line;
+    check('WQ-051: finger on the frame: nextBeepIn is a number between 1500-ish and 10000 + 3000 + 1500 ms',
+      d.drill.dueSet === true && typeof d.drill.nextBeepIn === 'number' && d.drill.nextBeepIn > 0 && d.drill.nextBeepIn <= 10000 + 3000 + 1500, d.drill);
+    check('WQ-051: the slot is an integer', Number.isInteger(d.drill.slot), d.drill.slot);
+    check('WQ-051: the drill line reads "Rep 1 of 5 · next beep in N s"', /^Rep 1 of 5 · next beep in \d+ s$/.test(line), line);
+    const secs = +line.match(/(\d+) s/)[1];
+    check('WQ-051: the seconds shown are consistent with nextBeepIn read in the same evaluate (within 1 s of skew)', Math.abs(secs - Math.ceil(d.drill.nextBeepIn / 1000)) <= 1, [secs, d.drill.nextBeepIn]);
+    // The slot's wall time (computed here from the engine's own exported pure function) lies in the future and within the window.
+    const sched = await cp.evaluate(() => { const s = window.__tdt(); return { slot: s.drill.slot, now: Date.now(), cyc: TDT.DEFAULTS.classCycleMs, seed: window.__tdtClassSeed('Room 7') }; });
+    const slotWall = await cp.evaluate(a => TDT.slotAt(a.seed, a.cyc, a.slot), sched);
+    check('WQ-051: the pending slot is a real slot of this code, 0-14500 ms ahead of the wall clock', slotWall > sched.now - 1000 && slotWall - sched.now <= 14500 && slotWall >= wall0 + 1500 - 500, [slotWall - sched.now]);
+    // Finger off the frame while a shared standby waits: no countdown (it would not beep); back on: the countdown again.
+    await ctouch('touchEnd', []); await cmotion(12);
+    const lineOff = await cp.textContent('#drillLine');
+    check('WQ-051: shared standby with the finger off the frame reads "Rep 1 of 5 · finger on the frame", no countdown', lineOff === 'Rep 1 of 5 · finger on the frame', lineOff);
+    await ctouch('touchStart', [REST]); await cmotion(12);
+    check('WQ-051: finger back on the frame: the countdown line returns', /^Rep 1 of 5 · next beep in \d+ s$/.test(await cp.textContent('#drillLine')), await cp.textContent('#drillLine'));
+    // Waiting for the beep takes up to ~14.5 s; ride it out with the finger on the frame. The slot is read in the same evaluate as
+    // the rep (it stays the rep's slot after the beep), so a slot that moved while waiting cannot skew the comparison.
+    const t0 = Date.now(); let hit = null;
+    while (Date.now() - t0 < 16000) {
+      await cmotion(1);
+      const x = await cp.evaluate(() => { const s = window.__tdt(); return s.drill ? { rep: s.drill.rep, slot: s.drill.slot, now: Date.now(), seed: window.__tdtClassSeed('Room 7') } : null; });
+      if (x && x.rep === 1) { hit = x; break; }
+    }
+    const slotWall2 = hit ? await cp.evaluate(a => TDT.slotAt(a.seed, TDT.DEFAULTS.classCycleMs, a.slot), hit) : NaN;
+    check('WQ-051: rep 1 beeped on the shared slot (the page saw rep 1 within 250 ms after the slot\'s wall time, never before it)', !!hit && hit.now >= slotWall2 - 20 && hit.now - slotWall2 < 250, [hit && hit.now, slotWall2]);
+    await ctouch('touchEnd', []).catch(() => {});
+
+    // --- the Class cycle setting reaches the engine: 12 s cycle
+    await cp.reload();
+    await choose('lowready', 'Room 7');
+    await cp.click('#startBtn'); await cp.waitForTimeout(150);
+    await cp.click('#gear'); await cp.waitForTimeout(100);
+    await cp.$eval('#s_sliders4_classCycleMs', el => { el.value = '12000'; el.dispatchEvent(new Event('input')); });
+    await cp.click('#doneBtn'); await cp.waitForTimeout(150);
+    await ctouch('touchStart', [REST]); await cmotion(8);
+    const s12 = await cp.evaluate(() => { const s = window.__tdt(); return { slot: s.drill.slot, now: Date.now(), seed: window.__tdtClassSeed('Room 7'), line: document.getElementById('drillLine').textContent }; });
+    const w12 = await cp.evaluate(a => TDT.slotAt(a.seed, 12000, a.slot), s12);
+    check('WQ-051: with Class cycle 12 s the pending slot is a slot of the 12 s cycle (jitter within [0, 3 s) of k*12000), 0-15 s ahead',
+      Number.isInteger(s12.slot) && w12 - s12.slot * 12000 >= 0 && w12 - s12.slot * 12000 < 3000 && w12 > s12.now - 500 && w12 - s12.now <= 12000 + 3000 + 1500, [s12, w12 - s12.now]);
+    await ctouch('touchEnd', []).catch(() => {});
+    await cp.click('#gear'); await cp.waitForTimeout(100);
+    await cp.$eval('#resetDefaults', e => e.click());
+    check('WQ-051: Restore defaults after the 12 s run puts Class cycle back to 10 s', await cp.$eval('#s_sliders4_classCycleMs', el => el.value) === '10000' && await ls('tdt.settings.v2') === null);
+    await cp.click('#doneBtn');
+
+    // --- a run without a code is an ordinary run
+    await cp.reload();
+    await choose('lowready', '');
+    await cp.click('#startBtn'); await cp.waitForTimeout(150);
+    await ctouch('touchStart', [REST]); await cmotion(6); d = await cst();
+    check('WQ-051: Start without a code: the run is not shared, no slot, and the line says "wait for the beep"',
+      d.drill && d.drill.shared === false && d.drill.slot === null && /^Rep 1 of 5 · wait for the beep$/.test(await cp.textContent('#drillLine')), d.drill);
+    await ctouch('touchEnd', []).catch(() => {});
+    check('WQ-051: no page errors in this section', errors.filter(e => e.startsWith('class page')).length === 0, errors);
+    await cctx.close();
   }
 
   check('no page errors', errors.length === 0, errors);

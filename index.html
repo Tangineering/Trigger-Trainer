@@ -173,16 +173,20 @@
   #drillOv { z-index: 11; }                           /* over the start screen, which stays behind it */
   #drillOv .inner, #drillResOv .inner { max-width: 820px; }
   #drillBody { display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
-               grid-template-areas: "list diag" "list how" "list btns"; gap: 8px 16px; align-items: start; }
+               grid-template-areas: "list diag" "list how" "list class" "list btns"; gap: 8px 16px; align-items: start; }
   #drillList { grid-area: list; display: flex; flex-direction: column; gap: 8px; }
   #drillDiagram { grid-area: diag; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
   #drillDiagram svg { display: block; width: 100%; height: auto; max-height: 42vh; }
   #drillHow { grid-area: how; margin: 0; }
   #drillBtns { grid-area: btns; margin: 4px 0 0; }
+  #classRow { grid-area: class; }                     /* Low Ready only: optional class code (D-136 a) */
+  #classRow[hidden] { display: none; }
+  #classRow input { font-size: 16px; max-width: 260px; }   /* 16 px: no iOS focus zoom */
+  #classHint { margin: 4px 0 0; }
   .drillOpt { text-align: left; line-height: 1.3; width: 100%; }
   .drillOpt.sel { border-color: var(--safe); background: #1f3a2b; }
   @media (orientation: portrait) {                    /* diagram on top, list below, buttons last */
-    #drillBody { grid-template-columns: minmax(0, 1fr); grid-template-areas: "diag" "how" "list" "btns"; }
+    #drillBody { grid-template-columns: minmax(0, 1fr); grid-template-areas: "diag" "how" "class" "list" "btns"; }
   }
   @media (orientation: landscape) and (max-height: 430px) {   /* five drills, diagram and buttons in one phone screen */
     #drillOv .inner { padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: 10px; }
@@ -192,6 +196,9 @@
     #drillOv .drillOpt small { font-size: 12px; }
     #drillOv #drillHow { font-size: 13px; line-height: 1.35; }
     #drillOv #drillBtns .btn { padding: 9px 18px; }
+    #drillBody.withClass #drillDiagram svg { max-height: 30vh; }   /* room for the class code row */
+    #drillOv #classRow input { padding: 4px 8px; }
+    #drillOv #classHint { font-size: 11px; line-height: 1.3; margin-top: 2px; }
   }
   #drillResTable { border-collapse: collapse; font-size: 15px; width: 100%; max-width: 520px; }
   #drillResTable td { padding: 5px 0; border-bottom: 1px solid var(--line); color: #cfd4d9; }
@@ -352,6 +359,11 @@
       <div id="drillList"></div>
       <div id="drillDiagram"></div>
       <p id="drillHow"></p>
+      <div id="classRow" hidden>
+        <input type="text" id="classCode" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false"
+               maxlength="24" placeholder="Class code (optional)" aria-label="Class code (optional)" aria-describedby="classHint">
+        <p id="classHint" class="help">Everyone in the room enters the same code; the beeps then sound at the same time on every phone. Leave it empty to train alone.</p>
+      </div>
       <div class="row" id="drillBtns">
         <button class="btn primary" id="drillChoose">Choose</button>
         <button class="btn" id="drillCancelBtn">Cancel</button>
@@ -622,6 +634,7 @@ const DRILLS = [
   { id: 'axis-right',      name: 'Axis check: muzzle right', hint: 'Finger on the frame. Hold still 1 s, swing the muzzle to YOUR RIGHT about 20°, hold 1 s, stop.' },
   { id: 'drill-bill',      name: 'Drill: Bill',            hint: 'Select Bill Drill first. Finger on the frame, wait for the beep, fire six, finger back on the frame. Expect: one beep and one drill end.' },
   { id: 'drill-low-ready', name: 'Drill: Low Ready',      hint: 'Select Low Ready first. Finger on the frame; on each beep raise and fire two, finger back on the frame, three beeps, back to low ready. Five reps. Expect: five beeps, four cues, one drill end.' },
+  { id: 'drill-low-ready-class', name: 'Drill: Low Ready, class code', hint: 'Select Low Ready with a class code first (two phones with the same code). Finger on the frame; on each beep raise and fire two, finger back on the frame, three beeps, back to low ready. Five reps. Expect: five beeps on the shared schedule, four cues, one drill end.' },
   { id: 'drill-box',       name: 'Drill: Box',            hint: 'Select Box Drill first. Finger on the frame; on the beep fire two or more, finger back on the frame, three beeps, move to the next spot; five positions ending back at spot 1. Expect: one beep, four cues, one drill end.' },
   { id: 'drill-transitions', name: 'Drill: Transitions',    hint: 'Select Transitions first. Finger on the frame, wait for the beep, fire two at each target with the finger on the trigger between pairs, ten shots, finger back on the frame. Expect: one beep, no alarm during the transitions, one drill end.' },
 ];
@@ -672,9 +685,25 @@ const DRILL_KEY = 'tdt.drill';                        // the selected drill, rem
 const drillMode = id => DRILL_MODES.find(m => m.id === id && m.ready) || null;
 let drillSel = 'freestyle', pickerHi = 'freestyle', drillCancelled = false;
 try { const v = localStorage.getItem(DRILL_KEY); if (v && drillMode(v)) drillSel = v; } catch (e) {}
+// Class code (D-136 a): optional, entered when choosing Low Ready. With a code the run is a shared run whose start
+// beeps every phone with the same code plays at the same instant (the code seeds the schedule). Not a setting.
+const CLASS_KEY = 'tdt.classCode', CLASS_MAX = 24;
+const cleanCode = v => String(v == null ? '' : v).trim().slice(0, CLASS_MAX).trim();
+let classCode = '';
+try { classCode = cleanCode(localStorage.getItem(CLASS_KEY)); } catch (e) {}
+/** 32-bit FNV-1a over the UTF-16 code units of the trimmed, lower-cased code: the shared schedule's seed. */
+function classSeed(code) {
+  const c = String(code).trim().toLowerCase();
+  let h = 2166136261;
+  for (let i = 0; i < c.length; i++) { h ^= c.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+window.__tdtClassSeed = classSeed;              // test hook
+const escHtml = v => String(v).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 function renderDrillBtn() {
   const m = drillMode(drillSel) || DRILL_MODES[0];
-  $('drillBtn').innerHTML = `<b>Drill: ${m.name}</b><br><small>${m.sub}</small>`;
+  const cls = m.id === 'lowready' && classCode ? ` · class ${escHtml(classCode)}` : '';
+  $('drillBtn').innerHTML = `<b>Drill: ${m.name}${cls}</b><br><small>${m.sub}</small>`;
 }
 function renderPicker() {
   $('drillList').replaceChildren(...DRILL_MODES.filter(m => m.ready).map(m => {
@@ -687,12 +716,18 @@ function renderPicker() {
   const m = drillMode(pickerHi) || DRILL_MODES[0];
   $('drillDiagram').innerHTML = m.svg;
   $('drillHow').textContent = m.how;
+  const withClass = m.id === 'lowready';
+  $('classRow').hidden = !withClass;
+  $('drillBody').classList.toggle('withClass', withClass);
 }
-function openPicker() { pickerHi = drillSel; renderPicker(); $('drillOv').classList.add('show'); $('drillOv').scrollTop = 0; }
+function openPicker() { pickerHi = drillSel; $('classCode').value = classCode; renderPicker(); $('drillOv').classList.add('show'); $('drillOv').scrollTop = 0; }
 function closePicker() { $('drillOv').classList.remove('show'); }
 /** Start a run of the selected drill on the current engine (no-op for Freestyle); the 'r' row makes it replayable. */
 function beginDrillRun(t) {
-  if (drillSel !== 'freestyle') {
+  if (drillSel === 'lowready' && classCode) {    // shared run (D-136): the code seeds the wall-clock schedule
+    const wall = Date.now(), seed = classSeed(classCode);
+    if (engine.startDrill(t, 'lowready', seed, wall)) logRow(['r', t, 'lowready', seed, wall]);
+  } else if (drillSel !== 'freestyle') {
     const seed = (Math.random() * 2 ** 32) >>> 0;
     if (engine.startDrill(t, drillSel, seed)) logRow(['r', t, drillSel, seed]);
   }
@@ -711,7 +746,8 @@ function showDrillResult(r) {
   const m = DRILL_MODES.find(x => x.id === r.drill);
   $('drillResTitle').textContent = m ? m.name : r.drill;
   const clean = engine.state.drillRuns.filter(x => x.drill === r.drill && !x.withAlarm).map(x => x.total);
-  const rows = r.drill === 'box' ? boxRows(r) : r.drill === 'lowready' ? lowReadyRows(r)
+  const rows = r.drill === 'box' ? boxRows(r)
+             : r.drill === 'lowready' ? (r.shared ? [['Class code', classCode || '—']] : []).concat(lowReadyRows(r))
              : r.drill === 'transitions' ? transitionsRows(r) : [
     ['First shot', secs2(r.first) + ' s'],
     ['Splits', r.splits.map(x => secs2(x).replace(/^0(?=\.)/, '')).join(' · ') + ' s'],
@@ -772,7 +808,7 @@ function transitionsRows(r) {
     ['Shots', r.shots.map(x => x.unsafe ? 'alarm' : x.grade).join(' · ')],   // D-45: shots in an alarm are not graded
   ];
 }
-function drillLineText(s) {
+function drillLineText(s, t) {
   const d = s.drill;
   if (!d) return '';
   const m = DRILL_MODES.find(x => x.id === d.id), name = m ? m.name : d.id;
@@ -791,7 +827,9 @@ function drillLineText(s) {
   }
   if (lr) {                                       // Low Ready (D-96)
     if (d.phase === 'standby') return d.dueAt == null ? `Rep 1 of ${lr} · finger on the frame`
-                                                      : `Rep ${d.rep + 1} of ${lr} · wait for the beep`;
+      : d.shared && t != null && !s.onRest ? `Rep ${d.rep + 1} of ${lr} · finger on the frame`
+      : d.shared && t != null ? `Rep ${d.rep + 1} of ${lr} · next beep in ${Math.max(0, Math.ceil((d.dueAt - t) / 1000))} s`
+      : `Rep ${d.rep + 1} of ${lr} · wait for the beep`;
     if (d.phase === 'live') return d.cur && d.cur.shots.length ? 'Shot 1 of 2 — fire again' : 'Go — raise and fire two';
     if (d.phase === 'finishing') return d.cueDueAt != null ? 'Hold…' : 'Finger back on the frame';
     return 'Done';
@@ -846,6 +884,11 @@ function setEnginePaused(p, t) {
   enginePaused = p;
   engine.setPaused(p, t);
   logRow(['p', t, p ? 1 : 0]);
+  if (!p && engine.state.drill && engine.state.drill.shared) {   // shared run: re-anchor on the wall clock ('w' row)
+    const wall = Date.now();
+    engine.syncWall(t, wall);
+    logRow(['w', t, wall]);
+  }
 }
 
 function startRecording() {
@@ -1024,7 +1067,7 @@ function render(t) {
   else if (s.onRest) setStatus('safe', 'SAFE');
   else if (s.trig) setStatus('trig', s.trig.fired ? 'SHOT — RESET OR RETURN TO FRAME' : 'ON TRIGGER — HOLD STILL');
   else setStatus('warn', 'OFF FRAME — HOLD STILL');
-  const dtx = drillLineText(s), dle = $('drillLine');
+  const dtx = drillLineText(s, t), dle = $('drillLine');
   if (dle.textContent !== dtx) dle.textContent = dtx;
 
   const dl = $('dirLine'), db = $('downrangeBtn');
@@ -1141,6 +1184,8 @@ const SLIDERS = {
   sliders4: [VOLUME,
     { k: 'beepHz', label: 'Drill start beep pitch', min: 500, max: 3000, step: 50, unit: 'Hz', help: 'Pitch of the shot-timer style start beep of a drill (D-110).' },
     { k: 'beepMs', label: 'Drill start beep length', min: 100, max: 1000, step: 25, unit: 'ms', help: 'How long the start beep sounds.' },
+    { k: 'classCycleMs', label: 'Class cycle', min: 6000, max: 30000, step: 1000, fmt: v => Math.round(v / 1000) + ' s',
+      help: 'Low Ready with a class code: the beeps of every phone in the room fall on this cycle (plus a shared random part of up to 3 s).' },
   ],
   slidersStart: [VOLUME],   // same control on the start screen
 };
@@ -1405,6 +1450,10 @@ $('drillBtn').addEventListener('click', openPicker);
 $('drillChoose').addEventListener('click', () => {
   if (drillMode(pickerHi)) drillSel = pickerHi;
   try { localStorage.setItem(DRILL_KEY, drillSel); } catch (e) {}
+  if (pickerHi === 'lowready') {                  // the code field is shown (and stored) only for Low Ready
+    classCode = cleanCode($('classCode').value);
+    try { if (classCode) localStorage.setItem(CLASS_KEY, classCode); else localStorage.removeItem(CLASS_KEY); } catch (e) {}
+  }
   renderDrillBtn(); closePicker();
 });
 $('drillCancelBtn').addEventListener('click', closePicker);
@@ -1428,9 +1477,11 @@ window.__tdt = () => {
     drill: s.drill ? { id: s.drill.id, phase: s.drill.phase, shots: s.drill.shots.length, early: s.drill.early,
                        rep: s.drill.rep, repsDone: s.drill.reps.length, curShots: s.drill.cur ? s.drill.cur.shots.length : 0,
                        cuePending: s.drill.cueDueAt != null, dueSet: s.drill.dueAt != null, freeOnTrigger: !!s.drillFree,
+                       shared: !!s.drill.shared, slot: s.drill.slot ?? null,
+                       nextBeepIn: s.drill.phase === 'standby' && s.drill.dueAt != null && s.lastTickT != null ? s.drill.dueAt - s.lastTickT : null,
                        result: s.drill.result ? JSON.parse(JSON.stringify(s.drill.result)) : null } : null,
     drillRuns: s.drillRuns.length, drillSel, drillResOpen: $('drillResOv').classList.contains('show'),
-    pickerOpen: $('drillOv').classList.contains('show'), shotFlash };
+    pickerOpen: $('drillOv').classList.contains('show'), shotFlash, classCode };
 };
 })();
 </script>

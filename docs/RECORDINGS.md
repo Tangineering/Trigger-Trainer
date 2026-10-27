@@ -47,6 +47,7 @@ no names: phone model, grip and hand are enough.
 | `axis-right` | Finger on frame; still 1 s; swing muzzle to **your right** ~20°; hold 1 s; stop | Biggest excursion reads as right |
 | `drill-bill` | Select **Bill Drill** on the start screen first. Finger on frame; wait for the start beep; fire six; finger back on frame | One `drillBeep`, one `drillEnd`, six run shots |
 | `drill-low-ready` | Select **Low Ready** on the start screen first. Finger on frame; on each beep raise and fire two, finger back on frame, wait for the three beeps, back to low ready. Five reps | Five `drillBeep`, four `drillCue`, one `drillEnd` |
+| `drill-low-ready-class` | Select **Low Ready** with a class code first (two phones with the same code, side by side). Same steps as `drill-low-ready` | Five `drillBeep` on the shared schedule (`TDT.slotAt`), four `drillCue`, one `drillEnd` |
 | `drill-box` | Select **Box Drill** on the start screen first. Finger on frame; on the beep fire two or more, finger back on frame, three beeps, move to the next spot (finger on the frame); five positions ending back at spot 1 | One `drillBeep`, four `drillCue` (`move`), one `drillEnd` |
 | `drill-transitions` | Select **Transitions** on the start screen first. Finger on frame; wait for the start beep; fire two at a target, swing to the next with the finger on the trigger, fire two; ten shots; finger back on frame | One `drillBeep`, no `alarmStart` between the first and the tenth shot, one `drillEnd` |
 
@@ -99,6 +100,8 @@ A recording is edited only on a logged Ricky decision, and then its `notes` fiel
     ["f", t],                           // animation frame (engine tick)
     ["d", t],                           // Set downrange pressed
     ["r", t, drill, seed],              // drill run requested ("bill", "lowready", "box", "transitions"); seed for the engine's delay generator
+    ["r", t, "lowready", seed, wall],   // shared Low Ready run (class code): seed = the code's hash, wall = Date.now() at t
+    ["w", t, wall],                     // shared run only: Date.now() at a resume, re-anchors the shared beep schedule
     ["x", t]                            // drill cancelled (back to the start screen)
   ],
   "observed": [[t, "armed"], [t, "alarmStart", "move"|"180", rot, lin, dev180], [t, "shot", "Clean", dev],
@@ -110,6 +113,11 @@ A recording is edited only on a logged Ricky decision, and then its `notes` fiel
 A recording made with a drill selected starts its `log` with an `r` row: the engine draws the random start-beep
 delay from that seed, so the replay beeps at the same moment as the live run. Each **Again** on the drill results adds another `r` row
 mid-log (a new seed), and **Change drill** adds an `x` row. Freestyle recordings have neither.
+
+A Low Ready run with a class code has a fifth element in its `r` row, the page's wall clock (`Date.now()`, ms) at
+that moment; the engine takes the start beeps from the shared schedule of that code and that clock, never from the
+phone's own clock, so the replay beeps where the live run did. Each resume of such a run adds a `w` row with the wall
+clock then, so a pause that let the phone's two clocks drift apart does not shift the schedule.
 
 Values are rounded where they're captured (time 1 µs, sensors 1e-4, touches 0.01 px), and the live engine
 uses the rounded values, so a replay with the same engine version reproduces `observed` exactly. When

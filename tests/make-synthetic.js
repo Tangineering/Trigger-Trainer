@@ -15,6 +15,24 @@ const r = TDT.r4;
 // Each scenario: dur (s), touches(t) -> [touch...], rot(t) -> {a, b, g} in spec axis order (x = beta,
 // y = gamma, z = alpha); each recording stores axisMode: 'spec' because 'auto' now means x/y/z order.
 const tiny = t => 0.3 * Math.sin(t * 9);   // hand tremor, deg/s
+// Low Ready presses shared by 'drill-low-ready' and 'drill-low-ready-class' (adaptive, reads engine.state.drill).
+function lowReadyTouches(t, eng) {   // used as a method: `this` is the scenario (mem)
+  const d = eng.state.drill, m = this.mem;
+  if (!d) return [REST];
+  if (d.rep !== m.rep) { m.rep = d.rep; m.beep = t; }
+  if (d.phase === 'ended' && m.end == null) m.end = t;
+  if (m.rep === 0 || d.phase === 'ended') return [REST];
+  const u = t - m.beep, n = m.rep === 4 ? 3 : 2;
+  for (let k = 0; k < n; k++) {
+    const uu = u - (0.6 + 0.5 * k);
+    if (uu >= 0 && uu < 0.35) return [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (uu - 0.05) / 0.25)) * 70 })];
+  }
+  const back = 0.6 + 0.5 * (n - 1) + 0.35 + 0.1;   // finger returns to the frame
+  if (u < back) return [];
+  if (m.rep === 2 && u >= back + 0.4 && u < back + 0.6) return [];   // restart rep: off again for 0.2 s
+  return [REST];
+}
+
 const S = {
   'safe-move': { dur: 3, touches: () => [REST], rot: t => between(t, 0.5, 2.5) ? { a: 60 * Math.sin(t * 6), b: 40 * Math.cos(t * 5), g: 0 } : { a: tiny(t), b: 0, g: 0 } },
   'off-frame-move': { dur: 3.6, touches: t => (t < 1 || t >= 3) ? [REST] : [], rot: t => between(t, 1.6, 2.4) ? { a: 60, b: -30, g: 0 } : { a: tiny(t), b: 0, g: 0 } },
@@ -87,22 +105,16 @@ const S = {
   'drill-low-ready': {
     live: true, drillAt: 0, drillId: 'lowready', drillSeed: 20261026, dur: 0,
     mem: { rep: 0, beep: 0, end: null },
-    touches(t, eng) {
-      const d = eng.state.drill, m = this.mem;
-      if (!d) return [REST];
-      if (d.rep !== m.rep) { m.rep = d.rep; m.beep = t; }
-      if (d.phase === 'ended' && m.end == null) m.end = t;
-      if (m.rep === 0 || d.phase === 'ended') return [REST];
-      const u = t - m.beep, n = m.rep === 4 ? 3 : 2;
-      for (let k = 0; k < n; k++) {
-        const uu = u - (0.6 + 0.5 * k);
-        if (uu >= 0 && uu < 0.35) return [Object.assign({}, TRG, { cx: TRG.cx - Math.max(0, Math.min(1, (uu - 0.05) / 0.25)) * 70 })];
-      }
-      const back = 0.6 + 0.5 * (n - 1) + 0.35 + 0.1;   // finger returns to the frame
-      if (u < back) return [];
-      if (m.rep === 2 && u >= back + 0.4 && u < back + 0.6) return [];   // restart rep: off again for 0.2 s
-      return [REST];
-    },
+    touches: lowReadyTouches,
+    finished(t) { return this.mem.end != null && t >= this.mem.end + 0.4; },
+    rot: t => ({ a: tiny(t), b: tiny(t + 2), g: 0 }),
+  },
+  // Shared Low Ready (WQ-051): the same adaptive presses as 'drill-low-ready', but the 'r' row carries a wall time (drillWall + t)
+  // so the beeps come from the wall-clock schedule (TDT.slotAt) instead of the seeded 2-5 s delays.
+  'drill-low-ready-class': {
+    live: true, drillAt: 0, drillId: 'lowready', drillSeed: 20261028, drillWall: 1_700_000_000_000, dur: 0,
+    mem: { rep: 0, beep: 0, end: null },
+    touches: lowReadyTouches,
     finished(t) { return this.mem.end != null && t >= this.mem.end + 0.4; },
     rot: t => ({ a: tiny(t), b: tiny(t + 2), g: 0 }),
   },
@@ -203,7 +215,13 @@ const out = path.join(__dirname, 'recordings', 'synthetic');
 fs.mkdirSync(out, { recursive: true });
 for (const [label, sc] of Object.entries(S)) {
   const log = [['p', T0, 0]];
-  if (sc.drillAt != null) log.push(['r', TDT.rt(T0 + sc.drillAt * 1000), sc.drillId || 'bill', sc.drillSeed]);
+  // drillWall (shared Low Ready, WQ-051): the wall clock is engine time + drillWall ms, so the 'r' row carries
+  // wall = drillWall + t (five elements) and the run takes its beeps from the shared schedule.
+  if (sc.drillAt != null) {
+    const rt0 = TDT.rt(T0 + sc.drillAt * 1000);
+    log.push(sc.drillWall != null ? ['r', rt0, sc.drillId || 'bill', sc.drillSeed, sc.drillWall + rt0]
+      : ['r', rt0, sc.drillId || 'bill', sc.drillSeed]);
+  }
   // Adaptive scenarios (sc.live) feed every row they write to a live engine configured like the replay's.
   const eng = sc.live ? TDT.createEngine(Object.assign({}, TDT.DEFAULTS, { axisMode: 'spec' }), {}) : null;
   let fed = 0;
@@ -214,7 +232,8 @@ for (const [label, sc] of Object.entries(S)) {
       case 't': eng.touches(row[1], TDT.unpackTouchList(row[4]), row[2], row[3]); break;
       case 'p': eng.setPaused(!!row[2], row[1]); break;
       case 'd': eng.setDownrange(row[1]); break;
-      case 'r': eng.startDrill(row[1], row[2], row[3]); break;
+      case 'r': eng.startDrill(row[1], row[2], row[3], row[4]); break;
+      case 'w': eng.syncWall(row[1], row[2]); break;
       case 'f': eng.tick(row[1]); break;
     }
   } };

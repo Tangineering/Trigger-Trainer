@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.17.0';
+  const VERSION = '0.18.0';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -33,6 +33,7 @@
     flipV: false,
     beepHz: 1650,        // drill start beep pitch, Hz (page only, D-110)
     beepMs: 350,         // drill start beep length, ms (page only, D-110)
+    classCycleMs: 10000, // shared Low Ready (class code): the beeps of every phone fall on this wall-clock cycle (D-135, D-136)
   });
 
   // Fractions of the viewport for a RIGHT-handed layout (muzzle at x=1). Left-handed mirrors x.
@@ -68,6 +69,8 @@
                                  // after); longer gaps are credited 300 ms, and gaps over ORIENT_GAP_MS clear downrange
     DRILL_BEEP_HOLD_MS: 350,     // a drill start beep waits until the finger has been on the frame this long, so it
                                  // never overlaps the OK tone (D-98 g, D-104)
+    CLASS_JITTER_MS: 3000,       // shared Low Ready: each slot's beep is up to this much after its cycle start (D-135)
+    CLASS_JOIN_MS: 1500,         // shared Low Ready: a phone joins the first slot at least this far ahead (D-135)
   });
 
   /** Zone `name` in right-handed viewport fractions for a viewport `vw` CSS px wide, with the fixed
@@ -118,6 +121,7 @@
   // the end) comes `cueHoldMs` after the finger is back on the frame. `cue` names the drillCue; `next` says what
   // follows it: 'standby' (Low Ready, D-96: the next rep's beep is delayMs after the cue) or 'live' (Box Drill, D-95:
   // the next position is live at once, no beep). In Box data a "rep" is a shooting position.
+  // `shareable` (Low Ready, D-136): with a wall time at startDrill the run takes its beeps from the shared schedule.
   // Single-string drills (a def with `shots`, Bill and Transitions): one beep, `shots` shots, timer stopped at the last.
   // `pairShots` (Transitions, D-112 j) adds pair splits and transitions to the result; `onTriggerFree` (Transitions,
   // D-111, D-112 d) suspends the move alarm while the finger is on the trigger from the first shot to the last.
@@ -126,10 +130,31 @@
     transitions: Object.freeze({ delayMs: Object.freeze([2000, 5000]), shots: 10, pairShots: 2, onTriggerFree: true,
                                  ready: true }),
     lowready: Object.freeze({ delayMs: Object.freeze([2000, 5000]), reps: 5, shotsPerRep: 2, cueHoldMs: 750,
-                              cue: 'lowready', next: 'standby', ready: true }),
+                              cue: 'lowready', next: 'standby', shareable: true, ready: true }),
     box:      Object.freeze({ delayMs: Object.freeze([1000, 4000]), reps: 5, shotsPerRep: 2, cueHoldMs: 0,
                               cue: 'move', next: 'live', ready: true }),
   });
+  // Shared Low Ready (D-135, D-136): a run started with a wall time (a class code) takes its start beeps from a
+  // schedule that is a pure function of the wall clock (ms) and the seed, so every phone with the same code beeps at
+  // the same instant. Slot k beeps at k * cycleMs + jitter(k), jitter(k) in [0, CLASS_JITTER_MS).
+  // Floored at CLASS_JITTER_MS, so slot times rise with k (nextSlotAfter relies on it).
+  const classCycle = S => Math.max(K.CLASS_JITTER_MS, (S && S.classCycleMs) || DEFAULTS.classCycleMs);
+  function slotAt(seed, cycleMs, k) {
+    return k * cycleMs + mulberry32((seed + Math.imul(k, 0x9E3779B9)) >>> 0)() * K.CLASS_JITTER_MS;
+  }
+  /** The slot with the earliest beep at or after wall time `w` (strictly after it when `strict`). Every k above
+   *  w / cycleMs qualifies and none below (w - CLASS_JITTER_MS) / cycleMs does, so the search is bounded.
+   *  Precondition: cycleMs >= CLASS_JITTER_MS (classCycle guarantees it), so slot times are monotonic in k. */
+  function nextSlotAfter(seed, cycleMs, w, strict) {
+    const lo = Math.max(0, Math.floor((w - K.CLASS_JITTER_MS) / cycleMs));
+    const hi = Math.max(0, Math.floor(w / cycleMs) + 1);
+    let best = null, bestW = Infinity;
+    for (let k = lo; k <= hi; k++) {
+      const sw = slotAt(seed, cycleMs, k);
+      if ((strict ? sw > w : sw >= w) && sw < bestW) { best = k; bestW = sw; }
+    }
+    return best;
+  }
   // A run a pause or cancel interrupts: live, finishing, or standby once the delay has started (D-102).
   const drillActive = d => !!d && (d.phase === 'live' || d.phase === 'finishing' || (d.phase === 'standby' && d.dueAt != null));
 
@@ -565,8 +590,18 @@
       if (d.phase === 'standby') {
         // Rep 1 (and Bill): the delay starts at the first armed tick on the frame. Later Low Ready reps: the cue set it.
         if (d.dueAt == null && st.armed && st.onRest) {
-          const [lo, hi] = def.delayMs;
-          d.dueAt = t + lo + d.rng() * (hi - lo);
+          if (d.shared) joinSlot(d, t);
+          else {
+            const [lo, hi] = def.delayMs;
+            d.dueAt = t + lo + d.rng() * (hi - lo);
+          }
+        }
+        // Shared run: a slot the finger is not ready for passes silently; wait for the next one (D-136 c).
+        if (d.shared && d.dueAt != null && t >= d.dueAt
+            && !(st.onRest && t - st.restSinceT >= K.DRILL_BEEP_HOLD_MS)) {
+          d.slot = nextSlotAfter(d.seed, classCycle(S), t + d.wallOff, true);
+          d.dueAt = slotAt(d.seed, classCycle(S), d.slot) - d.wallOff;
+          return;
         }
         // The beep only plays with the finger on the frame: if it is off when due, at the first tick back on.
         // It also waits until the finger has been on the frame DRILL_BEEP_HOLD_MS, clear of the OK tone (D-104).
@@ -575,6 +610,7 @@
             d.rep++; d.phase = 'live';
             if (d.rep === 1) d.beepT = t;
             d.cur = { rep: d.rep, startT: t, beepT: t, shots: [], early: d.earlyPending, alarms: d.alarmsPending };
+            if (d.shared) d.cur.slot = d.slot;
             d.earlyPending = 0; d.alarmsPending = 0;
             // An alarm still sounding at the beep marks the rep; it counts into the run only once per episode, and
             // into this rep only if it is not already there from between the reps.
@@ -609,10 +645,12 @@
             early: c.early, alarms: c.alarms, withAlarm: c.alarms > 0,
           });
         } else {
-          d.reps.push({
+          const rr = {
             rep: c.rep, beepT: c.beepT, reaction: r4(s[0].t - c.beepT), split: r4(s[1].t - s[0].t), shots,
             early: c.early, alarms: c.alarms, withAlarm: c.alarms > 0,
-          });
+          };
+          if (d.shared) { rr.shared = true; rr.slot = c.slot; }
+          d.reps.push(rr);
         }
         const lastShotT = s[s.length - 1].t;
         d.cur = null; d.cueDueAt = null;
@@ -625,8 +663,11 @@
             if (st.alarmActive) d.cur.alarms = 1;
             d.phase = 'live';
           } else {
-            const [lo, hi] = def.delayMs;
-            d.dueAt = t + lo + d.rng() * (hi - lo);       // Low Ready: next beep 2–5 s after the cue (D-96)
+            if (d.shared) joinSlot(d, t);                 // shared: the first slot CLASS_JOIN_MS or more after the cue
+            else {
+              const [lo, hi] = def.delayMs;
+              d.dueAt = t + lo + d.rng() * (hi - lo);     // Low Ready: next beep 2–5 s after the cue (D-96)
+            }
             d.phase = 'standby';
           }
           return;
@@ -645,6 +686,7 @@
             bestReaction: clean.length ? Math.min.apply(null, clean) : null,
             early: d.early, alarms: d.alarms, withAlarm: d.alarms > 0, endT: t,
           };
+          if (d.shared) res.shared = true;
         }
         d.result = res;
         d.phase = 'ended';
@@ -672,7 +714,14 @@
       }
     };
 
+    // Shared run: the first slot at least CLASS_JOIN_MS after engine time t (no generator call).
+    function joinSlot(d, t) {
+      d.slot = nextSlotAfter(d.seed, classCycle(S), t + d.wallOff + K.CLASS_JOIN_MS, false);
+      d.dueAt = slotAt(d.seed, classCycle(S), d.slot) - d.wallOff;
+    }
+
     function freshRun(d) {
+      if (d.shared) d.slot = null;                  // shared / wallOff / seed belong to the run and stay
       d.phase = 'standby'; d.dueAt = null; d.beepT = null; d.rep = 0; d.shots = []; d.early = 0; d.alarms = 0; d.result = null;
       d.reps = []; d.cur = null; d.cueDueAt = null; d.earlyPending = 0;   // per-rep (a cancel loses the reps, D-98 e, D-107)
       d.alarmsPending = 0; d.alarmCounted = false; d.alarmInPending = false;
@@ -687,14 +736,24 @@
     }
 
     /** Start a run of drill `id` (a ready DRILL_DEFS key) with generator seed `seed`. Returns false and changes
-     *  nothing for an unknown or not-yet-built drill. A run already in progress is cancelled first. */
-    function startDrill(t, id, seed) {
+     *  nothing for an unknown or not-yet-built drill. A run already in progress is cancelled first. `wall` (optional,
+     *  ms, the page's Date.now() at t) makes a shareable drill a shared run (D-135, D-136); the engine never reads it. */
+    function startDrill(t, id, seed, wall) {
       const def = Object.prototype.hasOwnProperty.call(DRILL_DEFS, id) ? DRILL_DEFS[id] : null;
       if (!def || !def.ready) return false;
       closeWindow();
       if (drillActive(st.drill)) emit({ type: 'drillCancel', t, drill: st.drill.id });
-      st.drill = freshRun({ id, seed: seed >>> 0, rng: mulberry32(seed) });
+      const shared = !!def.shareable && Number.isFinite(wall);
+      st.drill = freshRun({ id, seed: seed >>> 0, rng: mulberry32(seed), shared, wallOff: shared ? wall - t : null });
       return true;
+    }
+
+    /** The page's wall clock at engine time t (after a resume): re-anchor a shared run, keeping the pending slot. */
+    function syncWall(t, wall) {
+      const d = st.drill;
+      if (!d || !d.shared || !Number.isFinite(wall)) return;
+      d.wallOff = wall - t;
+      if (d.phase === 'standby' && d.dueAt != null && d.slot != null) d.dueAt = slotAt(d.seed, classCycle(S), d.slot) - d.wallOff;
     }
 
     /** Back to Freestyle: cancel any run in progress (event) and drop the drill. */
@@ -822,7 +881,8 @@
       axisEstimator.reset(); st.axisEst = null; st.drillRuns = [];
     }
 
-    return { motion, touches, tick, setPaused, setDownrange, resetStats, startDrill, cancelDrill, state: st, version: VERSION };
+    return { motion, touches, tick, setPaused, setDownrange, resetStats, startDrill, cancelDrill, syncWall, state: st,
+      version: VERSION };
   }
 
   /* ---------- record / replay helpers ---------- */
@@ -833,6 +893,8 @@
   //   ['f', t]                                            animation-frame tick
   //   ['d', t]                                            Set downrange pressed
   //   ['r', t, drill, seed]                               drill run requested (seed for the engine's generator)
+  //   ['r', t, drill, seed, wall]                         shared Low Ready run (class code): wall = Date.now() at t
+  //   ['w', t, wall]                                      wall clock at a resume, shared run only (syncWall)
   //   ['x', t]                                            drill cancelled (back to the start screen)
   function fromDeviceMotion(e, t, angle) {
     const r = e.rotationRate || {}, a = e.acceleration, g = e.accelerationIncludingGravity;
@@ -869,7 +931,8 @@
         case 't': eng.touches(row[1], unpackTouchList(row[4]), row[2], row[3]); break;
         case 'p': eng.setPaused(!!row[2], row[1]); break;
         case 'd': eng.setDownrange(row[1]); break;
-        case 'r': eng.startDrill(row[1], row[2], row[3]); break;
+        case 'r': eng.startDrill(row[1], row[2], row[3], row[4]); break;
+        case 'w': eng.syncWall(row[1], row[2]); break;
         case 'x': eng.cancelDrill(row[1]); break;
         case 'f': eng.tick(row[1]); path.push([row[1], eng.state.aimH, eng.state.aimV, eng.state.dev180]); break;
       }
@@ -878,7 +941,7 @@
   }
 
   return {
-    VERSION, DEFAULTS, ZONES, K, zoneFor, inZone, gradeShot, createEngine, summarize, DRILL_DEFS, mulberry32,
+    VERSION, DEFAULTS, ZONES, K, zoneFor, inZone, gradeShot, createEngine, summarize, DRILL_DEFS, mulberry32, slotAt, nextSlotAfter,
     rt, r2, r4, fromDeviceMotion, fromTouch, packMotion, unpackMotion, packTouches, unpackTouchList, packEvent, replay,
   };
 });
