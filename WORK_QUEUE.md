@@ -31,7 +31,7 @@ updated: 2026-10-27
 
 | ID | Title | Pri | Size | Status | Depends on | Track |
 |----|-------|-----|------|--------|------------|-------|
-| WQ-051 | Class Low Ready: shared-clock start beeps when a class code is entered (D-135, D-136) | P1 | L | queued | — | drills |
+| WQ-051 | Class Low Ready: shared-clock start beeps when a class code is entered (D-135, D-136) | P1 | L | blocked:owner-machine | — | drills |
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
@@ -57,10 +57,19 @@ Tracks: axis · platform · recordings · grading · alarm · layout · decision
 
 ### WQ-051 — Class Low Ready: shared-clock start beeps when a class code is entered (D-135, D-136)
 
-- **Status:** queued · **Priority:** P1 · **Size:** L · **Track:** drills · **Env:** any
+- **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** L · **Track:** drills · **Env:** any
 - **Added:** 2026-10-27 by queue-add session (Ricky's request) · **Updated:** 2026-10-27 by the same session (Q22 answered,
   D-136: no separate drill — an optional class code entered when choosing Low Ready turns the shared clock on; 10 s cycle;
-  a phone not ready at a slot stays silent and waits for the next one; status queued)
+  a phone not ready at a slot stays silent and waits for the next one; status queued); 2026-10-27 by the orchestration session (orchestrated-feature round, Opus implementer, Sonnet test writer, Opus + Sonnet
+  reviewers): the agent half landed in 92afd28 on `ccr-c9b0912d-5568lc` — `engine.js` 0.18.0 (`startDrill(t, id, seed, wall)`,
+  `slotAt` / `nextSlotAfter`, silent skip, `syncWall`, rows `r`+wall and `w`, `DEFAULTS.classCycleMs`), page (class code field,
+  Class cycle slider, countdown line, results row), synthetic `drill-low-ready-class`, replay / smoke / roundtrip sections,
+  docs and D-137; `npm test` 946 PASS / 0 FAIL (replay 47 recordings, all 46 earlier ones byte-identical); screenshots in
+  `docs/screenshots/wq-051/`. Deviations: the jitter seed uses `Math.imul` (D-137 f); the cycle is floored at 3 s; Choose stores
+  the code only with Low Ready highlighted (D-137 c). Remaining, owner half (iPhone 15 and Pixel 11 side by side, deployed page):
+  same code on both, fingers on the frame right after a beep → the next five beeps sound as one; results open on both with five
+  reps and a Class code row; a phone that lifts the finger before a beep stays silent and rejoins at a later beep. Not on
+  `release` yet
 - **Depends on:** — · **Blocks:** —
 
 **Context.** Ricky (2026-10-27): Low Ready is run in class with the whole room on it at once, but every phone draws
