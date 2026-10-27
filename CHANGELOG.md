@@ -4,6 +4,16 @@ All notable changes to the Trigger Discipline Trainer, newest first. The version
 Settings. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are tagged `vX.Y.Z` on
 `main` by the owner after the merge.
 
+## [0.18.0] - 2026-10-27
+
+### Added
+- Low Ready for a whole class: enter a **class code** when choosing Low Ready (everyone in the room types the same
+  one) and the start beeps of every phone sound at the same moment, with no connection between the phones. Put the
+  finger on the frame right after a beep and you join the next one; a phone whose finger is not on the frame when a
+  beep is due stays silent and waits for the next. Leave the code empty to train alone as before. Settings → Other →
+  **Class cycle** sets the time between beeps (10 s to start).
+- The drill line counts down to the next shared beep; the results of a class run name the code.
+
 ## [Unreleased]
 
 Page and project changes with no engine change (`Engine 0.17.0` still shows in Settings).

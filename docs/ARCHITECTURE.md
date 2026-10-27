@@ -44,7 +44,8 @@ other origin. Settings' version line adds "offline ready" once the worker contro
 | `tick(t)` | one animation frame; runs the state machine |
 | `setPaused(p, t)` | pause (settings open, page hidden, portrait held) or resume |
 | `setDownrange(t)` | the student tapped **Set downrange** |
-| `startDrill(t, id, seed)`, `cancelDrill(t)` | start or drop a timed drill |
+| `startDrill(t, id, seed, wall?)`, `cancelDrill(t)` | start or drop a timed drill; a finite `wall` (the page's `Date.now()` at `t`) makes a Low Ready run shared (WQ-051) |
+| `syncWall(t, wall)` | re-anchor a shared Low Ready run on the wall clock after a resume |
 | `resetStats()` | clear the session totals |
 
 `state` is the live state object, read by the page for drawing and never written by it. Events reach `onEvent`:

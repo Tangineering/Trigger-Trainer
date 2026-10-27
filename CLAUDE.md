@@ -77,7 +77,7 @@ How the queue and the other documents fit together:
   above, no timer, the default) or a timed drill; all Freestyle rules stay on during a drill, except the Transitions window (D-111: from the first
   shot to the tenth, movement with the finger on the trigger does not alarm). **Bill Drill**: finger on
   the frame → a random 1–4 s later the start beep → six shots (timer stops at the sixth) → finger back on the frame →
-  completion tone and results (first shot, splits, total). **Low Ready** (D-96): five reps from low ready, each a
+  completion tone and results (first shot, splits, total). **Low Ready** (D-96; with a class code the shared schedule of D-135/D-136, below): five reps from low ready, each a
   start beep → two shots → finger back on the frame → 750 ms later a three-beep cue (back to low ready), the next beep
   2–5 s later; after rep 5 the completion tone. **Box Drill** (D-95): five positions round four marked spots (1, 2, 3,
   4, back to 1); after the beep, two or more shots and the finger back on the frame give the three-beep move cue, the
@@ -112,7 +112,7 @@ Contributor version: `docs/ARCHITECTURE.md` (WQ-039); this manual stays the sour
 | `VERSION` | Bump when outputs change for the same inputs (D-20). |
 | `DEFAULTS`, `ZONES`, `K`, `zoneFor` | Settings defaults; normalized zones for a **right-handed** layout (muzzle at x=1, left-handed mirrors x); timing constants. Only `rest` and `trigger` zones are touch-sensitive. `zoneFor(name, vw)` adds the fixed `K.TRIGGER_FWD_PX` offset to the trigger (and the guard's front edge); the engine hit test and `rectFor()` both use it (D-72). |
 | `summarize(state)` | Session totals for the summary screen, from `state.tally` (not capped like `state.shots`) and the alarm counters. Grades and movement figures cover only shots fired with no alarm (`graded`, D-45). |
-| `createEngine(S, {onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, startDrill, cancelDrill, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`, `drillBeep`, `drillCue`, `drillEnd`, `drillCancel`. Starts paused. |
+| `createEngine(S, {onEvent})` | Returns `{motion, touches, tick, setPaused, setDownrange, resetStats, startDrill, cancelDrill, syncWall, state}`. Emits `armed`, `ok`, `alarmStart` (`reason`: `move` or `180`), `alarmStop`, `trigOn`, `trigOff`, `shot`, `reset`, `downrange`, `downrangeLost`, `drillBeep`, `drillCue`, `drillEnd`, `drillCancel`. Starts paused. |
 | `motion(m)` | Rotation-rate magnitude and linear accel (EMA ~80 ms) for the alarm; integrates muzzle pitch/yaw (`aimH`, `aimV`, deg) for the trace (each sample's `dt` clamped to `MAX_DT_S`). The 180 orientation quaternion integrates the mean of the previous and current rates over the raw gap, capped at `ORIENT_BRIDGE_MS` (300 ms), so `devicemotion` gaps are bridged (D-62). Axis mapping per `axisMode`. Also feeds an advisory gyro-axis estimator (E-2, fused gravity; D-57, D-70) that sets `state.axisEst` = `{cand, margin, motionS, windows}` (`null` until the first 0.5 s window counts); it reads raw rates only and changes no output. |
 | `touches(t, list, vw, vh)` | Full current touch list in CSS px; drives the trigger (engage on entering the zone, fire at `pullPx` rearward, re-arm at `RESET_FRACTION`). |
 | `tick(t)` | State machine: debounced frame contact → armed / safe / off-frame / alarm; trace capture. |
@@ -502,3 +502,38 @@ rule also sets `#flash.go { animation: none }`. The start screen's warning box n
 downrange carry an `aria-label` (the gear already had one). `user-scalable=no` stays, with a comment in the head.
 **Contrast.** `.pill.bad` and `#recPill` use #d13438, `.pill.trig` #2563eb (white text ≥ 4.5:1); `--bad` and `--trig`
 are unchanged. `window.__tdt()` adds `shotFlash`. The `WQ-044` smoke section checks all of this and logs the ratios.
+
+## WQ-051 — Low Ready with a class code: shared-clock start beeps (D-135, D-136)
+
+**Behavior.** A room runs Low Ready together: the instructor announces a short **class code**, every student types it
+in the drill picker (the field appears only when Low Ready is highlighted; **Choose** stores it in
+`localStorage['tdt.classCode']`, removed when empty; the start-screen button reads "Low Ready · class CODE"). With a code the
+run is a **shared run**: the start beeps come from a schedule that is a pure function of the wall clock and the code,
+so every phone with the same code beeps at the same instant with no connection between phones. No code → the ordinary
+Low Ready, byte-identical. Slot `k` beeps at wall time `k × classCycleMs + jitter(k)` with `jitter(k)` in [0, 3 s)
+from `mulberry32((seed + k·0x9E3779B9) >>> 0)`; a phone joins the first slot at least 1.5 s after its finger came onto
+the frame (rep 1) or after its three-beep cue (reps 2–5), so the instructor says "finger on the frame" right after a
+beep and the room joins the same slot. A slot the finger is not ready for (off the frame, or on it under 350 ms) passes
+**silently**; the phone waits for the next slot (D-136 c). Settings → Other → **Class cycle** (`classCycleMs`, default
+10 s, 6–30 s) sets the cycle; every phone in the room must share it.
+
+**Engine** (`engine.js` 0.18.0). `DEFAULTS.classCycleMs` 10000; `K.CLASS_JITTER_MS` 3000, `K.CLASS_JOIN_MS` 1500;
+`DRILL_DEFS.lowready.shareable: true`. Exported pure helpers `slotAt(seed, cycleMs, k)` and `nextSlotAfter(seed,
+cycleMs, w, strict)` (the slot with the earliest beep at or after `w`, bounded search; `classCycle(S)` floors the
+setting at the 3 s jitter, so slot times rise with `k`). `startDrill(t, id, seed, wall)`: a finite `wall` (the page's `Date.now()` at `t`) on a shareable def
+makes the run shared (`d.shared`, `d.wallOff = wall − t`, kept across `freshRun`; `d.slot` reset). In `tickDrill` a
+shared run calls `joinSlot(d, t)` where the ordinary run draws its delay (rep 1 and after each cue; no `rng()` call),
+skips a slot it is not ready for at the first tick at or after `dueAt`, and otherwise beeps under the unchanged
+condition. `syncWall(t, wall)` (API; row `['w', t, wall]`, logged by the page on every resume of a shared run)
+re-anchors `wallOff` and the pending `dueAt`. Results: rep `{…, shared: true, slot}` and run `{…, shared: true}` only
+in a shared run; ordinary results carry no new key. Row `['r', t, 'lowready', seed, wall]` (fifth element; `replay`
+passes `row[4]`, undefined in every older recording). The engine never reads the clock. All earlier recordings replay
+to identical events.
+
+**Page** (`index.html`). `CLASS_KEY`, `cleanCode` (trim, ≤ 24 chars), `classSeed(code)` (32-bit FNV-1a over the trimmed
+lower-cased code; test hook `window.__tdtClassSeed`), `escHtml`; `#classRow` / `#classCode` / `#classHint` in
+`#drillBody` (grid area `class`, compact at 844×390 via `#drillBody.withClass`); `beginDrillRun` logs the five-element
+row with `Date.now()`; `setEnginePaused` calls `syncWall` and logs `w` on resume; slider `classCycleMs` (`fmt` in
+seconds); `drillLineText(s, t)` shows "Rep n of 5 · next beep in m s" in a shared standby; results get a "Class code"
+first row; recorder label `drill-low-ready-class`. `window.__tdt()` adds `classCode` and `drill.shared`, `drill.slot`,
+`drill.nextBeepIn`.

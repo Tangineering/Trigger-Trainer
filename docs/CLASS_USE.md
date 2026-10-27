@@ -64,6 +64,14 @@ All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 
   alarm" (an alarm during a rep, between reps or still sounding at a beep marks the run and that rep; its reaction
   is left out of the average), and the best average reaction of the session among runs with no alarm. **Again**
   starts a new five-rep run; **Change drill** goes back to the start screen.
+- **Low Ready with the whole class** (class code): announce a short code (a word or a number). Each student opens
+  **Drill**, highlights Low Ready, types the code in **Class code** and taps **Choose**; the button then reads
+  "Low Ready · class CODE". Every phone with the same code beeps at the same moment, from the phones' own clocks, with
+  no connection between them. Call "finger on the frame" right after a beep: every phone joins the next beep together
+  (a phone needs its finger on the frame about 1.5 s before a beep to join it). A phone whose finger is not on the
+  frame when a beep is due stays silent and waits for the next one. The drill line counts down to the next beep.
+  Beeps come every 10 s plus a shared random part of up to 3 s (Settings → Other → **Class cycle**; leave it at the default unless the instructor says otherwise,
+  since phones with different cycles never agree). The beeps are as much in step as the phones' clocks: a phone whose clock is off by a second beeps a second off. Clear the code to train alone again.
 - **Box Drill** (five positions, student-paced movement): mark four spots on the floor, for example the corners of a
   2–3 m square, numbered 1 to 4 going round clockwise from spot 1 at the lower left (facing downrange, the near spot
   on the left). Every position faces downrange: the student walks sideways, forwards or

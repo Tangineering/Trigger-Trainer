@@ -113,6 +113,38 @@ module.exports = {
       ['Low Ready reps carry reaction / split and no Box fields (no time, no splits, no startT)', !!run && run.reps.every(p => !('time' in p) && !('splits' in p) && !('startT' in p) && 'reaction' in p && 'split' in p)],
     ];
   },
+  // WQ-051: shared Low Ready (a class code): the same presses as 'drill-low-ready', but the beeps come from the wall-clock
+  // schedule TDT.slotAt(seed, cycle, k). Wall time of a beep = engine t + (wall - t of the 'r' row).
+  'drill-low-ready-class': r => {
+    const FR = 17, TDT = require('../engine.js');
+    const run = r.runs[0], B = r.beepEvs, C = r.cueEvs, rr = r.rRow;
+    const have = !!rr && rr.length === 5 && B.length === 5 && C.length === 4 && !!run && run.reps.length === 5;
+    const off = have ? rr[4] - rr[1] : NaN, seed = have ? rr[3] : 0, cyc = TDT.DEFAULTS.classCycleMs;
+    const wallOf = b => b.t + off;
+    const slots = have ? run.reps.map(p => p.slot) : [];
+    return [
+      ['the r row carries a wall time (five elements, finite)', !!rr && rr.length === 5 && Number.isFinite(rr[4])],
+      ['five start beeps, reps 1-5 in order; four cues; one drill end; no cancel; no alarm',
+        r.drillBeeps === 5 && B.map(b => b.rep).join() === '1,2,3,4,5' && r.drillCues === 4 && r.drillEnds === 1 && r.drillCancels === 0 && r.alarms === 0],
+      [`every beep falls on its slot: wall time of the beep = TDT.slotAt(seed, ${cyc}, slot) within one frame`,
+        have && run.reps.every((p, i) => Math.abs(wallOf(B[i]) - TDT.slotAt(seed, cyc, p.slot)) <= FR)],
+      ['slot jitter: each slot time lies in [k * cycle, k * cycle + 3000)',
+        have && slots.every(k => { const w = TDT.slotAt(seed, cyc, k); return w >= k * cyc && w < k * cyc + 3000; })],
+      ['rep 1 beep is at least 1500 ms after the arming tick (join margin), by wall time',
+        have && r.firstArmedT !== undefined && B[0].t - r.firstArmedT >= 1500 - 0.5],
+      ['reps 2-5: each beep is at least 1500 ms after the cue before it',
+        have && [1, 2, 3, 4].every(i => B[i].t - C[i - 1].t >= 1500 - 0.5)],
+      ['the beeps are the earliest slots meeting the margin (no earlier slot would have qualified), rep 1',
+        have && r.firstArmedT !== undefined && TDT.nextSlotAfter(seed, cyc, r.firstArmedT + off + 1500, false) === slots[0]],
+      ['reps 2-5: each slot is the earliest at or after cue + 1500 ms (the finger was on the frame for the hold, so none skipped)',
+        have && [1, 2, 3, 4].every(i => TDT.nextSlotAfter(seed, cyc, C[i - 1].t + off + 1500, false) === slots[i])],
+      ['slots strictly increasing', have && slots.every((k, i) => i === 0 || k > slots[i - 1])],
+      ['the result and every rep carry shared: true, and a numeric slot',
+        have && run.shared === true && run.reps.every(p => p.shared === true && Number.isInteger(p.slot))],
+      ['one finished run, lowready, five reps, two shots per rep (three in rep 4), no early, no alarm',
+        have && run.drill === 'lowready' && run.reps.map(p => p.shots.length).join() === '2,2,2,3,2' && run.early === 0 && run.alarms === 0],
+    ];
+  },
   // WQ-029: Box Drill, five positions (adaptive synthetic recording, see make-synthetic.js). Position 2 fires three shots (the
   // extra one stays in the position); position 3 returns the finger to the frame after ONE shot and holds it 1.3 s: that return
   // gives an ok but no cue, and the cue follows the second shot's return. Every figure is derived here from the event times.

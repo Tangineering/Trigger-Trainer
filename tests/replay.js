@@ -89,6 +89,7 @@ for (const f of files) {
 
   const res = TDT.replay(rec);
   const sum = summarize(res); sum.synthetic = !!rec.synthetic;
+  sum.rRow = (rec.log || []).find(x => x[0] === 'r') || null;   // the drill request row (WQ-051: seed and wall of a shared run)
   const dur = rec.t1 && rec.t0 ? ((rec.t1 - rec.t0) / 1000).toFixed(1) + ' s' : '';
   console.log(`\n${rel}  [${rec.label}${rec.synthetic ? ', synthetic' : ''}] ${dur}` +
     `  shots ${sum.shots.length} (${sum.shots.map(s => s.grade[0]).join('') || '-'})  alarms ${sum.alarmsMove}  180s ${sum.b180} (max ${sum.maxDev.toFixed(0)}°)` +
@@ -275,6 +276,187 @@ if (lrFile) {
       until(() => d().reps.length === 2, 3000) && d().alarms === 1 && d().reps.every(r => r.alarms === 1 && r.withAlarm) && evs.filter(e => e.type === 'alarmStart').length === 1,
       d().reps.map(r => r.alarms));
     t('shots fired in the alarm are not graded (unsafe)', d().reps.every(r => r.shots.every(x => x.unsafe)));
+  }
+}
+
+// WQ-051: shared Low Ready (class code). The beep schedule is a pure function of the wall clock and the seed; the engine only
+// learns the wall clock through startDrill's fourth argument and syncWall. Engine-level checks (no browser, no Date.now()).
+const lrcFile = files.find(f => f.endsWith(path.join('synthetic', 'drill-low-ready-class.json')));
+if (lrcFile) {
+  console.log('\nShared Low Ready determinism (synthetic/drill-low-ready-class.json, in memory)');
+  const t = (desc, pass) => { console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${desc}`); if (!pass) failures++; };
+  const rec = JSON.parse(fs.readFileSync(lrcFile, 'utf8'));
+  const W = 1_700_000_000_000, SEED = 20261028, CYC = TDT.DEFAULTS.classCycleMs, STEP = 16;
+  const mid = z => [(z.x + z.w / 2) * 844, (z.y + z.h / 2) * 390];
+  const REST = [{ id: 1, cx: mid(TDT.ZONES.rest)[0], cy: mid(TDT.ZONES.rest)[1], rx: 0, ry: 0 }], TR = mid(TDT.zoneFor('trigger', 844));
+  // A scripted shooter on a 16 ms grid of local time u (engine time t = base + u, wall = W0 + u): finger on the frame;
+  // after each beep two presses, then the frame again. `off(u)` (optional) lifts the finger entirely while true.
+  function play(base, seed, o = {}) {
+    const W0 = o.W0 === undefined ? W : o.W0, shared = o.shared !== false;
+    const evs = [], eng = TDT.createEngine(Object.assign({}, TDT.DEFAULTS, o.S || {}), { onEvent: e => evs.push(e) });
+    let u = 0; const now = () => base + u;
+    const step = () => { u += STEP; eng.motion({ t: now(), a: 0, b: 0, g: 0, angle: 90 }); eng.tick(now()); };
+    const run = ms => { const e = u + ms; while (u < e) step(); };
+    const frame = () => eng.touches(now(), o.off && o.off(u) ? [] : REST, 844, 390);
+    const press = () => {
+      eng.touches(now(), [{ id: 2, cx: TR[0], cy: TR[1], rx: 0, ry: 0 }], 844, 390); run(60);
+      for (const dx of [20, 45, 70]) { eng.touches(now(), [{ id: 2, cx: TR[0] - dx, cy: TR[1], rx: 0, ry: 0 }], 844, 390); run(40); }
+      run(30); eng.touches(now(), [], 844, 390); run(50);
+    };
+    eng.setPaused(false, now());
+    if (shared) eng.startDrill(now(), 'lowready', seed, W0 + u); else eng.startDrill(now(), 'lowready', seed);
+    const d = () => eng.state.drill;
+    const until = (cond, maxMs) => { const e = u + maxMs; while (!cond() && u < e) { frame(); step(); } return cond(); };
+    frame(); run(50);
+    const wallOff = shared ? W0 - base : null;
+    if (o.manual) return { eng, evs, step, run, frame, now, d, until, wallOff, uNow: () => u };
+    for (let k = 1; k <= 5; k++) {
+      if (!until(() => d().rep === k, 40000)) break;
+      press(); press(); eng.touches(now(), REST, 844, 390);
+      if (!until(() => k < 5 ? d().reps.length === k : d().phase === 'ended', 6000)) break;
+    }
+    return { eng, evs, wallOff, d: d() };
+  }
+  const beepWalls = r => r.evs.filter(e => e.type === 'drillBeep').map(e => e.t + r.wallOff);
+  const A = play(0, SEED), B = play(4321, SEED);
+  t(`engines A (t from 0) and B (t from 4321) at the same wall clock: five beeps each (${beepWalls(A).length}, ${beepWalls(B).length})`,
+    beepWalls(A).length === 5 && beepWalls(B).length === 5);
+  t('the five beeps fall at identical wall times (to the ms) in both engines', JSON.stringify(beepWalls(A)) === JSON.stringify(beepWalls(B)));
+  t('both runs end with shared results with the same slots', !!A.d.result && !!B.d.result && A.d.result.shared === true &&
+    JSON.stringify(A.d.result.reps.map(p => p.slot)) === JSON.stringify(B.d.result.reps.map(p => p.slot)));
+  t('every beep wall time equals slotAt of its rep slot', A.d.result.reps.every((p, i) => beepWalls(A)[i] >= TDT.slotAt(SEED, CYC, p.slot) && beepWalls(A)[i] - TDT.slotAt(SEED, CYC, p.slot) < STEP));
+  t('the run generator is not consumed for delays (its first draw is still the seed\'s first draw)', A.d.rng() === TDT.mulberry32(SEED)());
+  // Different seeds: different jitter.
+  {
+    const slotsFor = sd => [3, 4, 5, 6, 7, 8].map(k => TDT.slotAt(sd, CYC, k) - k * CYC);
+    const s1 = slotsFor(SEED), s2 = slotsFor(SEED + 1);
+    t('slotAt with seeds differing by one gives different jitter (at least 5 of 6 slots)', s1.filter((x, i) => x !== s2[i]).length >= 5 && s1.every(x => x >= 0 && x < 3000));
+    const C = play(0, SEED + 12345);
+    t('a run with another seed beeps at different wall times (at least one differs)', beepWalls(C).length === 5 && beepWalls(C).some((w, i) => w !== beepWalls(A)[i]));
+    t('slotAt is deterministic and depends only on (seed, cycle, k)', TDT.slotAt(SEED, CYC, 7) === TDT.slotAt(SEED, CYC, 7) && TDT.slotAt(SEED, CYC, 7) !== TDT.slotAt(SEED, CYC + 1000, 7));
+  }
+  // Finger lifted across a slot: that slot passes silently, the next one beeps. Twin run: finger stays => beep at the slot.
+  {
+    const twin = play(0, SEED, { manual: true });
+    twin.until(() => twin.d().rep === 1, 40000);
+    const k0 = twin.d().slot, beepWall = twin.evs.find(e => e.type === 'drillBeep').t + twin.wallOff;
+    const uBeep = twin.evs.find(e => e.type === 'drillBeep').t;
+    t(`twin (finger stays on the frame) beeps at slot ${k0} (wall ${Math.round(beepWall)})`, beepWall >= TDT.slotAt(SEED, CYC, k0) && beepWall - TDT.slotAt(SEED, CYC, k0) < STEP);
+    const lift = play(0, SEED, { manual: true, off: u => u >= uBeep - 200 && u < uBeep + 100 });
+    lift.until(() => lift.uNow() > uBeep + 60, 40000);
+    const nb = () => lift.evs.filter(e => e.type === 'drillBeep').length;
+    t(`finger lifted across slot ${k0}: no beep at it, still standby, slot advanced to ${lift.d().slot}`,
+      nb() === 0 && lift.d().phase === 'standby' && lift.d().slot > k0 && lift.d().slot === TDT.nextSlotAfter(SEED, CYC, uBeep + lift.wallOff, true));
+    t('no drillCancel, no alarm from the skipped slot', lift.evs.every(e => e.type !== 'drillCancel' && e.type !== 'alarmStart'));
+    const kNext = lift.d().slot;
+    lift.until(() => nb() > 0, 40000);
+    const w2 = lift.evs.find(e => e.type === 'drillBeep').t + lift.wallOff;
+    t(`the next slot (${kNext}) beeps: ${Math.round(w2 - beepWall)} ms after the skipped one`, nb() === 1 && w2 > beepWall && w2 >= TDT.slotAt(SEED, CYC, kNext) && w2 - TDT.slotAt(SEED, CYC, kNext) < STEP && lift.d().rep === 1);
+    t('the lifted run recorded the slot it beeped on as rep 1\'s slot', lift.d().cur && lift.d().cur.slot === kNext);
+  }
+  // Second skip branch: the finger is back on the frame, but for less than DRILL_BEEP_HOLD_MS (350 ms) when the slot is due.
+  {
+    const twin = play(0, SEED, { manual: true });
+    twin.until(() => twin.d().rep === 1, 40000);
+    const k0 = twin.d().slot, uBeep = twin.evs.find(e => e.type === 'drillBeep').t;
+    const lift = play(0, SEED, { manual: true, off: u => u >= uBeep - 700 && u < uBeep - 200 });
+    lift.until(() => lift.uNow() > uBeep + 60, 40000);
+    const nb = () => lift.evs.filter(e => e.type === 'drillBeep').length;
+    t(`finger back 200 ms before slot ${k0} (hold not met): no beep at it, slot advanced to ${lift.d().slot}`,
+      nb() === 0 && lift.d().phase === 'standby' && lift.d().slot > k0 && lift.d().slot === TDT.nextSlotAfter(SEED, CYC, uBeep + lift.wallOff, true));
+    const kNext = lift.d().slot;
+    lift.until(() => nb() > 0, 40000);
+    const w2 = nb() ? lift.evs.find(e => e.type === 'drillBeep').t + lift.wallOff : NaN;
+    t(`... and the later slot (${kNext}) beeps`, nb() === 1 && w2 >= TDT.slotAt(SEED, CYC, kNext) && w2 - TDT.slotAt(SEED, CYC, kNext) < STEP);
+  }
+  // A skip in rep 2 (after a cue, back in standby): compare with the full twin run.
+  {
+    const full = play(0, SEED), fw = beepWalls(full), fb = full.evs.filter(e => e.type === 'drillBeep').map(e => e.t);
+    const lift = play(0, SEED, { off: u => u >= fb[1] - 200 && u < fb[1] + 100 });
+    const lw = beepWalls(lift), ls = lift.d.result ? lift.d.result.reps.map(p => p.slot) : [];
+    t(`rep 2: finger lifted across its slot: that wall time has no beep, rep 2 beeps on a later slot (${ls[1]} vs ${full.d.result.reps[1].slot})`,
+      lw.length === 5 && Math.abs(lw[0] - fw[0]) < 1e-9 && !lw.some(w => Math.abs(w - fw[1]) < STEP) && ls[1] > full.d.result.reps[1].slot &&
+      ls[1] === TDT.nextSlotAfter(SEED, CYC, fb[1] + full.wallOff, true) && lift.d.result.shared === true);
+  }
+  // Class cycle setting: engine-level runs on a 6 s cycle and the 1 s setting (floored to 3 s = CLASS_JITTER_MS).
+  for (const [setting, eff] of [[6000, 6000], [1000, 3000], [30000, 30000]]) {
+    const R = play(0, SEED, { S: { classCycleMs: setting } });
+    const bw = beepWalls(R), reps = R.d.result ? R.d.result.reps : [];
+    t(`classCycleMs ${setting}: five beeps on slots of a ${eff} ms cycle (beep = slotAt(seed, ${eff}, slot) within a frame; jitter below 3000)`,
+      bw.length === 5 && reps.length === 5 && reps.every((p, i) => bw[i] >= TDT.slotAt(SEED, eff, p.slot) && bw[i] - TDT.slotAt(SEED, eff, p.slot) < STEP && TDT.slotAt(SEED, eff, p.slot) - p.slot * eff < 3000));
+    if (setting !== 30000) t(`classCycleMs ${setting}: the beeps differ from the default 10 s cycle's`, bw.some((w, i) => w !== beepWalls(A)[i]));
+  }
+  // Golden values: phones on different versions must not desync silently, so the formula is pinned (computed once).
+  t('golden: slotAt(20261028, 10000, 170000001) === 1700000011113.033 (to 1 ms resolution)', Math.abs(TDT.slotAt(20261028, 10000, 170000001) - 1700000011113.033) < 0.001);
+  t('golden: slotAt(1, 10000, 0) === 1881.221821764484 and slotAt(4294967295, 6000, 283333333) === 1699999998679.1484',
+    Math.abs(TDT.slotAt(1, 10000, 0) - 1881.221821764484) < 1e-9 && Math.abs(TDT.slotAt(4294967295, 6000, 283333333) - 1699999998679.1484) < 0.001);
+  // An ordinary run has no shared / slot keys anywhere (byte identity of the result object).
+  {
+    const O = play(0, SEED, { shared: false });
+    const res = O.d.result;
+    t('ordinary startDrill (no wall): five reps done, result has no shared key, reps have no shared or slot key',
+      !!res && res.reps.length === 5 && !('shared' in res) && res.reps.every(p => !('shared' in p) && !('slot' in p)));
+    t('ordinary run: state.drill.shared is false and the generator drew the delays (rng advanced)', O.d.shared === false && O.d.rng() !== TDT.mulberry32(SEED)());
+    const evs = [], eng = TDT.createEngine(Object.assign({}, TDT.DEFAULTS), { onEvent: e => evs.push(e) });
+    eng.setPaused(false, 0);
+    t('a wall passed to a drill that is not shareable (bill) is ignored: not shared', eng.startDrill(0, 'bill', 3, W) === true && eng.state.drill.shared === false);
+    t('a non-finite wall on Low Ready gives an ordinary run', eng.startDrill(0, 'lowready', 3, NaN) === true && eng.state.drill.shared === false &&
+      eng.startDrill(0, 'lowready', 3, undefined) === true && eng.state.drill.shared === false);
+  }
+  // syncWall re-anchors the pending due time.
+  {
+    const m = play(0, SEED, { manual: true });
+    const d0 = m.d().dueAt, k0 = m.d().slot, off0 = m.eng.state.drill.wallOff;
+    const delta = 7000;
+    m.eng.syncWall(m.now(), W + m.uNow() + delta);   // the wall clock is 7 s ahead of what it was
+    t(`syncWall with a wall ${delta} ms ahead moves dueAt by exactly -${delta} ms and keeps the slot (${d0} -> ${m.d().dueAt})`,
+      m.d().slot === k0 && Math.abs((m.d().dueAt - d0) + delta) < 1e-6 && Math.abs(m.d().wallOff - off0 - delta) < 1e-6);
+    m.eng.syncWall(m.now(), W + m.uNow());
+    t('syncWall back to the original wall restores dueAt', Math.abs(m.d().dueAt - d0) < 1e-6);
+    const dueBefore = m.d().dueAt, wo = m.d().wallOff;
+    m.eng.syncWall(m.now(), NaN);
+    t('syncWall with a non-finite wall changes nothing', m.d().dueAt === dueBefore && m.d().wallOff === wo);
+    const o = play(0, SEED, { shared: false, manual: true }), od = o.d().dueAt;
+    o.eng.syncWall(o.now(), W + 5000);
+    t('syncWall on an ordinary run changes nothing', o.d().dueAt === od && !o.d().shared);
+  }
+  // nextSlotAfter boundaries and a brute-force cross-check.
+  {
+    const k = 6, w = TDT.slotAt(SEED, CYC, k);
+    t('nextSlotAfter(w = slot k exactly, not strict) returns k', TDT.nextSlotAfter(SEED, CYC, w, false) === k);
+    const brute = (w2, strict) => { for (let kk = 0; kk < 400; kk++) { const s = TDT.slotAt(SEED, CYC, kk); if (strict ? s > w2 : s >= w2) { /* earliest by time */ let best = kk, bw = s; for (let j = Math.max(0, kk - 1); j <= kk + 2; j++) { const sj = TDT.slotAt(SEED, CYC, j); if ((strict ? sj > w2 : sj >= w2) && sj < bw) { best = j; bw = sj; } } return best; } } return null; };
+    const nxt = TDT.nextSlotAfter(SEED, CYC, w, true);
+    t(`nextSlotAfter(w = slot ${k} exactly, strict) returns a later slot (${nxt}) whose time is > w`, nxt === brute(w, true) && TDT.slotAt(SEED, CYC, nxt) > w && nxt !== k);
+    t('nextSlotAfter(w just below slot k) returns k; (w just above, not strict) does not', TDT.nextSlotAfter(SEED, CYC, w - 1e-6, false) === k && TDT.nextSlotAfter(SEED, CYC, w + 1e-6, false) !== k);
+    let bad = 0;
+    for (let i = 0; i < 300; i++) for (const strict of [false, true]) {
+      const wq = 1000 + i * 977.3; const g = TDT.nextSlotAfter(SEED, CYC, wq, strict), s = TDT.slotAt(SEED, CYC, g);
+      let okk = strict ? s > wq : s >= wq;
+      for (let j = 0; j <= Math.ceil(wq / CYC) + 3; j++) { const sj = TDT.slotAt(SEED, CYC, j); if ((strict ? sj > wq : sj >= wq) && sj < s) okk = false; }
+      if (!okk) bad++;
+    }
+    t('nextSlotAfter is the earliest qualifying slot for 600 query times (strict and not)', bad === 0);
+    t('nextSlotAfter at w = 0 (not strict) is a slot at or after 0', TDT.slotAt(SEED, CYC, TDT.nextSlotAfter(SEED, CYC, 0, false)) >= 0);
+  }
+  // replay(): the five-element r row and the w row are honoured.
+  {
+    const a = TDT.replay(rec), b = TDT.replay(rec);
+    t('replaying the shared recording twice gives identical packed events', JSON.stringify(a.packed) === JSON.stringify(b.packed) && a.packed.length > 0);
+    const rIdx = rec.log.findIndex(r => r[0] === 'r');
+    t('the log carries one five-element r row naming lowready right after the opening p row', rIdx === 1 && rec.log[rIdx].length === 5 && rec.log[rIdx][2] === 'lowready' && rec.log.filter(r => r[0] === 'r').length === 1);
+    const o = JSON.parse(JSON.stringify(rec)); o.log[rIdx] = o.log[rIdx].slice(0, 4);
+    const ordinary = TDT.replay(o);
+    t('the same log with the wall dropped replays as an ordinary run (one run of five reps, state.drill.shared false, no shared or slot key, different beeps)',
+      ordinary.state.drillRuns.length === 1 && ordinary.state.drillRuns[0].reps.length === 5 && ordinary.state.drill.shared === false &&
+      !('shared' in ordinary.state.drillRuns[0]) && ordinary.state.drillRuns[0].reps.every(p => !('shared' in p) && !('slot' in p)) &&
+      a.state.drillRuns.length === 1 && a.state.drillRuns[0].shared === true && JSON.stringify(ordinary.packed) !== JSON.stringify(a.packed));
+    const o2 = JSON.parse(JSON.stringify(rec)), mid2 = o2.log.findIndex(r => r[0] === 'f' && r[1] > 3000);
+    const tw = o2.log[mid2][1]; o2.log.splice(mid2, 0, ['w', tw, rec.log[rIdx][4] - rec.log[rIdx][1] + tw]);
+    t('a w row that re-states the same wall offset changes no event', JSON.stringify(TDT.replay(o2).packed) === JSON.stringify(a.packed));
+    const o3 = JSON.parse(JSON.stringify(rec)); const mid3 = o3.log.findIndex(r => r[0] === 'f' && r[1] > 3000);
+    o3.log.splice(mid3, 0, ['w', o3.log[mid3][1], rec.log[rIdx][4] - rec.log[rIdx][1] + o3.log[mid3][1] + 2000]);
+    const r3 = TDT.replay(o3);
+    t('a w row that shifts the wall by 2 s while a slot is pending changes the replay (it is read)', a.events.filter(e => e.type === 'drillBeep')[0].t > o3.log[mid3][1] && JSON.stringify(r3.packed) !== JSON.stringify(a.packed));
   }
 }
 

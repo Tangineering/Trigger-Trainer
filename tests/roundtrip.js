@@ -247,6 +247,67 @@ const check = (name, cond, extra) => {
     resL.state.drillRuns.length === 1 && resL.state.drillRuns[0].reps.length === 5 && Math.abs(resL.state.drillRuns[0].total - endL[3]) < 0.001 && endL[2] === 'lowready', [resL.state.drillRuns.length, endL]);
   check('WQ-028: Low Ready recording: the results overlay paused the engine (no drillCancel observed)', lrLast.paused === true && obsL('drillCancel').length === 0);
   check('WQ-028: the earlier Bill and Freestyle recordings carry no drillCue', !recB.observed.concat(rec.observed, recH.observed).some(o => o[1] === 'drillCue'));
+  // WQ-051: a shared Low Ready run (class code) recorded in the page: the log opens with a five-element 'r' row carrying the
+  // page's wall clock, and the replay in Node (no clock of its own) reproduces the live events exactly. Five reps in real time:
+  // each beep falls on a wall-clock slot up to ~14.5 s after the finger is on the frame / the cue.
+  await page.reload();
+  await page.evaluate(() => { navigator.canShare = undefined; });
+  await page.click('#drillBtn');
+  await page.click('#drillList .drillOpt[data-id="lowready"]');
+  await page.fill('#classCode', 'Roundtrip Class');
+  await page.click('#drillChoose');
+  check('WQ-051: Low Ready with a class code selected', await page.evaluate(() => window.__tdt().drillSel === 'lowready' && window.__tdt().classCode === 'Roundtrip Class'));
+  await page.click('#startSettingsBtn');
+  check('WQ-051: the recorder offers the drill-low-ready-class label', await page.$$eval('#recLabel option', os => os.some(o => o.value === 'drill-low-ready-class')));
+  await page.selectOption('#recLabel', 'drill-low-ready-class');
+  await page.fill('#recNotes', 'roundtrip test, shared Low Ready');
+  const wallBefore = Date.now();
+  await page.click('#recStart'); await page.waitForTimeout(100);
+  const wallAfter = Date.now();
+  check('WQ-051: shared recording started with a shared drill in standby', await page.evaluate(() => {
+    const t = window.__tdt(); return t.recording && t.drill && t.drill.id === 'lowready' && t.drill.shared === true && t.drill.phase === 'standby' && t.drill.rep === 0; }));
+  await touch('touchStart', [REST]); await motion(0, 0, 4);
+  const stCL = () => page.evaluate(() => window.__tdt());
+  const waitCL = async (cond, maxMs) => { const t1 = Date.now(); let x; while (Date.now() - t1 < maxMs) { await motion(0, 0, 1); x = await stCL(); if (cond(x)) return x; } return x; };
+  let clOk = true, clLast = null;
+  for (let rp = 1; rp <= 5; rp++) {
+    clLast = await waitCL(x => x.drill && x.drill.rep === rp && x.drill.phase === 'live', 17000);
+    if (!(clLast.drill && clLast.drill.rep === rp && clLast.drill.phase === 'live')) { clOk = false; break; }
+    await motion(0, 0, 5);
+    await press(); await press();
+    await touch('touchStart', [REST]); await motion(0, 0, 3);
+    clLast = await waitCL(x => rp === 5 ? x.drillResOpen : x.drill.repsDone >= rp, 2500);
+    if (!(rp === 5 ? clLast.drillResOpen : clLast.drill.repsDone >= rp)) { clOk = false; break; }
+  }
+  clLast = await waitCL(x => x.drillResOpen && x.paused, 3000);
+  check('WQ-051: shared recording: all five reps ran live and the results opened', clOk && clLast.drillResOpen && clLast.drillRuns === 1 && clLast.paused === true, clLast);
+  check('WQ-051: the results overlay opens with "Class code" as its first row',
+    (await page.$$eval('#drillResRows tr', trs => trs.map(tr => [...tr.children].map(td => td.textContent))))[0]?.[0] === 'Class code');
+  await touch('touchEnd', []);
+  await page.click('#drillChange');
+  const [dlCls] = await Promise.all([page.waitForEvent('download'), page.$eval('#recPill', el => el.click())]);
+  const recC = JSON.parse(fs.readFileSync(await dlCls.path(), 'utf8'));
+  const resC = TDT.replay(recC);
+  const obsC = k => recC.observed.filter(o => o[1] === k);
+  const rowC = recC.log[0];
+  check("WQ-051: shared recording: label drill-low-ready-class and the first log row is ['r', t, 'lowready', seed, wall]",
+    recC.label === 'drill-low-ready-class' && rowC[0] === 'r' && rowC[2] === 'lowready' && rowC.length === 5 && Number.isInteger(rowC[3]) && rowC[3] >= 0 && rowC[3] < 2 ** 32, rowC);
+  check('WQ-051: the r row\'s wall is an integer within a few seconds of Date.now() at the recorder start', Number.isInteger(rowC[4]) && rowC[4] >= wallBefore - 3000 && rowC[4] <= wallAfter + 3000, [rowC[4], wallBefore, wallAfter]);
+  check('WQ-051: the r row\'s seed is the FNV-1a of the lower-cased code (independent computation)', (() => { let h = 0x811c9dc5; for (const c of 'roundtrip class') { h ^= c.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; } return rowC[3] === (h >>> 0); })(), rowC[3]);
+  check('WQ-051: shared recording: exactly one r row', recC.log.filter(r => r[0] === 'r').length === 1);
+  check('WQ-051: shared recording: observed has 5 drillBeep (reps 1-5), 4 drillCue, 1 drillEnd, 0 drillCancel',
+    obsC('drillBeep').map(o => o[2]).join() === '1,2,3,4,5' && obsC('drillCue').length === 4 && obsC('drillEnd').length === 1 && obsC('drillCancel').length === 0, recC.observed.filter(o => /drill/.test(o[1])));
+  check(`WQ-051: shared recording: replay in Node reproduces the live events exactly (${recC.observed.length} events)`,
+    JSON.stringify(recC.observed) === JSON.stringify(resC.packed), { live: recC.observed, replay: resC.packed });
+  const runC = resC.state.drillRuns[0];
+  check('WQ-051: the replayed run is shared, five reps, each with a slot; every beep lands on its slot (wall = t + wall0 - t0, within one frame + 40 ms)',
+    !!runC && runC.shared === true && runC.reps.length === 5 && runC.reps.every((p, i) => p.shared === true && Number.isInteger(p.slot) &&
+      Math.abs(obsC('drillBeep')[i][0] + (rowC[4] - rowC[1]) - TDT.slotAt(rowC[3], TDT.DEFAULTS.classCycleMs, p.slot)) <= 17 + 40), runC && runC.reps.map(p => p.slot));
+  check('WQ-051: every pause/resume of the shared run logged a w row with an integer wall (zero or more)', recC.log.filter(r => r[0] === 'w').every(r => Number.isInteger(r[2])));
+  // leave no class code behind for the sections that follow
+  await page.reload();
+  await page.click('#drillBtn'); await page.click('#drillList .drillOpt[data-id="lowready"]'); await page.fill('#classCode', ''); await page.click('#drillChoose');
+  check('WQ-051: clearing the code removes it again', await page.evaluate(() => window.__tdt().classCode === '' && localStorage.getItem('tdt.classCode') === null));
   // WQ-029: a Box Drill run recorded in the page (five positions, picked through the picker and the recorder) replays with
   // identical events. Position 2 returns the finger after ONE shot and holds it before the second (no cue); position 3 fires three.
   await page.reload();
