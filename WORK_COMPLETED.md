@@ -35,6 +35,24 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-052 — Class cycle default 8 s for the shared Low Ready beeps (D-138)
+
+- **Closed:** 2026-10-28 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestrator (this session) merged, re-ran `npm test` and archived · **Round:** round-20261028-1
+- **Commits / PR:** ebf8fca WQ-052: Class cycle default 8 s for the shared Low Ready beeps (D-138); 3254f9e WQ-052: regenerate synthetic recordings and tests for the 8 s class cycle; plus the orchestrator's CHANGELOG `[Unreleased]` intro fix under this id. Merged to `main` and `release` in the same session (on `release`: yes, the phones get it on their next online load).
+
+**What was done.** `engine.js`: `DEFAULTS.classCycleMs` 10000 → 8000 (comment cites D-138), `VERSION` 0.18.0 → 0.18.1. `CHANGELOG.md`: `[Unreleased]` moved back to the top, new `[0.18.1]` section (class beeps every 8 s plus the shared random part), `[0.18.0]` unchanged; the `[Unreleased]` intro no longer names engine 0.17.0. `docs/CLASS_USE.md` and the `CLAUDE.md` WQ-051 block say 8 s. `tests/recordings/synthetic/` regenerated with `node tests/make-synthetic.js` (all 17 carry `settings.classCycleMs: 8000` and the new `app` version; only `drill-low-ready-class.json` changed its log and events). `tests/smoke.js` WQ-051 Class cycle checks read '8000' / '8 s'; `tests/replay.js` label says "default 8 s cycle's".
+
+**Why.** D-136 set the class cycle to 10 s "to start, to be tuned in class"; Ricky tried it on 2026-10-28 and found the break between beeps a bit long (D-138). The default reaches every phone where the slider was never moved (D-64); a phone with a stored cycle keeps it.
+
+**Deviations.** (1) `tests/smoke.js:66` also checks the full Settings → Other slider list with `classCycleMs=10000`; the item did not list it, the agent changed it to `=8000`. (2) The smoke `nextBeepIn` upper bound `10000 + 3000 + 1500` was kept: still correct, only looser under 8 s. (3) The agent left the `[Unreleased]` intro's "Engine 0.17.0 still shows" wording as outside its brief; the orchestrator reworded it under this id. `docs/ARCHITECTURE.md` and `README.md` did not state the 10 s figure, so they are unchanged.
+
+**Verification.** Agent: `npm test` exit 0, replay "all passed (47 recordings)" 325 PASS / 0 FAIL, smoke "all passed" 533 PASS / 0 FAIL, roundtrip "all passed" 88 PASS / 0 FAIL; a before/after `TDT.replay` event comparison over all 47 recordings showed only `tests/recordings/synthetic/drill-low-ready-class.json` changed, every real-phone recording byte-identical. Orchestrator: `npm test` re-run on the merged branch 946 PASS / 0 FAIL in total (replay "all passed (47 recordings)", smoke and roundtrip "all passed"), diff read, `python3 scripts/wq.py check` OK after archiving. Not verified: the owner half (two phones with a code in class, beeps every 8–11 s and in step).
+
+**Follow-ups.** none (the stale CHANGELOG intro was fixed in this round).
+
+---
+
 ### WQ-048 — Box Drill diagram: position 1 at the lower right (D-132)
 
 - **Closed:** 2026-10-26 · **Outcome:** done
