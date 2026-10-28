@@ -23,8 +23,8 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-052
-updated: 2026-10-27
+next_id: WQ-053
+updated: 2026-10-28
 ```
 
 ## Index
@@ -36,6 +36,7 @@ updated: 2026-10-27
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-050 | Stale motion data pauses the trainer and opens Settings (D-134) | P1 | M | queued | — | platform |
+| WQ-052 | Class cycle default 8 s for the shared Low Ready beeps (D-138) | P1 | S | queued | — | drills |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
@@ -532,6 +533,61 @@ the rule must allow the owner's own pushes.
 
 **Verification.** Owner reports the ruleset; the next orchestration round confirms its `queue:` push works and
 records it in this item's completion entry.
+
+---
+
+### WQ-052 — Class cycle default 8 s for the shared Low Ready beeps (D-138)
+
+- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** drills · **Env:** any
+- **Added:** 2026-10-28 by review session (Ricky's decision D-138 in chat, 2026-10-28)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** WQ-051 (engine 0.18.0, D-135, D-136) gave Low Ready a class code: with a code every phone beeps on a
+shared wall-clock schedule, slot `k` at `k × classCycleMs + jitter(k)` (`engine.js:143`), `jitter(k)` in [0, 3 s).
+D-136 (b) set the cycle to 10 s "to start, to be tuned in class". Ricky tried it on 2026-10-28: the break between
+beeps is a bit long. D-138: the default becomes 8 s. The setting is `DEFAULTS.classCycleMs: 10000` (`engine.js:36`),
+read live through `classCycle(S)` (`engine.js:141`, floored at `K.CLASS_JITTER_MS`); the Settings → Other slider
+**Class cycle** (`index.html:1187`, 6–30 s, step 1 s) shows it. Stored settings hold only the keys that differ from
+`DEFAULTS` (D-64), so a changed default reaches every phone where the slider was never moved. Recordings carry their own
+`settings` snapshot, so `replay` of every existing recording is unchanged; the synthetic baseline
+`tests/recordings/synthetic/drill-low-ready-class.json` was generated with `classCycleMs: 10000` in its snapshot.
+
+**Scope.**
+- `engine.js`: `DEFAULTS.classCycleMs` 10000 → 8000 (`engine.js:36`, keep the comment); `VERSION` 0.18.0 → 0.18.1 (the
+  page's behaviour changes for the same touches on a phone with no stored cycle, and the bump makes the offline cache
+  refetch the files, WQ-043). Nothing else in the engine: the jitter (3 s), the join margin (1.5 s), the floor and
+  `slotAt` / `nextSlotAfter` stay; the golden value at `tests/replay.js:390` is computed with an explicit 10000 and stays.
+- `tests/make-synthetic.js` → regenerate `tests/recordings/synthetic/` (`node tests/make-synthetic.js`; the snapshot at
+  `tests/make-synthetic.js:258` is `TDT.DEFAULTS`, so every synthetic recording's `settings.classCycleMs` becomes 8000
+  and only `drill-low-ready-class.json`'s beep times and events change). `tests/expectations.js:122` reads the cycle
+  from `TDT.DEFAULTS` and needs no change unless the regenerated drill fails it.
+- `tests/smoke.js` WQ-051 section: the Class cycle checks that name the default (`tests/smoke.js:2284` "showing
+  \"10 s\" at its default", `cyc.v === '10000'`, `cyc.out === '10 s'`; `:2289`–2290 Restore defaults "back to 10 s",
+  `=== '10 s'`; `:2348` `el.value === '10000'`) become 8 s / `'8000'` / `'8 s'`. The 12 s run keeps 12000 (differs from
+  the new default too). `tests/replay.js:387`'s label "the default 10 s cycle's" → "8 s". Keep every other check.
+- `CHANGELOG.md`: a `## [0.18.1] - 2026-10-28` section (**Changed**: the class beeps come every 8 s instead of 10 s, in
+  the words of `docs/CLASS_USE.md`, no WQ numbers) placed **under** `## [Unreleased]`; also move the `## [Unreleased]`
+  section (currently `CHANGELOG.md:17`, below `[0.18.0]`) back to the top, above `[0.18.0]`, where Keep a Changelog
+  puts it (the WQ-051 merge inserted 0.18.0 above it), and update the 0.18.0 line "(10 s to start)" is left as the
+  history of that version.
+- `docs/CLASS_USE.md:73`: "Beeps come every 10 s plus…" → "every 8 s plus…". `CLAUDE.md` WQ-051 block: "(`classCycleMs`,
+  default 10 s, 6–30 s)" → "default 8 s (D-138), 6–30 s" and "`DEFAULTS.classCycleMs` 10000" → "8000 (D-138)"; also the
+  Architecture note "Engine (`engine.js` 0.18.0)" stays (it names the version that introduced the feature).
+  `docs/ARCHITECTURE.md`, `README.md`: only if they state the 10 s figure (`grep -n "10 s"`).
+- Out of scope: the slider range or step; the jitter or join constants; `index.html` beyond nothing (no page change
+  is needed: the slider reads `DEFAULTS`); WQ-050 (owns `index.html`'s motion banner); any engine logic.
+
+**Acceptance.**
+- Agent-verifiable: `grep -n "classCycleMs: 8000" engine.js` and `VERSION = '0.18.1'`; `npm test` passes (replay, smoke,
+  roundtrip) with every real-phone recording and every synthetic recording except `drill-low-ready-class` replaying
+  to byte-identical events (`npm run test:replay` output states which recordings changed outcome); the regenerated
+  `drill-low-ready-class.json` carries `settings.classCycleMs: 8000` and its beeps fall on 8 s slots
+  (`tests/expectations.js` passes); the smoke WQ-051 checks read 8 s; `CHANGELOG.md` has `[Unreleased]` first, then
+  `[0.18.1]`, then `[0.18.0]`; `docs/CLASS_USE.md` and `CLAUDE.md` say 8 s; `python scripts/wq.py check` passes.
+- Owner-verifiable: in class with a code on two phones, the beeps come about every 8–11 s and both phones stay in step.
+
+**Verification.** `npm test` totals (PASS / FAIL) and the `test:replay` line naming the changed recording in the
+completion entry; the D-138 row already exists in `docs/DECISIONS.md` (added with this item).
 
 ---
 
