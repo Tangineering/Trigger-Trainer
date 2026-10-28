@@ -3,3 +3,4 @@ test-results/
 *.png
 .DS_Store
 !docs/screenshots/**
+qr/
