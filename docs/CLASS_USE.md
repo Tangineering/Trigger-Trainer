@@ -70,7 +70,7 @@ All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 
   no connection between them. Call "finger on the frame" right after a beep: every phone joins the next beep together
   (a phone needs its finger on the frame about 1.5 s before a beep to join it). A phone whose finger is not on the
   frame when a beep is due stays silent and waits for the next one. The drill line counts down to the next beep.
-  Beeps come every 10 s plus a shared random part of up to 3 s (Settings → Other → **Class cycle**; leave it at the default unless the instructor says otherwise,
+  Beeps come every 8 s plus a shared random part of up to 3 s (Settings → Other → **Class cycle**; leave it at the default unless the instructor says otherwise,
   since phones with different cycles never agree). The beeps are as much in step as the phones' clocks: a phone whose clock is off by a second beeps a second off. Clear the code to train alone again.
 - **Box Drill** (five positions, student-paced movement): mark four spots on the floor, for example the corners of a
   2–3 m square, numbered 1 to 4 going round clockwise from spot 1 at the lower left (facing downrange, the near spot

@@ -515,9 +515,9 @@ from `mulberry32((seed + k·0x9E3779B9) >>> 0)`; a phone joins the first slot at
 the frame (rep 1) or after its three-beep cue (reps 2–5), so the instructor says "finger on the frame" right after a
 beep and the room joins the same slot. A slot the finger is not ready for (off the frame, or on it under 350 ms) passes
 **silently**; the phone waits for the next slot (D-136 c). Settings → Other → **Class cycle** (`classCycleMs`, default
-10 s, 6–30 s) sets the cycle; every phone in the room must share it.
+8 s (D-138), 6–30 s) sets the cycle; every phone in the room must share it.
 
-**Engine** (`engine.js` 0.18.0). `DEFAULTS.classCycleMs` 10000; `K.CLASS_JITTER_MS` 3000, `K.CLASS_JOIN_MS` 1500;
+**Engine** (`engine.js` 0.18.0). `DEFAULTS.classCycleMs` 8000 (D-138); `K.CLASS_JITTER_MS` 3000, `K.CLASS_JOIN_MS` 1500;
 `DRILL_DEFS.lowready.shareable: true`. Exported pure helpers `slotAt(seed, cycleMs, k)` and `nextSlotAfter(seed,
 cycleMs, w, strict)` (the slot with the earliest beep at or after `w`, bounded search; `classCycle(S)` floors the
 setting at the 3 s jitter, so slot times rise with `k`). `startDrill(t, id, seed, wall)`: a finite `wall` (the page's `Date.now()` at `t`) on a shareable def

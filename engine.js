@@ -12,7 +12,7 @@
 
   // Bump when a change alters engine outputs for the same inputs. Recordings store this;
   // replay.js only demands live == replay for recordings made with the current version.
-  const VERSION = '0.18.0';
+  const VERSION = '0.18.1';
 
   const DEFAULTS = Object.freeze({
     hand: 'right',       // 'right' => muzzle at screen right, rear at left
@@ -33,7 +33,7 @@
     flipV: false,
     beepHz: 1650,        // drill start beep pitch, Hz (page only, D-110)
     beepMs: 350,         // drill start beep length, ms (page only, D-110)
-    classCycleMs: 10000, // shared Low Ready (class code): the beeps of every phone fall on this wall-clock cycle (D-135, D-136)
+    classCycleMs: 8000, // shared Low Ready (class code): the beeps of every phone fall on this wall-clock cycle (D-135, D-136, D-138)
   });
 
   // Fractions of the viewport for a RIGHT-handed layout (muzzle at x=1). Left-handed mirrors x.
