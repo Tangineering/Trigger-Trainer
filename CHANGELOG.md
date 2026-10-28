@@ -6,7 +6,7 @@ Settings. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
-Page and project changes with no engine change (`Engine 0.17.0` still shows in Settings).
+Page and project changes with no engine change (the engine version shown in Settings is unchanged).
 
 ### Added
 - Start screen: a one-line disclaimer, a privacy line and a **Source on GitHub** link.
