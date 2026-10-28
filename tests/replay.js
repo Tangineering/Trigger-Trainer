@@ -384,7 +384,7 @@ if (lrcFile) {
     const bw = beepWalls(R), reps = R.d.result ? R.d.result.reps : [];
     t(`classCycleMs ${setting}: five beeps on slots of a ${eff} ms cycle (beep = slotAt(seed, ${eff}, slot) within a frame; jitter below 3000)`,
       bw.length === 5 && reps.length === 5 && reps.every((p, i) => bw[i] >= TDT.slotAt(SEED, eff, p.slot) && bw[i] - TDT.slotAt(SEED, eff, p.slot) < STEP && TDT.slotAt(SEED, eff, p.slot) - p.slot * eff < 3000));
-    if (setting !== 30000) t(`classCycleMs ${setting}: the beeps differ from the default 10 s cycle's`, bw.some((w, i) => w !== beepWalls(A)[i]));
+    if (setting !== 30000) t(`classCycleMs ${setting}: the beeps differ from the default 8 s cycle's`, bw.some((w, i) => w !== beepWalls(A)[i]));
   }
   // Golden values: phones on different versions must not desync silently, so the formula is pinned (computed once).
   t('golden: slotAt(20261028, 10000, 170000001) === 1700000011113.033 (to 1 ms resolution)', Math.abs(TDT.slotAt(20261028, 10000, 170000001) - 1700000011113.033) < 0.001);

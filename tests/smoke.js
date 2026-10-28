@@ -63,7 +63,7 @@ const check = (name, cond, state) => {
   await setVol('0.35');                       // leave the page as before these checks
   // D-110: drill start beep pitch and length are settings, the last two sliders of the Other section.
   check('D-110 (+ WQ-051 class cycle): Other section ends with the start-beep pitch and length sliders at 1650 Hz / 350 ms, then Class cycle',
-    await page.$$eval('#sliders4 input[type=range]', els => els.map(e => e.dataset.k + (e.dataset.k === 'volume' ? '' : '=' + e.value)).join(',')) === 'volume,beepHz=1650,beepMs=350,classCycleMs=10000');
+    await page.$$eval('#sliders4 input[type=range]', els => els.map(e => e.dataset.k + (e.dataset.k === 'volume' ? '' : '=' + e.value)).join(',')) === 'volume,beepHz=1650,beepMs=350,classCycleMs=8000');
   await page.$eval('#s_sliders4_beepHz', el => { el.value = '1500'; el.dispatchEvent(new Event('input')); });
   check('D-110: a moved beep slider is stored under its own key only (D-64)', await stored() === JSON.stringify({ volume: 0.35, beepHz: 1500 }));
   await page.$eval('#s_sliders4_beepHz', el => { el.value = '1650'; el.dispatchEvent(new Event('input')); });
@@ -2281,13 +2281,13 @@ const check = (name, cond, state) => {
     await cp.click('#startBtn'); await cp.waitForTimeout(150);
     await cp.click('#gear'); await cp.waitForTimeout(100);
     const cyc = await cp.evaluate(() => { const i = document.getElementById('s_sliders4_classCycleMs'); return i && { v: i.value, min: i.min, max: i.max, out: i.parentElement.querySelector('output').textContent.trim(), label: i.parentElement.querySelector('label').textContent }; });
-    check('WQ-051: Settings → Other has a Class cycle slider, 6-30 s, showing "10 s" at its default', !!cyc && cyc.v === '10000' && cyc.min === '6000' && cyc.max === '30000' && cyc.out === '10 s' && /class cycle/i.test(cyc.label), cyc);
+    check('WQ-051: Settings → Other has a Class cycle slider, 6-30 s, showing "8 s" at its default', !!cyc && cyc.v === '8000' && cyc.min === '6000' && cyc.max === '30000' && cyc.out === '8 s' && /class cycle/i.test(cyc.label), cyc);
     await cp.$eval('#s_sliders4_classCycleMs', el => { el.value = '12000'; el.dispatchEvent(new Event('input')); });
     check('WQ-051: moving it shows "12 s" and stores only classCycleMs (D-64)',
       await cp.$eval('#s_sliders4_classCycleMs', el => el.parentElement.querySelector('output').textContent.trim()) === '12 s' && await ls('tdt.settings.v2') === JSON.stringify({ classCycleMs: 12000 }), await ls('tdt.settings.v2'));
     await cp.$eval('#resetDefaults', e => e.click());
-    check('WQ-051: Restore defaults brings the slider back to 10 s and drops the key',
-      await cp.$eval('#s_sliders4_classCycleMs', el => el.parentElement.querySelector('output').textContent.trim()) === '10 s' && await ls('tdt.settings.v2') === null);
+    check('WQ-051: Restore defaults brings the slider back to 8 s and drops the key',
+      await cp.$eval('#s_sliders4_classCycleMs', el => el.parentElement.querySelector('output').textContent.trim()) === '8 s' && await ls('tdt.settings.v2') === null);
     check('WQ-051: Restore defaults keeps the class code (it is not a setting)', await ls('tdt.classCode') !== null);
 
     // --- a shared run: start with a code
@@ -2345,7 +2345,7 @@ const check = (name, cond, state) => {
     await ctouch('touchEnd', []).catch(() => {});
     await cp.click('#gear'); await cp.waitForTimeout(100);
     await cp.$eval('#resetDefaults', e => e.click());
-    check('WQ-051: Restore defaults after the 12 s run puts Class cycle back to 10 s', await cp.$eval('#s_sliders4_classCycleMs', el => el.value) === '10000' && await ls('tdt.settings.v2') === null);
+    check('WQ-051: Restore defaults after the 12 s run puts Class cycle back to 8 s', await cp.$eval('#s_sliders4_classCycleMs', el => el.value) === '8000' && await ls('tdt.settings.v2') === null);
     await cp.click('#doneBtn');
 
     // --- a run without a code is an ordinary run
