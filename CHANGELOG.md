@@ -24,6 +24,11 @@ Page and project changes with no engine change (the engine version shown in Sett
   in GitHub Actions on every push and pull request, `docs/ARCHITECTURE.md`, README screenshots and a browser
   support / known limitations section.
 
+### Changed
+- Low Ready with a class code: the code now lasts for the session only. **Again** keeps it; **New session** and
+  reopening the page clear it, so a code typed in an earlier class no longer turns the next Low Ready into a class
+  run.
+
 ## [0.18.1] - 2026-10-28
 
 ### Changed

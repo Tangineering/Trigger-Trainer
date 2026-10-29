@@ -506,8 +506,9 @@ are unchanged. `window.__tdt()` adds `shotFlash`. The `WQ-044` smoke section che
 ## WQ-051 — Low Ready with a class code: shared-clock start beeps (D-135, D-136)
 
 **Behavior.** A room runs Low Ready together: the instructor announces a short **class code**, every student types it
-in the drill picker (the field appears only when Low Ready is highlighted; **Choose** stores it in
-`localStorage['tdt.classCode']`, removed when empty; the start-screen button reads "Low Ready · class CODE"). With a code the
+in the drill picker (the field appears only when Low Ready is highlighted; **Choose** keeps it in
+memory only (D-139: session-only, never stored; cleared at load and by **New session**, kept by **Change drill** and
+**Again**); the start-screen button reads "Low Ready · class CODE"). With a code the
 run is a **shared run**: the start beeps come from a schedule that is a pure function of the wall clock and the code,
 so every phone with the same code beeps at the same instant with no connection between phones. No code → the ordinary
 Low Ready, byte-identical. Slot `k` beeps at wall time `k × classCycleMs + jitter(k)` with `jitter(k)` in [0, 3 s)
@@ -530,7 +531,8 @@ in a shared run; ordinary results carry no new key. Row `['r', t, 'lowready', se
 passes `row[4]`, undefined in every older recording). The engine never reads the clock. All earlier recordings replay
 to identical events.
 
-**Page** (`index.html`). `CLASS_KEY`, `cleanCode` (trim, ≤ 24 chars), `classSeed(code)` (32-bit FNV-1a over the trimmed
+**Page** (`index.html`). `classCode` (page variable; the `#sumNew` handler sets it to `''` before `leaveToStart()`,
+D-139), `CLASS_KEY` (only removes a stale `tdt.classCode` key once at load), `cleanCode` (trim, ≤ 24 chars), `classSeed(code)` (32-bit FNV-1a over the trimmed
 lower-cased code; test hook `window.__tdtClassSeed`), `escHtml`; `#classRow` / `#classCode` / `#classHint` in
 `#drillBody` (grid area `class`, compact at 844×390 via `#drillBody.withClass`); `beginDrillRun` logs the five-element
 row with `Date.now()`; `setEnginePaused` calls `syncWall` and logs `w` on resume; slider `classCycleMs` (`fmt` in

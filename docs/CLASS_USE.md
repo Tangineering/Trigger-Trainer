@@ -72,6 +72,9 @@ All Freestyle rules stay on during a drill: movement alarm, drift limit and 180 
   frame when a beep is due stays silent and waits for the next one. The drill line counts down to the next beep.
   Beeps come every 8 s plus a shared random part of up to 3 s (Settings → Other → **Class cycle**; leave it at the default unless the instructor says otherwise,
   since phones with different cycles never agree). The beeps are as much in step as the phones' clocks: a phone whose clock is off by a second beeps a second off. Clear the code to train alone again.
+  The code lasts for the session only: **Again** on the results repeats the class run and **Change drill** keeps it,
+  while **New session** (Settings → **Finish**) and reopening or reloading the page clear it, so the next class starts
+  from plain Low Ready.
 - **Box Drill** (five positions, student-paced movement): mark four spots on the floor, for example the corners of a
   2–3 m square, numbered 1 to 4 going round clockwise from spot 1 at the lower left (facing downrange, the near spot
   on the left). Every position faces downrange: the student walks sideways, forwards or

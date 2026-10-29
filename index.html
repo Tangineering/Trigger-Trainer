@@ -687,10 +687,12 @@ let drillSel = 'freestyle', pickerHi = 'freestyle', drillCancelled = false;
 try { const v = localStorage.getItem(DRILL_KEY); if (v && drillMode(v)) drillSel = v; } catch (e) {}
 // Class code (D-136 a): optional, entered when choosing Low Ready. With a code the run is a shared run whose start
 // beeps every phone with the same code plays at the same instant (the code seeds the schedule). Not a setting.
+// Session-only (D-139): kept in memory, never stored; cleared at load and by New session (Change drill and Again keep
+// it). CLASS_KEY only removes a code stored by engine 0.18.0 / 0.18.1 pages.
 const CLASS_KEY = 'tdt.classCode', CLASS_MAX = 24;
 const cleanCode = v => String(v == null ? '' : v).trim().slice(0, CLASS_MAX).trim();
 let classCode = '';
-try { classCode = cleanCode(localStorage.getItem(CLASS_KEY)); } catch (e) {}
+try { localStorage.removeItem(CLASS_KEY); } catch (e) {}
 /** 32-bit FNV-1a over the UTF-16 code units of the trimmed, lower-cased code: the shared schedule's seed. */
 function classSeed(code) {
   const c = String(code).trim().toLowerCase();
@@ -1444,16 +1446,14 @@ $('sumBack').addEventListener('click', () => {
 $('sumNew').addEventListener('click', () => {
   engine.resetStats(); sessionT0 = 0; renderStats(); drawTarget(engine.state);
   $('summaryOv').classList.remove('show');
+  classCode = '';                                 // D-139: a new session drops the class code (Change drill keeps it)
   leaveToStart();
 });
 $('drillBtn').addEventListener('click', openPicker);
 $('drillChoose').addEventListener('click', () => {
   if (drillMode(pickerHi)) drillSel = pickerHi;
   try { localStorage.setItem(DRILL_KEY, drillSel); } catch (e) {}
-  if (pickerHi === 'lowready') {                  // the code field is shown (and stored) only for Low Ready
-    classCode = cleanCode($('classCode').value);
-    try { if (classCode) localStorage.setItem(CLASS_KEY, classCode); else localStorage.removeItem(CLASS_KEY); } catch (e) {}
-  }
+  if (pickerHi === 'lowready') classCode = cleanCode($('classCode').value);   // field shown only for Low Ready; in memory (D-139)
   renderDrillBtn(); closePicker();
 });
 $('drillCancelBtn').addEventListener('click', closePicker);
