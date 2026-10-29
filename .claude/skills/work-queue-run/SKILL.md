@@ -1,12 +1,12 @@
 ---
 name: work-queue-run
-description: Orchestration-session protocol for WORK_QUEUE.md — analyze the queue, select a work round, hand each item to an execution agent with a self-contained brief, verify the result, then rotate finished items into WORK_COMPLETED.md and keep the queue holding only outstanding work. Use at the start of every orchestration round and again when a round's agents report back.
+description: Orchestration-session protocol for docs/WORK_QUEUE.md — analyze the queue, select a work round, hand each item to an execution agent with a self-contained brief, verify the result, then rotate finished items into docs/WORK_COMPLETED.md and keep the queue holding only outstanding work. Use at the start of every orchestration round and again when a round's agents report back.
 ---
 
 # Running the work queue
 
-The orchestration session owns the lifecycle of `WORK_QUEUE.md` items from
-`queued` to an entry in `WORK_COMPLETED.md`. It never edits code itself for
+The orchestration session owns the lifecycle of `docs/WORK_QUEUE.md` items from
+`queued` to an entry in `docs/WORK_COMPLETED.md`. It never edits code itself for
 queue items; it plans rounds, briefs execution agents, judges their results,
 and keeps the two documents truthful. Adding new items uses the
 `work-queue-add` skill (this session may raise items too, for example from
@@ -19,8 +19,8 @@ regex edits (an unanchored `| WQ-005 |` once matched inside another row's
 ## 0. Find the queue and probe the environment
 
 1. The queue's canonical home is the repository's default branch. If
-   `WORK_QUEUE.md` is absent from your branch, look for it on the newest
-   branch that carries it (`git log --all --oneline -- WORK_QUEUE.md`) and
+   `docs/WORK_QUEUE.md` is absent from your branch, look for it on the newest
+   branch that carries it (`git log --all --oneline -- docs/WORK_QUEUE.md`) and
    fast-forward or merge that branch in before anything else; say so in
    the round report. A queue that lives only on a side branch is itself a
    queue item: merge it to the default branch.
@@ -33,8 +33,8 @@ regex edits (an unanchored `| WQ-005 |` once matched inside another row's
 
 ## 1. Analyze
 
-1. `git pull` the working branch, then read `WORK_QUEUE.md` in full and the
-   most recent five entries of `WORK_COMPLETED.md` (the "Deviations" and
+1. `git pull` the working branch, then read `docs/WORK_QUEUE.md` in full and the
+   most recent five entries of `docs/WORK_COMPLETED.md` (the "Deviations" and
    "Follow-ups" fields are where the last round's lessons live).
 2. Sanity-check the queue before scheduling — run `python scripts/wq.py
    check` first, then by eye:
@@ -75,7 +75,7 @@ regex edits (an unanchored `| WQ-005 |` once matched inside another row's
   parallel; when unsure, read each item's Scope anchors and compare.
 - Claim: `python scripts/wq.py claim round-<YYYYMMDD>-<n> WQ-… WQ-…`,
   then `python scripts/wq.py check --allow-claimed` (plain `check` fails
-  on purpose while claimed rows exist), commit `WORK_QUEUE.md`
+  on purpose while claimed rows exist), commit `docs/WORK_QUEUE.md`
   (`queue: claim round …`), and push. Another
   session reading the queue must see the claim. Adding an item to a
   running round is fine — claim it the same way in its own commit.
@@ -168,7 +168,7 @@ When an agent reports:
 
 For each finished item:
 
-1. Write the `WORK_COMPLETED.md` entry in a scratch file using that file's
+1. Write the `docs/WORK_COMPLETED.md` entry in a scratch file using that file's
    template, filled from the agent's report and your own verification.
    Preserve the item's ID and title; the "Deviations" field is mandatory
    and "None" must be earned.
@@ -200,13 +200,13 @@ documents hold the detail.
 commit — with `--allow-claimed` while a round is open, plain before the
 round ends (so a surviving `claimed:` row fails):
 
-- `WORK_QUEUE.md` contains only outstanding work: no `claimed:` status
+- `docs/WORK_QUEUE.md` contains only outstanding work: no `claimed:` status
   survives the round, no item has an archived twin.
 - Every ID appears in exactly one of the two files.
 - `next_id` is greater than every ID in either file, on every local and
   remote branch (`check` fetches and scans them; `--no-branches` only where
   git is unavailable). `python scripts/wq.py next` prints the free numbers.
-- Each `WORK_COMPLETED.md` entry has all eight fields (Closed, Executed
+- Each `docs/WORK_COMPLETED.md` entry has all eight fields (Closed, Executed
   by, Commits / PR, What was done, Why, Deviations, Verification,
   Follow-ups).
 - The index table matches the item sections (same IDs, same statuses).

@@ -91,7 +91,7 @@ can live:
 - Degrade gracefully on missing capabilities (no vibration on iOS, no touch
   radius, no orientation lock).
 - Hub files for parallel items are append-only, one block per item id:
-  `CLAUDE.md`, `README.md`, `OPEN_QUESTIONS.md`, `docs/DECISIONS.md`,
+  `CLAUDE.md`, `README.md`, `docs/OPEN_QUESTIONS.md`, `docs/DECISIONS.md`,
   `docs/IDEAS.md`. Items that touch `engine.js` or `index.html` never run in
   parallel with each other.
 

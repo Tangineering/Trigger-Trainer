@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""wq.py - mechanical edits and invariant checks for WORK_QUEUE.md / WORK_COMPLETED.md.
+"""wq.py - mechanical edits and invariant checks for docs/WORK_QUEUE.md / docs/WORK_COMPLETED.md.
 
 Stdlib only. Run from anywhere; --root points at the folder holding the two
 documents (default: the current directory, then its parents).
@@ -37,8 +37,8 @@ import os
 import re
 import sys
 
-QUEUE = "WORK_QUEUE.md"
-DONE = "WORK_COMPLETED.md"
+QUEUE = "docs/WORK_QUEUE.md"
+DONE = "docs/WORK_COMPLETED.md"
 ENTRY_FIELDS = ("**Closed:**", "**Executed by:**", "**Commits / PR:**",
                 "**What was done.**", "**Why.**", "**Deviations.**",
                 "**Verification.**", "**Follow-ups.**")
@@ -109,14 +109,14 @@ def _bump_updated(q):
 
 # Numbered records whose numbers must be unique across branches:
 # (file relative to the queue's folder, label, regex for a record's number at a
-# line start, printed prefix, zero-pad width). The two queue files are required;
-# the rest are the usual companion logs - edit them to match the repo. A file
-# that exists on no branch is skipped, and its kind is not printed.
+# line start, printed prefix, zero-pad width). The kit installs all five files;
+# a repo that keeps one of the logs elsewhere edits its path here. A file that
+# exists on no branch counts as empty.
 NUMBERED = [
     (QUEUE, "WQ", r"^### WQ-(\d+) ", "WQ-", 3),
     (DONE, "WQ", r"^### WQ-(\d+) ", "WQ-", 3),
     ("docs/DECISIONS.md", "D", r"^\| D-(\d+) \|", "D-", 2),
-    ("OPEN_QUESTIONS.md", "Q", r"^\| Q-?(\d+) \|", "Q", 2),
+    ("docs/OPEN_QUESTIONS.md", "Q", r"^\| Q-?(\d+) \|", "Q-", 2),
     ("docs/IDEAS.md", "I", r"^\| I-(\d+) \|", "I-", 2),
 ]
 
@@ -148,8 +148,13 @@ def _scan_branches(root, fetch=True):
             top[label] = (n, ref)
     for ref in refs:
         for rel, label, rx, _, _ in NUMBERED:
-            # "./" makes the path relative to root, which need not be the repo's top level
-            rc, text = _git(root, "show", f"{ref}:./{rel}")
+            # "./" makes the path relative to root, which need not be the repo's top level.
+            # A branch from before the documents moved under docs/ still holds them at
+            # the root, and its numbers count too, so fall back to the bare file name.
+            for cand in (rel, os.path.basename(rel)):
+                rc, text = _git(root, "show", f"{ref}:./{cand}")
+                if not rc:
+                    break
             if rc:
                 continue
             for m in re.finditer(rx, text, re.M):
@@ -169,7 +174,7 @@ def cmd_next(root, args):
         return 1
     shown = set()
     for _, label, _, prefix, width in NUMBERED:
-        if label in shown or (label != "WQ" and label not in top):
+        if label in shown:
             continue
         shown.add(label)
         n, ref = top.get(label, (0, "nowhere"))
@@ -301,7 +306,7 @@ def cmd_archive(root, args):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--root", default=None, help="folder holding WORK_QUEUE.md (default: search upward)")
+    ap.add_argument("--root", default=None, help="folder holding docs/WORK_QUEUE.md (default: search upward)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("check"); s.add_argument("--allow-claimed", action="store_true",
                                                  help="do not fail on claimed: rows (mid-round)")

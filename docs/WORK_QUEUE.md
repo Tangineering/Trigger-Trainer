@@ -1,9 +1,9 @@
-# WORK_QUEUE.md — outstanding work
+# docs/WORK_QUEUE.md — outstanding work
 
 The central planning document for this project. An **orchestration session**
 schedules work rounds from it; **exploratory sessions** add to it; **execution
 agents** receive one item at a time, with the item's text as their brief.
-Finished items leave this file and land in `WORK_COMPLETED.md` — this file
+Finished items leave this file and land in `docs/WORK_COMPLETED.md` — this file
 holds **only outstanding work**.
 
 How to use it:
@@ -231,7 +231,7 @@ fix the remaining details; D-114 (a) is superseded by D-115. Real recordings con
 **Progress.** The iPhone half is done. `tests/recordings/iphone-15/` holds all twelve drills (axis, clean-press, the
 drift `free` run, and the rest), and the analysis half ran for that phone: Q1 closed (axis verdict `ios`, D-58), Q11
 and the contact-size fact are in `CLAUDE.md` "Known platform facts", and the drift drill reads 8.5–9.3° at its rests
-(Q10; under D-49's 10° limit, but a 93 s run with no jig confirmation). Two findings went to `OPEN_QUESTIONS.md`
+(Q10; under D-49's 10° limit, but a 93 s run with no jig confirmation). Two findings went to `docs/OPEN_QUESTIONS.md`
 rather than this item: its `clean-press` failed on its first shot (Moved at 0.96°; Q14, settled by trimming that press
 out of the file, D-59) and iOS flips to portrait and disarms during hard swings (Q15, I-04). Remaining: the second (non-Pixel) Android phone, plus the
 full 3-minute jig drift run on the iPhone 15 (D-61: the 93 s run was on a jig and read 9°, so the long run
@@ -243,7 +243,7 @@ a non-Pixel Android phone; E-2 ends `xyz` on both (margin 5.7 and 14.0). The res
 (clean-press, 180, drift run) is still owed whenever Ricky has the phone again.
 
 **Pending owner checks from rounds 1 and 2** (code landed and passed `npm test`; each line is the
-owner-verifiable half of an archived item, see `WORK_COMPLETED.md`; tick them off on the phone, any session then
+owner-verifiable half of an archived item, see `docs/WORK_COMPLETED.md`; tick them off on the phone, any session then
 notes the result here and in the item's entry):
 - Pixel 11, Settings: the "Flat-finger check" section is gone (WQ-009); with Gyro axis mapping on Auto, muzzle up
   moves the trace up and a swing right moves it right (WQ-001).
@@ -281,7 +281,7 @@ Pixel-specific. Three short drills per phone answer all three.
 **Re-record on the new layout (D-76, Ricky 2026-10-21).** WQ-016 changed the zones (taller, longer frame strip;
 trigger 20 px forward; 60 px travel) and WQ-011 added the 5° off-frame limit, so the 2026-10-20/21 recordings were
 made on a layout and rules that no longer exist, and three Pixel recordings already replay differently
-(`WORK_COMPLETED.md`, WQ-016). Owner half: on the Pixel 11 and the iPhone 15, from the deployed page at engine
+(`docs/WORK_COMPLETED.md`, WQ-016). Owner half: on the Pixel 11 and the iPhone 15, from the deployed page at engine
 0.12.0 or later, record the full drill set of `docs/RECORDINGS.md` again (`axis-up`, `axis-right`, `safe-move`,
 `off-frame-still`, `off-frame-move`, `clean-press`, `jerked-press`, `press-wobble`, `trigger-sweep`, `180-safe`,
 `180-break`, and a `free` run), with the phone model and "layout 0.12.0" in the notes; save into
@@ -303,7 +303,7 @@ entry. If a new recording fails an expectation, stop and report it (do not edit 
 - Save them into a new folder named after the phone (for example `tests/recordings/iphone-15/`,
   `tests/recordings/galaxy-s24/`) and commit.
 - Then (agent-verifiable half, any session): run `npm run test:replay`; record the per-phone axis
-  verdict in `OPEN_QUESTIONS.md` Q1; record `device.ios` versus user agent (Q11) and whether any
+  verdict in `docs/OPEN_QUESTIONS.md` Q1; record `device.ios` versus user agent (Q11) and whether any
   touch row has a non-zero radius (contact size) in `CLAUDE.md` "Known platform facts". If an iPhone
   verdict is `spec`, raise a new item to key the `auto` default on the browser engine.
 - Out of scope: changing the engine or the page.
@@ -349,7 +349,7 @@ WQ-022.
 
 **Acceptance.**
 - Agent-verifiable: the debug readout shows the `vib:` line; `npm test` passes; replays unchanged.
-- Owner-verifiable: the six readings above are recorded in this item's `Updated` line or in `OPEN_QUESTIONS.md`
+- Owner-verifiable: the six readings above are recorded in this item's `Updated` line or in `docs/OPEN_QUESTIONS.md`
   as a new Q, and a follow-up item or a `CLAUDE.md` fact closes it.
 
 **Verification.** `npm test`; a Playwright run with `navigator.vibrate` stubbed to return `false` shows
@@ -658,11 +658,11 @@ promote one with `work-queue-add`):
 - **Dial cap derived from the guard's front edge** (from WQ-020): `layout()` reserves a fixed 160 px beside the dial
   so Set downrange clears the guard; computing it from the measured guard rectangle would survive future
   `TRIGGER_FWD_PX` changes. Needs a Ricky decision.
-- **Custom domain for the public page** (public-release review, 2026-10-25): waiting on Q21 (`OPEN_QUESTIONS.md`) for
+- **Custom domain for the public page** (public-release review, 2026-10-25): waiting on Q21 (`docs/OPEN_QUESTIONS.md`) for
   the hostname; then one owner-machine item (DNS CNAME, Pages setting, `CNAME` file on the served branch), sequenced
   before WQ-037 and WQ-043 and after Q19.
-- **Move the planning files (`WORK_QUEUE.md`, `WORK_COMPLETED.md`, `OPEN_QUESTIONS.md`, `CLAUDE.md`, `.claude/`) out of
-  the repository root** so a GitHub visitor sees the product files first. Waiting on Q20 (`OPEN_QUESTIONS.md`): every
+- **Move the planning files (`docs/WORK_QUEUE.md`, `docs/WORK_COMPLETED.md`, `docs/OPEN_QUESTIONS.md`, `CLAUDE.md`, `.claude/`) out of
+  the repository root** so a GitHub visitor sees the product files first. Waiting on Q20 (`docs/OPEN_QUESTIONS.md`): every
   skill, `scripts/wq.py` and the manuals cite the root paths, so it is one careful commit once Ricky decides.
 - **`CLAUDE.md` says recordings go "one folder per phone"** — the 2026-10-20 set has been moved to
   `pixel-11/`; nothing left to do unless a second Pixel appears.

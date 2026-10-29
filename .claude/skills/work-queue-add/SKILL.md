@@ -1,11 +1,11 @@
 ---
 name: work-queue-add
-description: Add, refine, split, or re-prioritize items in WORK_QUEUE.md — the project's central planning document. For exploratory sessions that discover work (a bug, a gap, a release-prep task, a follow-up from a completed item) and for the orchestration session when it raises items itself. Produces a self-contained item an execution agent can act on from the item text alone.
+description: Add, refine, split, or re-prioritize items in docs/WORK_QUEUE.md — the project's central planning document. For exploratory sessions that discover work (a bug, a gap, a release-prep task, a follow-up from a completed item) and for the orchestration session when it raises items itself. Produces a self-contained item an execution agent can act on from the item text alone.
 ---
 
 # Adding to the work queue
 
-`WORK_QUEUE.md` holds every piece of outstanding work; `WORK_COMPLETED.md`
+`docs/WORK_QUEUE.md` holds every piece of outstanding work; `docs/WORK_COMPLETED.md`
 holds what is finished. An orchestration session reads the queue, picks a
 round, and hands each item to an execution agent **as the agent's entire
 brief**. So an item is only as good as what a stranger can do with its text:
@@ -14,8 +14,8 @@ no memory of your session.
 
 ## Before adding
 
-1. Read `WORK_QUEUE.md` end to end (index + items + parking lot) and skim the
-   titles in `WORK_COMPLETED.md`. Do not add a duplicate; if an existing
+1. Read `docs/WORK_QUEUE.md` end to end (index + items + parking lot) and skim the
+   titles in `docs/WORK_COMPLETED.md`. Do not add a duplicate; if an existing
    item covers it, **edit that item** (widen scope, add context, adjust
    priority) and note the edit in its `Added/Updated` line.
 2. Verify every anchor you intend to cite — file paths, function names,
@@ -84,7 +84,7 @@ repeating it).
   branches add items before they merge, and `next_id` on any one branch
   lags them. IDs are never reused, even for closed-wontdo items. When the
   repo keeps numbered companion logs (by default `docs/DECISIONS.md` `D-`,
-  `OPEN_QUESTIONS.md` `Q`, `docs/IDEAS.md` `I-`; the list is `NUMBERED` in
+  `docs/OPEN_QUESTIONS.md` `Q`, `docs/IDEAS.md` `I-`; the list is `NUMBERED` in
   `scripts/wq.py`), the same command prints their next free numbers too —
   use those for the rows an item adds there, for the same reason.
 - **Priority**: P0 = must ship before the next milestone can even start;
@@ -121,7 +121,7 @@ repeating it).
    the completion entry's "Follow-ups" names the new ID, and the new item's
    Context names the completed one.
 4. Run `python scripts/wq.py check` (`--allow-claimed` while a round is
-   open), then commit `WORK_QUEUE.md` on its own
+   open), then commit `docs/WORK_QUEUE.md` on its own
    (message `queue: add WQ-NNN <title>`), so orchestration rounds can diff
    the queue cleanly. Do not bundle queue edits into feature commits.
 
@@ -158,7 +158,7 @@ template honestly.
 - Do not remove or reorder someone else's item without a reason written in
   its `Updated` line.
 - Do not mark an item done here — that is `work-queue-run`'s job, and it
-  moves the item to `WORK_COMPLETED.md`.
+  moves the item to `docs/WORK_COMPLETED.md`.
 - Do not write scope as "investigate X". If investigation is the work,
   the acceptance is the artifact it produces (a doc, a measured number, a
   set of new queue items) — say which.

@@ -15,7 +15,7 @@ decision is logged in [`docs/DECISIONS.md`](docs/DECISIONS.md).
   are the ground truth. Run `npm run test:replay`, say which recordings change outcome, and never edit a recording
   to make it pass.
 - **Versions:** a `VERSION` bump in `engine.js` adds a section to [`CHANGELOG.md`](CHANGELOG.md) in the same commit.
-- **Planning:** outstanding work is in [`WORK_QUEUE.md`](WORK_QUEUE.md), finished work in
-  [`WORK_COMPLETED.md`](WORK_COMPLETED.md), open questions in [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md).
+- **Planning:** outstanding work is in [`docs/WORK_QUEUE.md`](docs/WORK_QUEUE.md), finished work in
+  [`docs/WORK_COMPLETED.md`](docs/WORK_COMPLETED.md), open questions in [`docs/OPEN_QUESTIONS.md`](docs/OPEN_QUESTIONS.md).
   [`CLAUDE.md`](CLAUDE.md) is the operating manual (constraints, architecture, working rules).
 - Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). Security: [`SECURITY.md`](SECURITY.md).

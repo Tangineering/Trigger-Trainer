@@ -6,12 +6,12 @@ trigger when the "gun" is still. Free, no accounts, no tracking, nothing sold �
 link is the only money-related element (D-63): a plain anchor, never an embedded button or widget.
 
 **Ricky owns scope and decisions.** Record anything you decide or propose in `docs/DECISIONS.md` using the
-attribution scheme there. Questions that block work go in `OPEN_QUESTIONS.md`. Ideas for later (not
+attribution scheme there. Questions that block work go in `docs/OPEN_QUESTIONS.md`. Ideas for later (not
 committed to) go in `docs/IDEAS.md`; never build one without a Ricky decision. The workflow is in that file.
 
-**Outstanding work lives in `WORK_QUEUE.md`** — the central planning document: one `WQ-NNN` item per unit
+**Outstanding work lives in `docs/WORK_QUEUE.md`** — the central planning document: one `WQ-NNN` item per unit
 of work, self-contained enough to be an execution agent's whole brief. Finished work lives in
-`WORK_COMPLETED.md` (what was done, why, deviations). Add items with the `work-queue-add` skill; run rounds
+`docs/WORK_COMPLETED.md` (what was done, why, deviations). Add items with the `work-queue-add` skill; run rounds
 with `work-queue-run`; size-L code items are implemented with `orchestrated-feature`, whose project specifics
 (checks, invariants, protected paths) live in `.claude/skills/orchestrated-feature/PROJECT.md`. Which model
 each dispatched agent runs on is fixed by `.claude/skills/work-queue-run/MODELS.md` (overrides, with reasons,
@@ -22,14 +22,14 @@ skill. Queue edits get their own `queue:` commits, never bundled into feature co
 own copy of a file; `check` fails when `next_id` is behind any branch.
 
 How the queue and the other documents fit together:
-- A queue item is *work*; `OPEN_QUESTIONS.md` holds the *question* behind a `blocked:user` or
+- A queue item is *work*; `docs/OPEN_QUESTIONS.md` holds the *question* behind a `blocked:user` or
   `blocked:owner-machine` item, and the item names the question (`Q-nn`). When the owner answers, the
   answer goes in `docs/DECISIONS.md` and the item is re-queued with the decision folded into its Scope.
 - `docs/IDEAS.md` and the queue's parking lot overlap on purpose: an idea stays in `docs/IDEAS.md` until a
   Ricky decision promotes it, and only then becomes a queue item.
 - Execution agents log anything they decide as `Claude (proposed)` rows in `docs/DECISIONS.md`.
 - Hub files for parallel items (append-only, one block per item id): `CLAUDE.md`, `README.md`,
-  `OPEN_QUESTIONS.md`, `docs/DECISIONS.md`, `docs/IDEAS.md`. Items that touch `engine.js` or `index.html`
+  `docs/OPEN_QUESTIONS.md`, `docs/DECISIONS.md`, `docs/IDEAS.md`. Items that touch `engine.js` or `index.html`
   never run in parallel with each other.
 - "Done" for sensor or touch changes has an owner-verifiable half (a real iPhone and a real Android phone);
   write it as the item's *Owner-verifiable* acceptance lines, and the orchestrator returns the item
@@ -249,9 +249,9 @@ docs/PROPOSAL_2026-10-20.md  rationale behind the first queue items (axis order,
 docs/axis-estimate-2026-10-20.txt  estimator output over the 2026-10-20 recordings
 docs/mockups/           design mockups (drill picker diagrams)
 docs/screenshots/       Playwright screenshots kept per item (wq-NNN/) and for the README (readme/)
-OPEN_QUESTIONS.md       blocking/pending questions for Ricky
-WORK_QUEUE.md           outstanding work, one WQ-NNN item per unit (the planning document)
-WORK_COMPLETED.md       archive of finished queue items
+docs/OPEN_QUESTIONS.md  blocking/pending questions for Ricky
+docs/WORK_QUEUE.md      outstanding work, one WQ-NNN item per unit (the planning document)
+docs/WORK_COMPLETED.md  archive of finished queue items
 .claude/skills/         work-queue-add, work-queue-run (+ BRIEF_RULES.md for execution agents, MODELS.md
                         for agent models), orchestrated-feature (+ PROJECT.md for this repo's specifics)
 CHANGELOG.md            user-facing changes per engine version (plus Unreleased)

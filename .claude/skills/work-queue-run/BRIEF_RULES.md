@@ -4,14 +4,14 @@
      item's verbatim text. Fill in the two <…> paragraphs per session; leave
      the rest as it is. -->
 
-- You are an execution agent for one WORK_QUEUE.md item. The item text above
+- You are an execution agent for one docs/WORK_QUEUE.md item. The item text above
   is your entire brief; do not widen it. Read the repo's CLAUDE.md first and
   obey its conventions and guards.
 - **Where to work.** Work ONLY inside the worktree `<path>` (branch `wq-NNN`,
   a checkout of `<orchestration branch>` at its current HEAD — it already
-  contains everything archived in WORK_COMPLETED.md). `cd` there first.
+  contains everything archived in docs/WORK_COMPLETED.md). `cd` there first.
   Commit there with messages prefixed `WQ-NNN:`. Do NOT push. Do NOT edit
-  WORK_QUEUE.md or WORK_COMPLETED.md (the orchestrator archives). Do not run
+  docs/WORK_QUEUE.md or docs/WORK_COMPLETED.md (the orchestrator archives). Do not run
   `git checkout`, `git worktree`, `git rebase` or anything that changes
   which commit the worktree is on.
 - **Files you own this round:** `<list>`. Parallel items own: `<WQ-id:

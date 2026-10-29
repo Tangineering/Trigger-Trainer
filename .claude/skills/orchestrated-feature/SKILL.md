@@ -50,7 +50,7 @@ Either way the plan is mandatory, and **even in `direct` mode post a short
 plan summary to the user before Stage-1 dispatch**. The plan must be
 user-visible, not prompt-embedded.
 
-When this round executes a `WORK_QUEUE.md` item, the item text is the spec's
+When this round executes a `docs/WORK_QUEUE.md` item, the item text is the spec's
 starting point: keep its anchors and its out-of-scope line verbatim, run the
 round in the orchestration session itself (agents cannot spawn agents), and
 end the round with the report block `work-queue-run` expects. The item gets
