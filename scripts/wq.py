@@ -22,10 +22,10 @@ orchestrator to run before every `queue:` commit.
 Numbers are assigned across branches, not per branch: exploratory side
 sessions add items and decisions on their own branches before anything is
 merged, and two of them picking "next_id" from their own copy of the file
-collided more than once (WQ-030 and D-111/D-112 were each taken twice on
-2026-10-25). `next` scans every local and remote ref for the four numbered
-files, and `check` fails when `next_id` is not above every WQ id found on any
-branch (`--no-branches` skips the scan, e.g. without git).
+took the same WQ and decision numbers more than once. `next` scans every
+local and remote ref for the numbered files in `NUMBERED`, and `check` fails
+when `next_id` is not above every WQ id found on any branch (`--no-branches`
+skips the scan, e.g. without git).
 
 The script edits ONLY the mechanical parts (status cells, index rows,
 section cut/paste, `updated:`). Writing an item or a completion entry is
@@ -56,8 +56,11 @@ def _find_root(start):
 
 
 def _read(p):
-    with open(p, encoding="utf-8") as f:
-        return f.read()
+    # Normalize CRLF: a clone made with core.autocrlf=true has CRLF working
+    # copies, and every pattern here anchors on "\n" (an item ends at
+    # "\n---\n\n"). Files are written back with LF.
+    with open(p, encoding="utf-8", newline="") as f:
+        return f.read().replace("\r\n", "\n")
 
 
 def _write(p, s):
@@ -104,19 +107,25 @@ def _bump_updated(q):
     return re.sub(r"^updated: .*$", f"updated: {today}", q, count=1, flags=re.M)
 
 
-# Numbered records: file -> (label, regex for a record's number at a line start)
-NUMBERED = {
-    QUEUE: ("WQ", r"^### WQ-(\d+) "),
-    DONE: ("WQ", r"^### WQ-(\d+) "),
-    "docs/DECISIONS.md": ("D", r"^\| D-(\d+) \|"),
-    "OPEN_QUESTIONS.md": ("Q", r"^\| Q-?(\d+) \|"),
-    "docs/IDEAS.md": ("I", r"^\| I-(\d+) \|"),
-}
+# Numbered records whose numbers must be unique across branches:
+# (file relative to the queue's folder, label, regex for a record's number at a
+# line start, printed prefix, zero-pad width). The two queue files are required;
+# the rest are the usual companion logs - edit them to match the repo. A file
+# that exists on no branch is skipped, and its kind is not printed.
+NUMBERED = [
+    (QUEUE, "WQ", r"^### WQ-(\d+) ", "WQ-", 3),
+    (DONE, "WQ", r"^### WQ-(\d+) ", "WQ-", 3),
+    ("docs/DECISIONS.md", "D", r"^\| D-(\d+) \|", "D-", 2),
+    ("OPEN_QUESTIONS.md", "Q", r"^\| Q-?(\d+) \|", "Q", 2),
+    ("docs/IDEAS.md", "I", r"^\| I-(\d+) \|", "I-", 2),
+]
 
 
 def _git(root, *a):
     import subprocess
-    r = subprocess.run(["git", "-C", root, *a], capture_output=True, text=True)
+    # explicit UTF-8: the platform default (cp1252 on Windows) fails on the documents' text
+    r = subprocess.run(["git", "-C", root, *a], capture_output=True,
+                       encoding="utf-8", errors="replace")
     return r.returncode, r.stdout
 
 
@@ -126,24 +135,26 @@ def _scan_branches(root, fetch=True):
     try:
         if fetch:
             _git(root, "fetch", "--quiet", "--all")
-        rc, out = _git(root, "for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes")
+        rc, out = _git(root, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
     except OSError:
         return None
     if rc:
         return None
-    refs = [r for r in out.split() if not r.endswith("/HEAD")]
+    # full names: "refs/remotes/origin/HEAD" shortens to plain "origin" and would slip past the filter
+    refs = [re.sub(r"^refs/(heads|remotes)/", "", r) for r in out.split() if not r.endswith("/HEAD")]
     top = {}
     def note(label, n, ref):
         if n > top.get(label, (0, ""))[0]:
             top[label] = (n, ref)
     for ref in refs:
-        for rel, (label, rx) in NUMBERED.items():
-            rc, text = _git(root, "show", f"{ref}:{rel}")
+        for rel, label, rx, _, _ in NUMBERED:
+            # "./" makes the path relative to root, which need not be the repo's top level
+            rc, text = _git(root, "show", f"{ref}:./{rel}")
             if rc:
                 continue
             for m in re.finditer(rx, text, re.M):
                 note(label, int(m.group(1)), ref)
-    for rel, (label, rx) in NUMBERED.items():
+    for rel, label, rx, _, _ in NUMBERED:
         p = os.path.join(root, rel)
         if os.path.isfile(p):
             for m in re.finditer(rx, _read(p), re.M):
@@ -156,11 +167,13 @@ def cmd_next(root, args):
     if top is None:
         print("FAIL: git unavailable; cannot scan branches")
         return 1
-    for label in ("WQ", "D", "Q", "I"):
+    shown = set()
+    for _, label, _, prefix, width in NUMBERED:
+        if label in shown or (label != "WQ" and label not in top):
+            continue
+        shown.add(label)
         n, ref = top.get(label, (0, "nowhere"))
-        sep = "" if label == "Q" else "-"
-        width = 3 if label == "WQ" else 2
-        print(f"next {label}{sep}{n + 1:0{width}d}   (highest {label}{sep}{n:0{width}d} on {ref})")
+        print(f"next {prefix}{n + 1:0{width}d}   (highest {prefix}{n:0{width}d} on {ref})")
     return 0
 
 

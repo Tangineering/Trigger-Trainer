@@ -61,8 +61,9 @@ can live:
 
 - `engine.js`: `DEFAULTS`, `ZONES`, `K`, `createEngine` state, the emitted
   event list, `summarize`, `replay` and its `overrides`.
-- `index.html`: `S` and its `localStorage['tdt.settings.v1']` load (bump the
-  key on an incompatible schema change), `SLIDERS`, `onEvent`, the Settings
+- `index.html`: `S` and its `localStorage['tdt.settings.v2']` load (a diff
+  against `DEFAULTS` since D-64; a `v1` whole-object save is migrated once,
+  D-66; bump the key on an incompatible schema change), `SLIDERS`, `onEvent`, the Settings
   readout, the Summary table, `window.__tdt()`.
 - Tests: `tests/expectations.js`, `tests/make-synthetic.js`, the drill list
   in `index.html` (`id`, `name`, `hint`), `tests/smoke.js`.

@@ -82,10 +82,11 @@ repeating it).
   and remote branch) and take the `next WQ-NNN` it prints; then set `next_id`
   to one above it. Never take `next_id` from your own copy of the file: side
   branches add items before they merge, and `next_id` on any one branch
-  lags them. IDs are never reused, even for closed-wontdo items. The same
-  command prints the next free `D-`, `Q` and `I-` numbers for the decision
-  log, `OPEN_QUESTIONS.md` and `docs/IDEAS.md` — use those for the rows an
-  item adds there, for the same reason.
+  lags them. IDs are never reused, even for closed-wontdo items. When the
+  repo keeps numbered companion logs (by default `docs/DECISIONS.md` `D-`,
+  `OPEN_QUESTIONS.md` `Q`, `docs/IDEAS.md` `I-`; the list is `NUMBERED` in
+  `scripts/wq.py`), the same command prints their next free numbers too —
+  use those for the rows an item adds there, for the same reason.
 - **Priority**: P0 = must ship before the next milestone can even start;
   P1 = required for the milestone; P2 = wanted, not gating; P3 = nice to
   have. Do not inflate — an all-P0 queue schedules nothing.
@@ -129,8 +130,8 @@ repeating it).
 The queue is meant to be fed from exploratory side sessions that experiment
 on their own branches and only then write the final brief. Every one of
 those branches holds its own copy of the numbered files, so a number is
-free only if **no branch** uses it. Before assigning any `WQ-`, `D-`, `Q`
-or `I-` number:
+free only if **no branch** uses it. Before assigning any `WQ-` number, or a
+number in one of the companion logs `scripts/wq.py` tracks:
 
 1. `python scripts/wq.py next` — fetches, scans every ref, prints the next
    free number of each kind and which branch holds the current highest.

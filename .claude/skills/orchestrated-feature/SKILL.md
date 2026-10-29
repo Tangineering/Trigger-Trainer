@@ -210,7 +210,12 @@ Not optional, not a rubber stamp of the reports, and not delegated:
    pass. For UI changes, exercise the change once by the runtime method.
 4. Run the repo's documentation pass (`PROJECT.md`): docs describing the
    changed behavior, settings inventories, changelog, and any memory or
-   planning file the project keeps.
+   planning file the project keeps. Then update `PROJECT.md` itself: correct
+   any name the change made stale (integration checklist, mechanisms to
+   mirror, check commands), and add a row to its failure-mode table for each
+   finding this round's reviewers or final review caught (or missed) — the
+   class, what happened, the date. A round with no such finding adds no row;
+   say so in the report.
 5. Report to the user: what was built, every agent dispatched (role, model,
    outcome), every accepted finding and its fix, the judgment calls, final
    check results, and what remains (uncommitted tree, owner-side checks that
