@@ -12,8 +12,11 @@ How to use it:
 - Pulling a round, handing off, archiving → `.claude/skills/work-queue-run/SKILL.md`.
 - The queue's canonical home is the default branch (`main`); a session that finds it
   only on a side branch merges that branch first.
-- IDs are `WQ-NNN`, assigned from `next_id` below, never reused. An item keeps
-  its ID for life (queue → completed).
+- IDs are `WQ-NNN`, never reused. An item keeps its ID for life (queue →
+  completed). Take a new ID from `python scripts/wq.py next`, which scans every
+  branch, never from `next_id` below alone: side branches add items before they
+  merge (D-116). `next_id` is kept one above the highest ID on any branch, and
+  `wq.py check` fails when it is not.
 - Order within the index is priority, then dependency order. It is not a
   promise of execution order — the orchestration session picks rounds.
 - Project rules that every item inherits: `CLAUDE.md` (hard constraints, architecture, working
