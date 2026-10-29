@@ -36,7 +36,7 @@ updated: 2026-10-29
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-050 | Stale motion data pauses the trainer and opens Settings (D-134) | P1 | M | queued | — | platform |
-| WQ-053 | Class code is session-only: cleared on a new session from the start screen (D-139) | P1 | S | queued | — | drills |
+| WQ-053 | Class code is session-only: cleared on a new session from the start screen (D-139) | P1 | S | claimed:round-20261029-1 | — | drills |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
@@ -538,7 +538,7 @@ records it in this item's completion entry.
 
 ### WQ-053 — Class code is session-only: cleared on a new session from the start screen (D-139)
 
-- **Status:** queued · **Priority:** P1 · **Size:** S · **Track:** drills · **Env:** any
+- **Status:** claimed:round-20261029-1 · **Priority:** P1 · **Size:** S · **Track:** drills · **Env:** any
 - **Added:** 2026-10-29 by review session (Ricky's decision D-139 in chat, 2026-10-29)
 - **Depends on:** — · **Blocks:** —
 
