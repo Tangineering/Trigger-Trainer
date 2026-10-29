@@ -35,6 +35,24 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 ## Entries
 
+### WQ-053 — Class code is session-only: cleared on a new session from the start screen (D-139)
+
+- **Closed:** 2026-10-29 · **Outcome:** done-with-deviations
+- **Executed by:** execution agent on opus; orchestrator (this session) merged, read the diff, re-ran `npm test` and archived · **Round:** round-20261029-1
+- **Commits / PR:** 993e99c WQ-053: keep the class code for the session only (D-139); 21de992 WQ-053: smoke checks for the session-only class code. Merged to `main` and `release` in the same session (on `release`: yes; a page-only change, the phones get it on their next online load).
+
+**What was done.** `index.html`: `classCode` is never written to `localStorage` any more; at load it starts empty and a leftover `tdt.classCode` key from engine 0.18.0 / 0.18.1 pages is removed once (`CLASS_KEY` kept only for that). **Choose** sets the in-memory code only while Low Ready is highlighted (D-137 c unchanged). The `#sumNew` handler (**New session**) clears the code before `leaveToStart()`; **Change drill** and **Again** leave it. `tests/smoke.js` WQ-051 section: the stored-key checks now read `__tdt().classCode` and assert the key is absent; twelve WQ-053 checks cover **Again** (another shared run), **Change drill** (code kept, field shows it), **New session** (code cleared, button reads "Low Ready", next run not shared) and a reload with the key pre-seeded (no code, key removed). Docs: `docs/CLASS_USE.md` class-code paragraph, CHANGELOG `[Unreleased]` **Changed** entry, the CLAUDE.md WQ-051 block's Behavior and Page paragraphs. Engine unchanged (0.18.1).
+
+**Why.** A code typed in class stayed in `localStorage` for good, so the start button kept reading "Low Ready · class CODE" and a student who forgot it got the shared-clock run instead of plain Low Ready. Ricky (D-139): the code clears itself on a new session from the start screen; **Again** keeps it.
+
+**Deviations.** (1) The **Change drill** check calls the button's handler with `e.click()` right after the **Again** run instead of finishing a second ~40 s shared run to reach the results screen again; the **Again** check uses the real results screen. (2) `docs/ARCHITECTURE.md`, `README.md` and `docs/RECORDINGS.md` do not describe the code's storage, so they are unchanged; `tests/roundtrip.js` needed no change.
+
+**Verification.** Agent: `npm test` exit 0, replay "all passed (47 recordings)" 325 PASS, smoke "all passed" 542 PASS, roundtrip "all passed" 88 PASS, 0 FAIL; `grep -n "setItem(CLASS_KEY" index.html` empty. Orchestrator: diff read (load path, Choose handler, `#sumNew` handler), `npm test` re-run on the merged branch: 955 PASS / 0 FAIL in total, all three suites "all passed". Not verified: the owner half on a phone (Low Ready with a code → **Again** still a class run → **New session** → plain Low Ready; reopen the page → no code).
+
+**Follow-ups.** none.
+
+---
+
 ### WQ-052 — Class cycle default 8 s for the shared Low Ready beeps (D-138)
 
 - **Closed:** 2026-10-28 · **Outcome:** done-with-deviations

@@ -36,7 +36,6 @@ updated: 2026-10-29
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
 | WQ-050 | Stale motion data pauses the trainer and opens Settings (D-134) | P1 | M | queued | — | platform |
-| WQ-053 | Class code is session-only: cleared on a new session from the start screen (D-139) | P1 | S | claimed:round-20261029-1 | — | drills |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
@@ -533,67 +532,6 @@ the rule must allow the owner's own pushes.
 
 **Verification.** Owner reports the ruleset; the next orchestration round confirms its `queue:` push works and
 records it in this item's completion entry.
-
----
-
-### WQ-053 — Class code is session-only: cleared on a new session from the start screen (D-139)
-
-- **Status:** claimed:round-20261029-1 · **Priority:** P1 · **Size:** S · **Track:** drills · **Env:** any
-- **Added:** 2026-10-29 by review session (Ricky's decision D-139 in chat, 2026-10-29)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** WQ-051 (D-136, D-137 c) keeps the Low Ready class code in `localStorage['tdt.classCode']`: `index.html:690`
-(`CLASS_KEY`), `:692`–693 (`classCode` loaded at page load), `:1452`–1456 (**Choose** with Low Ready highlighted stores
-the cleaned code or removes the key). So a code typed in class is still there days later, the start button keeps reading
-"Low Ready · class CODE" and a student who forgot it gets the shared-clock run instead of the ordinary Low Ready. Ricky
-(2026-10-29, D-139): the code clears itself on a new session from the start screen; **Again** on the results screen keeps
-it. D-139's reading: the code is session-only (in memory, never stored), **New session** clears it, **Change drill** and
-**Again** keep it. Paths: `beginDrillRun(t)` (`index.html:726`, reads `classCode`), `leaveToStart()` (`index.html:737`,
-called by **Change drill** `#drillChange` and **New session** `#sumNew`), `$('drillAgain')` (`index.html:1460`, calls
-`beginDrillRun` directly), `openPicker()` (`index.html:723`, fills `#classCode` from `classCode`), `renderDrillBtn`
-(`index.html:705`, the "· class CODE" suffix), `showDrillResult` (`index.html:750`, the Class code row reads `classCode`).
-Smoke checks that assert the stored key: `tests/smoke.js:2245`, `:2247`–2252, `:2265`–2275, `:2291` (`ls('tdt.classCode')`).
-
-**Scope.**
-- `index.html` only; engine 0.18.1 unchanged; nothing new is logged (a shared run still logs its `r` row with the wall
-  clock; a run without a code logs the four-element row as today).
-- `classCode` stays a page variable but is never written to `localStorage`: **Choose** (`index.html:1452`–1456) sets
-  `classCode = cleanCode($('classCode').value)` only while Low Ready is highlighted (D-137 c unchanged) and no longer
-  calls `setItem`. At load (`index.html:692`–693) start with `classCode = ''` and remove a stale `tdt.classCode` key once
-  (`try { localStorage.removeItem(CLASS_KEY); } catch (e) {}`), so phones that stored a code under 0.18.0 / 0.18.1 start
-  clean. Keep `CLASS_KEY` for that removal; update the comment at `index.html:688`–689 (session-only, D-139).
-- **New session** (`#sumNew`): clear `classCode` (`classCode = ''`) before `leaveToStart()` so the start button and the
-  picker field show no code. **Change drill** (`#drillChange`) and **Again** (`#drillAgain`) do not touch it. Put the
-  clearing in the `#sumNew` handler (or a `clearClassCode()` helper it calls), not in `leaveToStart()`, since
-  **Change drill** shares that function.
-- `window.__tdt().classCode` keeps reporting the in-memory code.
-- `tests/smoke.js` WQ-051 section: the checks that read `ls('tdt.classCode')` change to the in-memory value through
-  `__tdt().classCode` (`:2245` "Choose stores the trimmed code" → stored in memory and `tdt.classCode` absent; `:2267`
-  Box leaves it untouched; `:2270` blank removes it; `:2273` whitespace; `:2275` 24-char cap; `:2291` Restore defaults keeps
-  it). Add checks: (1) **New session** from the summary clears the code (`__tdt().classCode === ''`, `#drillBtn` text has
-  no "class"); (2) after a shared run ends, **Again** keeps the code and starts another shared run (`drill.shared`);
-  (3) **Change drill** keeps the code and the picker field shows it; (4) a page reload with `tdt.classCode` pre-seeded in
-  `localStorage` starts with no code and the key removed. Keep every other check. The WQ-051 roundtrip section
-  (`tests/roundtrip.js`) sets the code through the picker in the same page; check it still passes unchanged.
-- Docs: `docs/CLASS_USE.md:67`–69 (class code paragraph): say the code lasts for the session and is cleared by **New
-  session** and by reopening the page; **Again** repeats the class run. `CLAUDE.md` WQ-051 block, Behavior and Page
-  paragraphs: `localStorage['tdt.classCode']` → in memory only, cleared at load and by **New session** (D-139); `CLASS_KEY`
-  only removes a stale key. `CHANGELOG.md` `[Unreleased]` **Changed**: the class code no longer survives a new session
-  or a reload (page change, no engine version change). `docs/ARCHITECTURE.md`, `README.md`, `docs/RECORDINGS.md`: only if they
-  state that the code is stored (`grep -n "classCode\|class code"`).
-- Out of scope: `engine.js`; the drill selection key `tdt.drill` (still stored); the slider `classCycleMs`; WQ-050's
-  motion-banner code in `index.html` (do not run in parallel with WQ-050: both edit `index.html`).
-
-**Acceptance.**
-- Agent-verifiable: `grep -n "setItem(CLASS_KEY" index.html` finds nothing; `npm test` passes (replay, smoke, roundtrip)
-  with every recording replaying to identical events and engine `VERSION` still 0.18.1; the four new smoke checks pass;
-  `docs/CLASS_USE.md`, `CLAUDE.md` and `CHANGELOG.md` updated as above; `python scripts/wq.py check` passes.
-- Owner-verifiable: on a phone, choose Low Ready with a code, run it, tap **Again** (still a class run, the drill line
-  counts down to the next beep), finish, **New session** → the start button reads "Low Ready" with no code and the next run
-  is the ordinary Low Ready; reopen the page → no code.
-
-**Verification.** `npm test` totals (PASS / FAIL) in the completion entry; the D-139 row exists in `docs/DECISIONS.md`
-(added with this item).
 
 ---
 
