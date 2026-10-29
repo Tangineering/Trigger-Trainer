@@ -2240,17 +2240,22 @@ const check = (name, cond, state) => {
       !!(await cp.$eval('#classCode', e => e.getAttribute('aria-label'))) && /same/i.test(await cp.textContent('#classHint')));
     await cp.click('#drillCancelBtn');
 
-    // --- Choose with a code stores it (trimmed) and the button names the class
+    // --- Choose with a code keeps it (trimmed) in memory only (D-139) and the button names the class
     await choose('lowready', '  Room 7 ');
-    check("WQ-051: Choose stores the trimmed code in tdt.classCode and the drill key in tdt.drill", await ls('tdt.classCode') === 'Room 7' && await ls('tdt.drill') === 'lowready', [await ls('tdt.classCode'), await ls('tdt.drill')]);
+    check("WQ-053: Choose keeps the trimmed code in memory, tdt.classCode stays absent, the drill key is in tdt.drill", (await cst()).classCode === 'Room 7' && await ls('tdt.classCode') === null && await ls('tdt.drill') === 'lowready', [(await cst()).classCode, await ls('tdt.classCode'), await ls('tdt.drill')]);
     check('WQ-051: the start-screen drill button names the class', /class/i.test(await cp.textContent('#drillBtn')) && /Room 7/.test(await cp.textContent('#drillBtn')), await cp.textContent('#drillBtn'));
-    check('WQ-051: __tdt().classCode is the stored code', (await cst()).classCode === 'Room 7');
-    await cp.reload();
-    check('WQ-051: the code survives a reload (state, button text and the field when the picker opens)',
-      (await cst()).classCode === 'Room 7' && /class/i.test(await cp.textContent('#drillBtn')));
     await cp.click('#drillBtn');
-    check('WQ-051: reopening the picker shows the stored code in the field', await cp.$eval('#classCode', e => e.value) === 'Room 7');
+    check('WQ-051: reopening the picker shows the code in the field', await cp.$eval('#classCode', e => e.value) === 'Room 7');
     await cp.click('#drillCancelBtn');
+    // D-139: a reload starts with no code, and a code stored by a 0.18.0 / 0.18.1 page is removed once.
+    await cp.evaluate(() => { try { localStorage.setItem('tdt.classCode', 'Stale'); } catch (e) {} });
+    await cp.reload();
+    check('WQ-053: a reload with tdt.classCode pre-seeded starts with no code and removes the key',
+      (await cst()).classCode === '' && await ls('tdt.classCode') === null && !/class/i.test(await cp.textContent('#drillBtn')), [(await cst()).classCode, await ls('tdt.classCode'), await cp.textContent('#drillBtn')]);
+    await cp.click('#drillBtn');
+    check('WQ-053: ... and the picker field is empty', await cp.$eval('#classCode', e => e.value) === '');
+    await cp.click('#drillCancelBtn');
+    await choose('lowready', 'Room 7');
 
     // --- seed: FNV-1a of the trimmed lower-cased code, computed here independently
     const seeds = await cp.evaluate(() => [window.__tdtClassSeed('Abc '), window.__tdtClassSeed('abc'), window.__tdtClassSeed(' ABC'), window.__tdtClassSeed('Room 7'), window.__tdtClassSeed('')]);
@@ -2264,15 +2269,15 @@ const check = (name, cond, state) => {
     await cp.click('#drillBtn');
     await cp.click('#drillList .drillOpt[data-id="lowready"]'); await cp.fill('#classCode', 'ghost');
     await cp.click('#drillList .drillOpt[data-id="box"]'); await cp.click('#drillChoose');
-    check('WQ-051: Choose with Box highlighted leaves the stored code untouched (only Low Ready stores it)', await ls('tdt.classCode') === 'Room 7' && (await cst()).drillSel === 'box', await ls('tdt.classCode'));
+    check('WQ-051: Choose with Box highlighted leaves the code untouched (only Low Ready sets it)', (await cst()).classCode === 'Room 7' && (await cst()).drillSel === 'box', (await cst()).classCode);
     check('WQ-051: ... and the button names Box without a class', !/class/i.test(await cp.textContent('#drillBtn')) && /Box/.test(await cp.textContent('#drillBtn')));
     await choose('lowready', '');
-    check('WQ-051: Choose with the field blank removes tdt.classCode', await ls('tdt.classCode') === null && (await cst()).classCode === '', [await ls('tdt.classCode'), (await cst()).classCode]);
+    check('WQ-051: Choose with the field blank clears the code', await ls('tdt.classCode') === null && (await cst()).classCode === '', [await ls('tdt.classCode'), (await cst()).classCode]);
     check('WQ-051: ... and the button no longer names a class', !/class/i.test(await cp.textContent('#drillBtn')));
     await choose('lowready', '   ');
-    check('WQ-051: a whitespace-only code counts as blank', await ls('tdt.classCode') === null);
+    check('WQ-051: a whitespace-only code counts as blank', (await cst()).classCode === '' && await ls('tdt.classCode') === null);
     await choose('lowready', 'x'.repeat(40));
-    check('WQ-051: a very long code is capped at 24 characters', (await ls('tdt.classCode')).length === 24, await ls('tdt.classCode'));
+    check('WQ-051: a very long code is capped at 24 characters (never stored)', (await cst()).classCode.length === 24 && await ls('tdt.classCode') === null, (await cst()).classCode);
     await choose('lowready', '<b>"&');
     check('WQ-051: a code with markup characters shows as text on the button (no injected element)',
       (await cp.textContent('#drillBtn')).includes('<b>"&') && (await cp.$$('#drillBtn b b')).length === 0);
@@ -2288,7 +2293,7 @@ const check = (name, cond, state) => {
     await cp.$eval('#resetDefaults', e => e.click());
     check('WQ-051: Restore defaults brings the slider back to 8 s and drops the key',
       await cp.$eval('#s_sliders4_classCycleMs', el => el.parentElement.querySelector('output').textContent.trim()) === '8 s' && await ls('tdt.settings.v2') === null);
-    check('WQ-051: Restore defaults keeps the class code (it is not a setting)', await ls('tdt.classCode') !== null);
+    check('WQ-051: Restore defaults keeps the class code (it is not a setting)', (await cst()).classCode === '<b>"&');
 
     // --- a shared run: start with a code
     await cp.reload();
@@ -2347,6 +2352,67 @@ const check = (name, cond, state) => {
     await cp.$eval('#resetDefaults', e => e.click());
     check('WQ-051: Restore defaults after the 12 s run puts Class cycle back to 8 s', await cp.$eval('#s_sliders4_classCycleMs', el => el.value) === '8000' && await ls('tdt.settings.v2') === null);
     await cp.click('#doneBtn');
+
+    // --- WQ-053 (D-139): a whole shared run, then Again (keeps the code), Change drill (keeps it), New session (clears it).
+    // Class cycle 6 s (the minimum) keeps the five real-time slots short; Restore defaults puts it back afterwards.
+    await cp.reload();
+    await choose('lowready', 'Room 7');
+    await cp.click('#startBtn'); await cp.waitForTimeout(150);
+    await cp.click('#gear'); await cp.waitForTimeout(100);
+    await cp.$eval('#s_sliders4_classCycleMs', el => { el.value = '6000'; el.dispatchEvent(new Event('input')); });
+    await cp.click('#doneBtn'); await cp.waitForTimeout(150);
+    const cpress = async () => {                  // one full press (lift every point first, WQ-031); the phone stays still
+      await ctouch('touchEnd', []).catch(() => {});
+      await ctouch('touchStart', [TRG]); await cmotion(3);
+      for (let dx = 20; dx <= 70; dx += 25) { await ctouch('touchMove', [[TRG[0] - dx, TRG[1], 2]]); await cmotion(1); }
+      await cmotion(2); await ctouch('touchEnd', []); await cmotion(3);
+    };
+    const cwait = async (cond, maxMs) => { const t1 = Date.now(); let x; while (Date.now() - t1 < maxMs) { await cmotion(1); x = await cst(); if (cond(x)) return x; } return x; };
+    await ctouch('touchStart', [REST]); await cmotion(4);
+    let runOk = true, last = null;
+    for (let rp = 1; rp <= 5; rp++) {
+      last = await cwait(x => x.drill && x.drill.rep === rp && x.drill.phase === 'live', 13000);
+      if (!(last.drill && last.drill.rep === rp && last.drill.phase === 'live')) { runOk = false; break; }
+      await cmotion(5);
+      await cpress(); await cpress();
+      await ctouch('touchStart', [REST]); await cmotion(3);
+      last = await cwait(x => rp === 5 ? x.drillResOpen : x.drill.repsDone >= rp, 2500);
+      if (!(rp === 5 ? last.drillResOpen : last.drill.repsDone >= rp)) { runOk = false; break; }
+    }
+    last = await cwait(x => x.drillResOpen && x.paused, 3000);
+    check('WQ-053: a shared run (Class cycle 6 s) ran all five reps and the results opened with the Class code row',
+      runOk && last.drillResOpen && last.drillRuns === 1 && last.classCode === 'Room 7' &&
+      (await cp.$$eval('#drillResRows tr', trs => trs.map(tr => [...tr.children].map(td => td.textContent))))[0]?.join('|') === 'Class code|Room 7', last);
+    await ctouch('touchEnd', []).catch(() => {});
+    await cp.click('#drillAgain'); await cp.waitForTimeout(150);
+    d = await cst();
+    check('WQ-053: Again after a shared run keeps the code and starts another shared run',
+      d.classCode === 'Room 7' && !d.drillResOpen && d.running && d.drill && d.drill.id === 'lowready' && d.drill.shared === true && d.drill.phase === 'standby', d);
+    // Change drill is reached from the results; the button's handler is invoked directly here instead of running a second
+    // ~40 s shared run to reopen them.
+    await cp.$eval('#drillChange', e => e.click()); await cp.waitForTimeout(150);
+    d = await cst();
+    check('WQ-053: Change drill keeps the code (start screen, the button still names the class)',
+      d.classCode === 'Room 7' && !d.running && await cp.$eval('#startOv', e => e.classList.contains('show')) && /class Room 7/.test(await cp.textContent('#drillBtn')), [d.classCode, await cp.textContent('#drillBtn')]);
+    await cp.click('#drillBtn');
+    check('WQ-053: ... and the picker field shows it', await cp.$eval('#classCode', e => e.value) === 'Room 7');
+    await cp.click('#drillCancelBtn');
+    // New session from the summary clears it.
+    await cp.click('#startBtn'); await cp.waitForTimeout(150);
+    check('WQ-053: Start after Change drill is a shared run again', (await cst()).drill.shared === true);
+    await cp.click('#gear'); await cp.waitForTimeout(100);
+    await cp.$eval('#resetDefaults', e => e.click());
+    await cp.click('#finishBtn'); await cp.waitForTimeout(100);
+    check('WQ-053: Finish opens the summary', (await cst()).summaryOpen === true);
+    await cp.click('#sumNew'); await cp.waitForTimeout(150);
+    d = await cst();
+    check('WQ-053: New session clears the code: __tdt().classCode is empty and #drillBtn names no class',
+      d.classCode === '' && !/class/i.test(await cp.textContent('#drillBtn')) && /Low Ready/.test(await cp.textContent('#drillBtn')) && await ls('tdt.classCode') === null, [d.classCode, await cp.textContent('#drillBtn')]);
+    await cp.click('#drillBtn');
+    check('WQ-053: ... and the picker field is empty', await cp.$eval('#classCode', e => e.value) === '');
+    await cp.click('#drillCancelBtn');
+    await cp.click('#startBtn'); await cp.waitForTimeout(150);
+    check('WQ-053: ... and the next Low Ready run is the ordinary one', (await cst()).drill.shared === false);
 
     // --- a run without a code is an ordinary run
     await cp.reload();
