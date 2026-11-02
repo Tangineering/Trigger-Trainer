@@ -26,8 +26,8 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-054
-updated: 2026-10-29
+next_id: WQ-056
+updated: 2026-11-02
 ```
 
 ## Index
@@ -45,6 +45,8 @@ updated: 2026-10-29
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | blocked:owner-machine | — | platform |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
 | WQ-049 | Run the browser suites (smoke, roundtrip) in GitHub Actions | P2 | S | queued | — | hygiene |
+| WQ-054 | No-motion banner: name the browser's Motion sensors setting on Android (D-123 c) | P2 | S | queued | — | platform |
+| WQ-055 | Document the Android Motion sensors setting (GrapheneOS Vanadium) for students | P2 | S | queued | — | docs |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -632,6 +634,96 @@ pause / Settings screen instead of training on. The existing pause path is `setE
   Pixel 11 or S20+: normal use never opens Settings by itself, including after a return from the background.
 
 **Verification.** The smoke section; `npm test` output and the owner's two reports in the completion entry.
+
+---
+
+### WQ-054 — No-motion banner: name the browser's Motion sensors setting on Android (D-123 c)
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
+- **Added:** 2026-11-02 by student-support session (Ricky's report of a student's Pixel 9 on GrapheneOS with no motion data)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** The first Android no-motion case has been observed: a student on a Pixel 9 running GrapheneOS and its
+Vanadium browser gets no `devicemotion` samples and never sees a permission prompt. Vanadium ships with the Chromium
+**Motion sensors** site setting off by default (a per-site toggle was added in Vanadium 144; the global toggle was always
+off), and GrapheneOS also has an OS-level per-app **Sensors** permission. Chromium on Android never prompts: `start()`
+(`index.html:1322`–1326) awaits `DeviceMotionEvent.requestPermission()` inside a try/catch, which resolves silently on
+Android, and then binds `onMotion`. The banner's fix line, `motionFixText()` (`index.html:1015`–1019), chooses the Safari
+steps ("Close this tab, reopen the link and tap Allow; or Settings → Safari → Motion & Orientation Access") whenever
+`DeviceMotionEvent.requestPermission` exists in a secure context, and Android Chromium exposes that function too (D-53),
+so this student was told to open Safari settings. D-123 c accepted that outcome "since that case has not been observed";
+it now has. `isIOS` (`index.html:422`–425) is the page's only user-agent test, used for the recorder's `device.ios` field
+and the debug readout; D-53 says behavior uses feature checks, never the platform.
+
+**Scope.**
+- In `motionFixText()` add an Android wording branch: when `window.isSecureContext !== false` and the user agent names
+  Android (`/Android/i.test(navigator.userAgent)`, or `navigator.userAgentData.platform === 'Android'` where that API
+  exists), the fix line names the browser setting instead of Safari's. Proposed text, to be shortened if it does not fit
+  the banner at 844×390 (two sentences at most): "Allow Motion sensors for this site: tap the padlock → Permissions, or
+  the browser's Settings → Site settings → Motion sensors. Vanadium on GrapheneOS blocks them by default; there also check
+  Settings → Apps → the browser → Permissions → Sensors." Order of the checks: non-secure context → HTTPS line (unchanged);
+  Android → the new line; `requestPermission` present → the Safari line; else the HTTPS line.
+- This reads the user agent to choose *wording*, not behavior; the engine, the permission call and when the banner opens
+  are unchanged. Log that as D-140 (`Claude (proposed)`, number from `python scripts/wq.py next`) in `docs/DECISIONS.md`:
+  help text may consult the user agent, D-53 still governs every behavior. Append a `## WQ-054` block to `CLAUDE.md`
+  (append-only hub file) under the WQ-045 block, and extend the WQ-045 block's "Known platform facts" claim that the
+  case had not been observed with a pointer to the new block.
+- `tests/smoke.js`: the `// WQ-045` block (`tests/smoke.js:1921`–1965) checks the fix line only against the feature check
+  (`tests/smoke.js:1944`–1945, `b.perm`). Add a context created with a Pixel-style Android `userAgent` (Playwright's
+  `browser.newContext({ userAgent })`) that starts the trainer with no motion and sees the Android line after 2 s, and
+  keep the existing check for the non-Android user agent. Both must pass in headless Chromium, whose default user agent
+  does not contain "Android".
+- Take a screenshot of the banner with the Android line at 844×390 into `docs/screenshots/wq-054/`.
+- Out of scope: pausing or opening Settings on stale motion (WQ-050 owns `updateMotionBanner` changes); the permission
+  flow itself; the engine and recordings; `docs/CLASS_USE.md` and the README (WQ-055). Touches `index.html`: not in
+  parallel with WQ-050 or any other `index.html` item.
+
+**Acceptance.**
+- Agent-verifiable: the two smoke checks (Android user agent → the Motion sensors line; default user agent → the
+  existing branch) pass; `npm test` passes; engine `VERSION` 0.18.0 unchanged; no recording changes; D-140 logged;
+  the screenshot exists.
+- Owner-verifiable: Pixel 11, Chrome: block Motion sensors at `chrome://settings/content/sensors`, open the deployed
+  page, tap Start → after about 2 s the banner with the Android line; allow the setting, reload → no banner and the
+  alarms work. The student's Pixel 9 (Vanadium): the same line appears, and after allowing Motion sensors for the site
+  the trainer works (a report from the student counts).
+
+**Verification.** `npm test`; the screenshot; the completion entry records the final wording and the user agent string
+the smoke test uses.
+
+---
+
+### WQ-055 — Document the Android Motion sensors setting (GrapheneOS Vanadium) for students
+
+- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
+- **Added:** 2026-11-02 by student-support session (same report as WQ-054)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** See WQ-054: a student's Pixel 9 on GrapheneOS gets no motion data because Vanadium blocks the Motion sensors
+site setting by default, and nothing on Android ever prompts for it. `docs/CLASS_USE.md` "Student setup" (`docs/CLASS_USE.md:15`–24)
+says only "iPhone: tap Allow" and carries the WQ-045 iPhone-only banner note (`docs/CLASS_USE.md:23`–24); the README's
+"Known limitations" (`README.md:44`–50) names HTTPS, laptops and vibration but no Android browser setting. Verified so
+far: Vanadium (GrapheneOS) blocks by default and has had a per-site toggle since version 144; stock Chrome and Samsung
+Internet allow by default. Other privacy browsers (Brave, Cromite, DuckDuckGo) are believed to restrict sensors but have
+not been checked: write them as "may", not as fact.
+
+**Scope.**
+- `docs/CLASS_USE.md`, after the WQ-045 note (append a paragraph, keep the WQ-045 text): Android shows no prompt; if the
+  **No motion data** banner appears, allow **Motion sensors** for the site (padlock → Permissions, or the browser's
+  Settings → Site settings → Motion sensors), reload; on GrapheneOS, Vanadium blocks them by default, and the OS also has
+  Settings → Apps → the browser → Permissions → **Sensors**; verify with Settings → "Show sensor readout on the trainer
+  screen" (the rate values move). Also change step 1 (`docs/CLASS_USE.md:16`) to say Android shows no prompt.
+- `README.md` "Known limitations": one bullet, in the same words, naming Vanadium as the verified case and other
+  privacy browsers as "may".
+- `CLAUDE.md` "Known platform facts" is a hub file: append a `## WQ-055` block (or fold into WQ-054's block if that item
+  has landed) recording the observed case in one or two lines.
+- If WQ-054 has landed, copy its final banner wording so the doc and the banner agree.
+- Out of scope: `index.html`, `tests/`, the engine (WQ-054). Hub files are appended, not rewritten, so this can run in
+  parallel with anything but WQ-054's `CLAUDE.md` block (coordinate the block if both run in one round).
+
+**Acceptance.** The three documents carry the text above; no code change; `python scripts/wq.py check` passes; the
+README renders on GitHub without a broken list.
+
+**Verification.** Read the three diffs; the completion entry quotes the CLASS_USE paragraph.
 
 ---
 
