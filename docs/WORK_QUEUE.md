@@ -38,15 +38,13 @@ updated: 2026-11-02
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
-| WQ-050 | Stale motion data pauses the trainer and opens Settings (D-134) | P1 | M | claimed:round-20261102-1 | — | platform |
+| WQ-050 | Stale motion data pauses the trainer and opens Settings (D-134) | P1 | M | blocked:owner-machine | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | blocked:owner-machine | — | platform |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
-| WQ-049 | Run the browser suites (smoke, roundtrip) in GitHub Actions | P2 | S | claimed:round-20261102-1 | — | hygiene |
-| WQ-054 | No-motion banner: name the browser's Motion sensors setting on Android (D-123 c) | P2 | S | claimed:round-20261102-1 | — | platform |
-| WQ-055 | Document the Android Motion sensors setting (GrapheneOS Vanadium) for students | P2 | S | claimed:round-20261102-1 | — | docs |
+| WQ-054 | No-motion banner: name the browser's Motion sensors setting on Android (D-123 c) | P2 | S | blocked:owner-machine | — | platform |
 | WQ-056 | Add a "How it works" visual tutorial opened from the start screen (D-140) | P2 | M | claimed:round-20261102-1 | — | ui |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
@@ -541,49 +539,10 @@ records it in this item's completion entry.
 
 ---
 
-### WQ-049 — Run the browser suites (smoke, roundtrip) in GitHub Actions
-
-- **Status:** claimed:round-20261102-1 · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
-- **Added:** 2026-10-27 by review-triage session (promoted from the parking lot; ChatGPT's blind review of 2026-10-26 raised it as its first finding)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** `.github/workflows/test.yml` (WQ-033) runs one job, `replay`, which executes `node tests/replay.js` only.
-`tests/smoke.js` (browser state machine, icons, offline, accessibility) and `tests/roundtrip.js` (record in the page,
-replay in Node) run only when a contributor remembers `npm test` locally; `README.md:89`–90 says so. A change can pass
-the replay suite and still break Start, the touch wiring, the recorder or the service worker. WQ-036 (D-126) made the
-smoke press block deterministic (held test clock), which was the reason the browser suites were kept out of CI.
-Both suites use `require('playwright')` and `chromium.launch()` with no options (`tests/smoke.js:3`, `:19`;
-`tests/roundtrip.js:4`, `:22`); `package.json` pins `playwright` 1.63.0 and has no lockfile.
-
-**Scope.**
-- Add a second job `browser` to `.github/workflows/test.yml`: checkout, `actions/setup-node` with Node 22, `npm install`
-  (no lockfile, so not `npm ci`), `npx playwright install --with-deps chromium`, then `node tests/smoke.js` and
-  `node tests/roundtrip.js` as two steps so the log shows which suite failed. Same `permissions: contents: read`.
-- Move `actions/checkout` and `actions/setup-node` to v5 in both jobs (WQ-033 saw the Node 20 runner deprecation
-  warning on v4).
-- Keep `replay` as the only check WQ-047 requires until `browser` has a record of green runs; say so in a comment in
-  the workflow file and in WQ-047's Updated line.
-- `README.md:89`–90: the two sentences become "All three suites run in GitHub Actions on every push and pull request
-  (`.github/workflows/test.yml`, jobs `replay` and `browser`)". `CLAUDE.md` layout line for `test.yml` (append the job name).
-- If a smoke or roundtrip check fails on the runner but passes locally, fix the test's timing (held clock, waits on
-  state rather than sleeps), never the page, and record the flaky check in the completion entry; if it cannot be made
-  stable in this item, leave the step `continue-on-error: true` with a comment naming the check and open a follow-up.
-- Out of scope: the replay job's content; branch protection (WQ-047); any change to `index.html` or `engine.js`.
-
-**Acceptance.**
-- Agent-verifiable: the workflow file parses; `npm test` passes locally; the Actions run on the pushed branch shows
-  both jobs green (the executing session reads the run via the GitHub tools or the owner reports it); the three
-  suites' PASS/FAIL counts in the Actions log equal the local counts.
-- README and CLAUDE.md updated as above.
-
-**Verification.** The Actions run URL and both jobs' durations in the completion entry.
-
----
-
 ### WQ-050 — Stale motion data pauses the trainer and opens Settings (D-134)
 
-- **Status:** claimed:round-20261102-1 · **Priority:** P1 · **Size:** M · **Track:** platform · **Env:** any
-- **Added:** 2026-10-27 by review-triage session (Ricky's decision D-134 in chat, 2026-10-27, on ChatGPT's blind review finding "missing motion must never read as stationary")
+- **Status:** blocked:owner-machine · **Priority:** P1 · **Size:** M · **Track:** platform · **Env:** any
+- **Added:** 2026-10-27 by review-triage session (Ricky's decision D-134 in chat, 2026-10-27, on ChatGPT's blind review finding "missing motion must never read as stationary") · **Updated:** 2026-11-02 by the orchestration session (round-20261102-1, Opus execution agent): the agent half landed in 9242310 and 980eb69 on `main` — stale motion (2 s / 5 s, unchanged) now stops a recording, opens Settings at a new **Motion data** section and pauses the engine; armed once per no-motion episode, re-armed only by a motion sample (D-141); 12 smoke checks; `npm test` 641 PASS / 0 FAIL, all 47 recordings identical, engine 0.18.1. Remaining, owner half: iPhone 15 Safari with **Don't Allow** → about 2 s after Start Settings opens with Motion data and the Safari steps, follow them → the trainer runs and Settings does not reopen; Pixel 11 or S20+: normal use, including a return from the background, never opens Settings by itself
 - **Depends on:** — (WQ-045's agent half landed 7d4cdc3; its owner check is independent) · **Blocks:** —
 
 **Context.** When `devicemotion` samples stop, the engine has no way to know: `motion()` is simply not called, so
@@ -640,8 +599,8 @@ pause / Settings screen instead of training on. The existing pause path is `setE
 
 ### WQ-054 — No-motion banner: name the browser's Motion sensors setting on Android (D-123 c)
 
-- **Status:** claimed:round-20261102-1 · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
-- **Added:** 2026-11-02 by student-support session (Ricky's report of a student's Pixel 9 on GrapheneOS with no motion data)
+- **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
+- **Added:** 2026-11-02 by student-support session (Ricky's report of a student's Pixel 9 on GrapheneOS with no motion data) · **Updated:** 2026-11-02 by the orchestration session (round-20261102-1, Opus execution agent): the agent half landed in 8c5a2c0 and f3d6e93 on `main` — `isAndroidUA()` and an Android branch in `motionFixText()` (wording: "Allow Motion sensors for this site (padlock → Permissions, or the browser's Settings → Site settings → Motion sensors), then reload. On Vanadium (GrapheneOS) also check Settings → Apps → the browser → Permissions → Sensors."), shown in the banner and in Settings → Motion data; the decision is D-142 (D-140 was taken); smoke user agent `Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Mobile Safari/537.36`; screenshots in `docs/screenshots/wq-054/`; `npm test` 646 PASS / 0 FAIL, engine 0.18.1. Remaining, owner half: Pixel 11 Chrome with Motion sensors blocked at `chrome://settings/content/sensors` → the Android line about 2 s after Start, allow and reload → no banner and the alarms work; a report from the student's Pixel 9 (Vanadium)
 - **Depends on:** — · **Blocks:** —
 
 **Context.** The first Android no-motion case has been observed: a student on a Pixel 9 running GrapheneOS and its
@@ -690,41 +649,6 @@ and the debug readout; D-53 says behavior uses feature checks, never the platfor
 
 **Verification.** `npm test`; the screenshot; the completion entry records the final wording and the user agent string
 the smoke test uses.
-
----
-
-### WQ-055 — Document the Android Motion sensors setting (GrapheneOS Vanadium) for students
-
-- **Status:** claimed:round-20261102-1 · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
-- **Added:** 2026-11-02 by student-support session (same report as WQ-054)
-- **Depends on:** — · **Blocks:** —
-
-**Context.** See WQ-054: a student's Pixel 9 on GrapheneOS gets no motion data because Vanadium blocks the Motion sensors
-site setting by default, and nothing on Android ever prompts for it. `docs/CLASS_USE.md` "Student setup" (`docs/CLASS_USE.md:15`–24)
-says only "iPhone: tap Allow" and carries the WQ-045 iPhone-only banner note (`docs/CLASS_USE.md:23`–24); the README's
-"Known limitations" (`README.md:44`–50) names HTTPS, laptops and vibration but no Android browser setting. Verified so
-far: Vanadium (GrapheneOS) blocks by default and has had a per-site toggle since version 144; stock Chrome and Samsung
-Internet allow by default. Other privacy browsers (Brave, Cromite, DuckDuckGo) are believed to restrict sensors but have
-not been checked: write them as "may", not as fact.
-
-**Scope.**
-- `docs/CLASS_USE.md`, after the WQ-045 note (append a paragraph, keep the WQ-045 text): Android shows no prompt; if the
-  **No motion data** banner appears, allow **Motion sensors** for the site (padlock → Permissions, or the browser's
-  Settings → Site settings → Motion sensors), reload; on GrapheneOS, Vanadium blocks them by default, and the OS also has
-  Settings → Apps → the browser → Permissions → **Sensors**; verify with Settings → "Show sensor readout on the trainer
-  screen" (the rate values move). Also change step 1 (`docs/CLASS_USE.md:16`) to say Android shows no prompt.
-- `README.md` "Known limitations": one bullet, in the same words, naming Vanadium as the verified case and other
-  privacy browsers as "may".
-- `CLAUDE.md` "Known platform facts" is a hub file: append a `## WQ-055` block (or fold into WQ-054's block if that item
-  has landed) recording the observed case in one or two lines.
-- If WQ-054 has landed, copy its final banner wording so the doc and the banner agree.
-- Out of scope: `index.html`, `tests/`, the engine (WQ-054). Hub files are appended, not rewritten, so this can run in
-  parallel with anything but WQ-054's `CLAUDE.md` block (coordinate the block if both run in one round).
-
-**Acceptance.** The three documents carry the text above; no code change; `python scripts/wq.py check` passes; the
-README renders on GitHub without a broken list.
-
-**Verification.** Read the three diffs; the completion entry quotes the CLASS_USE paragraph.
 
 ---
 
