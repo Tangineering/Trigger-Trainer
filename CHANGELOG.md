@@ -25,6 +25,10 @@ Page and project changes with no engine change (the engine version shown in Sett
   support / known limitations section.
 
 ### Changed
+- When motion data stops (2 s after **Start** with none, or 5 s after it stopped), the trainer now pauses and opens
+  Settings at a **Motion data** section with the fix, instead of training on with alarms that cannot work. **Resume**
+  with motion still missing (a laptop demo) keeps training with the banner; Settings opens again only after motion has
+  come back and stopped once more.
 - Low Ready with a class code: the code now lasts for the session only. **Again** keeps it; **New session** and
   reopening the page clear it, so a code typed in an earlier class no longer turns the next Low Ready into a class
   run.
