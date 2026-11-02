@@ -79,15 +79,15 @@ const check = (name, cond, extra) => {
   check(`replay reproduces the live events exactly (${rec.observed.length} events)`, a === b, { live: rec.observed, replay: res.packed });
   check('recording stopped after save', !(await page.evaluate(() => window.__tdt().recording)));
   check('the page says where the file went', /Downloaded .*Downloads/.test(await page.textContent('#recInfo')));
-  // Waits on the state (WQ-049): on the Actions runner a point-in-time read raced the overlay's first layout.
+  // Waits on the state and allows sub-pixel rounding (WQ-049): the Actions runner's fonts put the section's top at -0.22 px.
   const atRecorder = () => {
     const ov = document.getElementById('settingsOv'), r = document.getElementById('recSection').getBoundingClientRect();
-    return { ok: ov.classList.contains('show') && ov.scrollTop > 0 && r.top >= 0 && r.top < innerHeight / 2,
+    return { ok: ov.classList.contains('show') && ov.scrollTop > 0 && r.top > -1 && r.top < innerHeight / 2,
              show: ov.classList.contains('show'), scrollTop: ov.scrollTop, top: r.top, h: innerHeight };
   };
   await page.waitForFunction(() => {
     const ov = document.getElementById('settingsOv'), r = document.getElementById('recSection').getBoundingClientRect();
-    return ov.classList.contains('show') && ov.scrollTop > 0 && r.top >= 0 && r.top < innerHeight / 2;
+    return ov.classList.contains('show') && ov.scrollTop > 0 && r.top > -1 && r.top < innerHeight / 2;
   }, null, { timeout: 3000 }).catch(() => {});
   check('stopping returns to Settings at the recorder', (await page.evaluate(atRecorder)).ok, await page.evaluate(atRecorder));
 
