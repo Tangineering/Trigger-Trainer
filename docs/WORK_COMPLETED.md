@@ -39,7 +39,7 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 - **Closed:** 2026-11-02 · **Outcome:** done
 - **Executed by:** execution agent on opus; orchestrator (this session) merged, read the three diffs and archived · **Round:** round-20261102-1
-- **Commits / PR:** 9ed82dd WQ-055: Document the Android Motion sensors site setting. On `release`: see the round's final push (merged to `main` and `release` with the round).
+- **Commits / PR:** 9ed82dd WQ-055: Document the Android Motion sensors site setting. On `main` (93a0539); not on `release` yet — the round has three owner-machine halves open (WQ-050, WQ-054, WQ-056), so the release fast-forward waits for the owner's phone pass (D-131).
 
 **What was done.** `docs/CLASS_USE.md`: Student setup step 1 now says Android shows no prompt, and a WQ-055 paragraph after the WQ-045 note tells an Android student to allow **Motion sensors** for the site (padlock → Permissions, or Settings → Site settings → Motion sensors), reload, and on GrapheneOS also check Settings → Apps → the browser → Permissions → **Sensors**; verify with the sensor readout. `README.md` "Known limitations": one bullet in the same words, Vanadium as the verified case, Brave / Cromite / DuckDuckGo as "may". `CLAUDE.md`: a `## WQ-055` block records the observed case (a student's Pixel 9 on GrapheneOS, 2026-11-02) and says the banner wording belongs to WQ-054.
 
@@ -57,7 +57,7 @@ manual checks). Say "not verified" plainly where that is the truth.
 
 - **Closed:** 2026-11-02 · **Outcome:** done-with-deviations
 - **Executed by:** execution agent on opus; orchestrator (this session) merged, pushed, read the Actions runs and fixed one runner-only check under this id · **Round:** round-20261102-1
-- **Commits / PR:** 1993df9 WQ-049: Run the smoke and roundtrip suites in GitHub Actions; orchestrator follow-through 8b5e584 WQ-049: wait on the recorder scroll state in the roundtrip suite and 066b0e5 "WQ-049: allow sub-pixel rounding in the recorder scroll check". Merged to `main` and `release` with the round.
+- **Commits / PR:** 1993df9 WQ-049: Run the smoke and roundtrip suites in GitHub Actions; orchestrator follow-through 8b5e584 WQ-049: wait on the recorder scroll state in the roundtrip suite and 066b0e5 "WQ-049: allow sub-pixel rounding in the recorder scroll check". On `main` (93a0539); not on `release` yet — the round has three owner-machine halves open (WQ-050, WQ-054, WQ-056), so the release fast-forward waits for the owner's phone pass (D-131).
 
 **What was done.** `.github/workflows/test.yml` gained a second job `browser` (checkout@v5, setup-node@v5 Node 22, `npm install`, `npx playwright install --with-deps chromium`, then `node tests/smoke.js` and `node tests/roundtrip.js` as separate steps) under the existing `permissions: contents: read`; `replay` moved to checkout@v5 / setup-node@v5. A comment says `browser` is not yet a required check (WQ-047 requires only `replay` until `browser` has a record of green runs). README CI paragraph and the CLAUDE.md layout line now name both jobs. `tests/roundtrip.js`: the "stopping returns to Settings at the recorder" check waits on the state (up to 3 s) and tolerates sub-pixel rounding (`r.top > -1`), printing its measured values on failure.
 
