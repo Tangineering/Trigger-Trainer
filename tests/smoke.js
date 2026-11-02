@@ -2198,7 +2198,7 @@ const check = (name, cond, state) => {
     const aria = await ap.evaluate(() => {
       const g = id => document.getElementById(id);
       return {
-        dialogs: ['startOv', 'settingsOv', 'summaryOv', 'drillOv', 'drillResOv'].map(id => {
+        dialogs: ['startOv', 'settingsOv', 'summaryOv', 'drillOv', 'drillResOv', 'tutorialOv'].map(id => {   // + How it works (WQ-056)
           const e = g(id), lb = e.getAttribute('aria-labelledby');
           return e.getAttribute('role') === 'dialog' && e.getAttribute('aria-modal') === 'true' && !!lb && !!g(lb) && g(lb).textContent.trim().length > 0;
         }),
@@ -2208,7 +2208,7 @@ const check = (name, cond, state) => {
         vp: document.querySelector('meta[name=viewport]').content,
       };
     });
-    check('WQ-044: the five overlays are labelled modal dialogs', aria.dialogs.every(Boolean), aria.dialogs);
+    check('WQ-044: the five overlays (and WQ-056\'s #tutorialOv) are labelled modal dialogs', aria.dialogs.every(Boolean), aria.dialogs);
     check('WQ-044: the status pill and #drillLine are polite live regions', aria.live.every(v => v === 'polite'), aria.live);
     check('WQ-044: the REC pill, the gear and Set downrange carry an aria-label', !!aria.rec && !!aria.gear && /^Set downrange/.test(aria.dr || ''), aria);
     check('WQ-044: user-scalable=no is kept (D-130)', /user-scalable=no/.test(aria.vp), aria.vp);
@@ -2502,6 +2502,106 @@ const check = (name, cond, state) => {
     await ctouch('touchEnd', []).catch(() => {});
     check('WQ-051: no page errors in this section', errors.filter(e => e.startsWith('class page')).length === 0, errors);
     await cctx.close();
+  }
+
+  // WQ-056 (D-140): How it works. A button on the start screen opens an eight-step overlay (#tutorialOv) over it; it
+  // never opens by itself and stores nothing. Skip / Close return to the start screen, step 8's Start starts the
+  // trainer as #startBtn does. The Hold to hear buttons play the OK tone, the move alarm, the shot and the 180 wail.
+  {
+    const fs = require('fs'), shotDir = path.resolve(__dirname, '..', 'docs', 'screenshots', 'wq-056');
+    if (process.env.WQ_SCREENSHOTS) fs.mkdirSync(shotDir, { recursive: true });
+    const shoot = (pg, n) => process.env.WQ_SCREENSHOTS ? pg.screenshot({ path: path.join(shotDir, n) }) : null;   // PNGs only on request
+    const uctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+    const up = await uctx.newPage();
+    up.on('pageerror', e => errors.push('tutorial page: ' + e.message));
+    await up.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await up.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await up.reload();
+    const ust = () => up.evaluate(() => window.__tdt());
+    const lsKeys = () => up.evaluate(() => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); o[k] = localStorage.getItem(k); } return JSON.stringify(o); });
+    const ls0 = await lsKeys();
+    const view = () => up.evaluate(() => {
+      const o = document.getElementById('tutorialOv'), g = id => document.getElementById(id);
+      return { open: o.classList.contains('show'), start: g('startOv').classList.contains('show'),
+               of: g('tutOf').textContent, next: g('tutNext').textContent, skip: g('tutSkip').textContent,
+               dots: g('tutDots').children.length, text: o.textContent, title: g('tutStepTitle').textContent,
+               scrollV: o.scrollHeight - o.clientHeight, scrollH: o.scrollWidth - o.clientWidth,
+               hear: g('tutHear').hidden ? null : g('tutHear').dataset.sound, anim: g('tutPic').querySelectorAll('[class^="tu-"]').length,
+               bang: g('tutPic').querySelectorAll('.tu-bang').length, backHidden: getComputedStyle(g('tutBack')).visibility === 'hidden',
+               small: [...o.querySelectorAll('button')].filter(b => !b.hidden && getComputedStyle(b).visibility !== 'hidden')
+                 .map(b => b.getBoundingClientRect()).filter(r => r.height < 44 || r.width < 44).length };
+    });
+    let u = await ust(), v = await view();
+    check('WQ-056: the start screen shows How it works; no tutorial is open at load',
+      v.start && !v.open && !u.tutorialOpen && u.tutorialStep === null && /^How it works$/.test((await up.textContent('#howBtn')).trim()), [v.open, u.tutorialOpen, u.tutorialStep]);
+    check('WQ-056: How it works sits above the Drill button',
+      await up.evaluate(() => document.getElementById('howBtn').getBoundingClientRect().bottom <= document.getElementById('drillBtn').getBoundingClientRect().top));
+    await up.$eval('#howBtn', e => e.scrollIntoView({ block: 'center' })); await shoot(up, 'built-entry.png');
+    await up.click('#howBtn'); await up.waitForTimeout(50);
+    u = await ust(); v = await view();
+    check('WQ-056: clicking it opens #tutorialOv at step 1 (Back hidden, Skip, Next), over the start screen',
+      v.open && v.start && u.tutorialOpen && u.tutorialStep === 1 && v.of === '1 of 8' && v.backHidden && v.skip === 'Skip' && v.next === 'Next', [u.tutorialStep, v]);
+    const per = [];
+    for (let i = 1; i <= 8; i++) {
+      v = await view(); u = await ust();
+      per.push({ step: u.tutorialStep, of: v.of, dots: v.dots, scrollV: v.scrollV, scrollH: v.scrollH, drift: /drift/i.test(v.text), small: v.small, title: v.title, hear: v.hear });
+      await shoot(up, `built-step-${i}.png`);
+      if (i < 8) { await up.click('#tutNext'); await up.waitForTimeout(30); }
+    }
+    check('WQ-056: Next x7 walks steps 1..8, eight dots each, and step 8 is the last (Start, Close)',
+      per.every((p, i) => p.step === i + 1 && p.of === `${i + 1} of 8` && p.dots === 8) && v.next === 'Start' && v.skip === 'Close', per);
+    check('WQ-056: the steps are the eight of the mockup, in order',
+      JSON.stringify(per.map(p => p.title)) === JSON.stringify(['Hold the phone like the side of a pistol', 'Finger flat on the frame = safe',
+        'Finger off the frame: hold still', 'Press the trigger straight back', 'Read the shot', 'Set downrange: the 180 rule', 'Drills', 'Ready']), per.map(p => p.title));
+    check('WQ-056: Hold to hear on steps 2 (ok), 3 (move), 4 (shot) and 6 (180) only',
+      JSON.stringify(per.map(p => p.hear)) === JSON.stringify([null, 'ok', 'move', 'shot', null, '180', null, null]), per.map(p => p.hear));
+    check('WQ-056: no step\'s text contains "drift" (D-140 a)', per.every(p => !p.drift), per.map(p => p.drift));
+    check('WQ-056: at 844x390 #tutorialOv does not scroll on any step', per.every(p => p.scrollV <= 1 && p.scrollH <= 1), per.map(p => [p.scrollV, p.scrollH]));
+    check('WQ-056: every visible tutorial button is at least 44 px', per.every(p => p.small === 0), per.map(p => p.small));
+    await up.click('#tutBack'); await up.waitForTimeout(30);
+    check('WQ-056: Back goes back (8 -> 7, Next again)', (await ust()).tutorialStep === 7 && (await view()).next === 'Next');
+    // Hold to hear: step 3 holds the move alarm, step 6 the 180 wail; release clears it. Steps 2 and 4 play once.
+    const hold = async () => { const bb = await (await up.$('#tutHear')).boundingBox();
+      await up.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await up.mouse.down(); await up.waitForTimeout(80);
+      const a = (await ust()).alarmSound; await up.mouse.up(); await up.waitForTimeout(50); return [a, (await ust()).alarmSound]; };
+    const goStep = async n => { while ((await ust()).tutorialStep > n) await up.click('#tutBack'); while ((await ust()).tutorialStep < n) await up.click('#tutNext'); };
+    await goStep(3); const h3 = await hold();
+    check('WQ-056: holding the step 3 button plays the move alarm; releasing clears it', h3[0] === 'move' && h3[1] === null, h3);
+    await goStep(6); const h6 = await hold();
+    check('WQ-056: holding the step 6 button plays the 180 wail; releasing clears it', h6[0] === '180' && h6[1] === null, h6);
+    await goStep(2); const h2 = await hold(); await goStep(4); const h4 = await hold();
+    check('WQ-056: steps 2 and 4 play a one-shot sound (no alarm left sounding)', h2[0] === null && h4[0] === null && h2[1] === null && h4[1] === null, [h2, h4]);
+    // Reduced motion: the pictures are static (no animation class, no in-picture flash); defaults: animated, flash in the picture.
+    v = await view();
+    check('WQ-056: defaults: step 4 animates the pull and flashes inside the picture only', v.anim > 0 && v.bang === 1, v);
+    await up.emulateMedia({ reducedMotion: 'reduce' }); await up.click('#tutBack'); await up.click('#tutNext'); v = await view();
+    check('WQ-056: reduced motion: step 4 has no animation and no flash', v.anim === 0 && v.bang === 0, v);
+    await up.emulateMedia({ reducedMotion: 'no-preference' });
+    // Portrait: picture above the text, no sideways overflow.
+    await up.setViewportSize({ width: H, height: W }); await up.waitForTimeout(200);
+    const pr = await up.evaluate(() => { const o = document.getElementById('tutorialOv'), p = document.getElementById('tutPic').getBoundingClientRect(),
+      t = document.getElementById('tutStepTitle').getBoundingClientRect(); return { h: o.scrollWidth - o.clientWidth, above: p.bottom <= t.top, step: window.__tdt().tutorialStep }; });
+    check('WQ-056: portrait 390x844: picture above the text, no horizontal overflow', pr.h <= 1 && pr.above, pr);
+    await shoot(up, 'built-portrait-step-4.png');
+    await up.setViewportSize({ width: W, height: H }); await up.waitForTimeout(200);
+    await up.click('#tutSkip'); await up.waitForTimeout(50);
+    u = await ust(); v = await view();
+    check('WQ-056: Skip returns to the start screen with the engine untouched',
+      !v.open && v.start && !u.tutorialOpen && u.tutorialStep === null && !u.running && u.paused && !u.armed && u.shots === 0 && u.violations === 0 && u.alarmSound === null, u);
+    await up.reload(); await up.waitForTimeout(100);
+    u = await ust();
+    check('WQ-056: after a reload the tutorial is not open', !u.tutorialOpen && u.tutorialStep === null && await up.$eval('#startOv', e => e.classList.contains('show')));
+    check('WQ-056: nothing new in localStorage', await lsKeys() === ls0, [ls0, await lsKeys()]);
+    await up.click('#howBtn'); for (let i = 0; i < 7; i++) await up.click('#tutNext');
+    await up.click('#tutNext'); await up.waitForTimeout(300);
+    u = await ust();
+    check('WQ-056: step 8 Start closes the tutorial and starts the trainer as #startBtn does',
+      !u.tutorialOpen && u.tutorialStep === null && u.running && !(await up.$eval('#startOv', e => e.classList.contains('show'))) && u.drill === null, u);
+    await up.waitForTimeout(300);
+    check('WQ-056: after Start the tutorial does not open', !(await ust()).tutorialOpen);
+    check('WQ-056: still nothing new in localStorage after Start', await lsKeys() === ls0, [ls0, await lsKeys()]);
+    check('WQ-056: no page errors in this section', errors.filter(e => e.startsWith('tutorial page')).length === 0, errors);
+    await uctx.close();
   }
 
   check('no page errors', errors.length === 0, errors);
