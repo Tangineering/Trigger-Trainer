@@ -38,16 +38,16 @@ updated: 2026-11-02
 | WQ-031 | Let only one fresh touch control the engine; ignore later fingers (D-113, D-115) | P1 | M | blocked:owner-machine | — | alarm |
 | WQ-006 | Record axis and clean-press drills on an iPhone and a second Android phone | P1 | S | blocked:owner-machine | — | recordings |
 | WQ-045 | Tell the user when no motion data arrives after Start | P1 | S | blocked:owner-machine | — | platform |
-| WQ-050 | Stale motion data pauses the trainer and opens Settings (D-134) | P1 | M | queued | — | platform |
+| WQ-050 | Stale motion data pauses the trainer and opens Settings (D-134) | P1 | M | claimed:round-20261102-1 | — | platform |
 | WQ-023 | Find out why the shot vibration never fires on Android | P2 | S | blocked:owner-machine | — | platform |
 | WQ-037 | Add PNG home-screen icons for iOS and Android | P2 | S | blocked:owner-machine | — | ui |
 | WQ-042 | Set the GitHub repository description, topics, website and social preview | P2 | S | blocked:owner-machine | — | docs |
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | blocked:owner-machine | — | platform |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
-| WQ-049 | Run the browser suites (smoke, roundtrip) in GitHub Actions | P2 | S | queued | — | hygiene |
-| WQ-054 | No-motion banner: name the browser's Motion sensors setting on Android (D-123 c) | P2 | S | queued | — | platform |
-| WQ-055 | Document the Android Motion sensors setting (GrapheneOS Vanadium) for students | P2 | S | queued | — | docs |
-| WQ-056 | Add a "How it works" visual tutorial opened from the start screen (D-140) | P2 | M | queued | — | ui |
+| WQ-049 | Run the browser suites (smoke, roundtrip) in GitHub Actions | P2 | S | claimed:round-20261102-1 | — | hygiene |
+| WQ-054 | No-motion banner: name the browser's Motion sensors setting on Android (D-123 c) | P2 | S | claimed:round-20261102-1 | — | platform |
+| WQ-055 | Document the Android Motion sensors setting (GrapheneOS Vanadium) for students | P2 | S | claimed:round-20261102-1 | — | docs |
+| WQ-056 | Add a "How it works" visual tutorial opened from the start screen (D-140) | P2 | M | claimed:round-20261102-1 | — | ui |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -543,7 +543,7 @@ records it in this item's completion entry.
 
 ### WQ-049 — Run the browser suites (smoke, roundtrip) in GitHub Actions
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
+- **Status:** claimed:round-20261102-1 · **Priority:** P2 · **Size:** S · **Track:** hygiene · **Env:** any
 - **Added:** 2026-10-27 by review-triage session (promoted from the parking lot; ChatGPT's blind review of 2026-10-26 raised it as its first finding)
 - **Depends on:** — · **Blocks:** —
 
@@ -582,7 +582,7 @@ Both suites use `require('playwright')` and `chromium.launch()` with no options 
 
 ### WQ-050 — Stale motion data pauses the trainer and opens Settings (D-134)
 
-- **Status:** queued · **Priority:** P1 · **Size:** M · **Track:** platform · **Env:** any
+- **Status:** claimed:round-20261102-1 · **Priority:** P1 · **Size:** M · **Track:** platform · **Env:** any
 - **Added:** 2026-10-27 by review-triage session (Ricky's decision D-134 in chat, 2026-10-27, on ChatGPT's blind review finding "missing motion must never read as stationary")
 - **Depends on:** — (WQ-045's agent half landed 7d4cdc3; its owner check is independent) · **Blocks:** —
 
@@ -640,7 +640,7 @@ pause / Settings screen instead of training on. The existing pause path is `setE
 
 ### WQ-054 — No-motion banner: name the browser's Motion sensors setting on Android (D-123 c)
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
+- **Status:** claimed:round-20261102-1 · **Priority:** P2 · **Size:** S · **Track:** platform · **Env:** any
 - **Added:** 2026-11-02 by student-support session (Ricky's report of a student's Pixel 9 on GrapheneOS with no motion data)
 - **Depends on:** — · **Blocks:** —
 
@@ -695,7 +695,7 @@ the smoke test uses.
 
 ### WQ-055 — Document the Android Motion sensors setting (GrapheneOS Vanadium) for students
 
-- **Status:** queued · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
+- **Status:** claimed:round-20261102-1 · **Priority:** P2 · **Size:** S · **Track:** docs · **Env:** any
 - **Added:** 2026-11-02 by student-support session (same report as WQ-054)
 - **Depends on:** — · **Blocks:** —
 
@@ -730,7 +730,7 @@ README renders on GitHub without a broken list.
 
 ### WQ-056 — Add a "How it works" visual tutorial opened from the start screen (D-140)
 
-- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** ui · **Env:** browser
+- **Status:** claimed:round-20261102-1 · **Priority:** P2 · **Size:** M · **Track:** ui · **Env:** browser
 - **Added:** 2026-11-02 by tutorial-mockup session (I-34 promoted by Ricky's D-140 after reviewing the mockup)
 - **Depends on:** — · **Blocks:** —
 
