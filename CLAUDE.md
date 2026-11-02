@@ -465,6 +465,23 @@ The fix line (`motionFixText()`) is chosen by feature checks (D-53): non-secure 
 Orientation Access; else HTTPS line. While open, `setStatus` prefixes the pill with "NO MOTION · ". `#warnLine` no longer
 carries a no-motion message. `window.__tdt()` adds `motionSeen` (any sample since load) and `motionBannerOpen`.
 
+## WQ-050 — stale motion pauses and opens Settings (D-134, D-141)
+
+`index.html` only (engine 0.18.1 unchanged, nothing new logged: the pause is the existing `['p', t, 1]` row). Replaces
+D-123's inform-only stance. In `updateMotionBanner(t)`, once the banner is open (the 2 s / 5 s rule of WQ-045 unchanged),
+`motionPauseArmed` is true and no overlay is showing (`overlayOpen()`: start screen, Settings, summary, drill picker,
+drill results), the page clears `motionPauseArmed`, sets `motionNotice`, stops a recording in progress
+(`stopRecording(false)`, kept for **Save last recording**), calls `openSettings('motion')` and pauses the engine in the same
+frame; the `settingsOpen` path then keeps it paused (alarm silenced, an active drill run cancelled by `setPaused`).
+Arming is once per no-motion episode (D-141 a): only a motion sample in `onMotion` sets `motionPauseArmed` again, so
+**Resume** with motion still absent (laptop demo, mouse fallback) trains on with the banner and pill prefix (D-124) and
+Settings does not reopen until samples have come back and stopped again. Settings' `#motionSection` (heading id
+`motion`, above Shooter) is shown only while `motionNotice` (cleared by `closeSettings()`); `renderMotionSection()`
+(from `openSettings` and `renderLive`) shows the banner text plus `motionFixText()`, or "Motion data OK" once samples
+resume. `window.__tdt()` adds `motionPaused` (`motionNotice` && banner open && Settings open). Smoke: the `WQ-045` block
+now also covers this (Settings open and paused at 2 s, no reopen after Resume, reopen after one sample and a 5 s gap
+with a Bill standby cancelled and no completion tone, a recording stopped first).
+
 ## WQ-036 — held test clock in the smoke suite (D-126)
 
 `tests/smoke.js` can hold the page's clock: `holdClock()` replaces `performance.now` in the page (test-only, injected by
