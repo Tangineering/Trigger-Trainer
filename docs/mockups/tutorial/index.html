@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tutorial mockup</title>
+<!-- Mockup for I-34 (visual tutorial from the start screen). Not loaded by the app; nothing here is decided.
+     Open in a browser: the top frame is clickable (Back / Next / Skip), the grid below shows every step. -->
+<style>
+  :root {
+    --bg: #121417; --panel: #1b1e23; --line: #2c3138; --ink: #e9ecef; --muted: #9aa3ad;
+    --steel-hi: #4c535c; --steel-lo: #2f343a; --frame: #24282e;
+    --safe: #2fbf71; --warn: #f0a020; --bad: #e5484d; --trig: #3b82f6;
+  }
+  body { margin: 0; background: #0b0c0e; color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .page { max-width: 1760px; margin: 0 auto; padding: 24px 16px 48px; }
+  .page > h1 { font-size: 22px; margin: 0 0 4px; }
+  .page > p { color: var(--muted); margin: 0 0 18px; max-width: 900px; line-height: 1.45; }
+  .page > h2 { font-size: 16px; margin: 32px 0 10px; color: var(--muted); font-weight: 600; }
+
+  /* a landscape phone, 844x390 CSS px like the smoke suite */
+  .phone { width: 844px; height: 390px; position: relative; overflow: hidden; background: var(--bg);
+           border-radius: 28px; outline: 10px solid #26292e; margin: 10px; flex: none; }
+  .phone.small { zoom: .5; }
+  .grid { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+  .cap { font-size: 13px; color: var(--muted); margin: 6px 12px 0; }
+
+  .btn { font: inherit; font-size: 15px; font-weight: 600; color: var(--ink); background: #262a31; border: 1px solid #353b43;
+         border-radius: 10px; padding: 10px 16px; cursor: pointer; }
+  .btn.primary { background: var(--safe); border-color: var(--safe); color: #06210f; }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); padding: 8px 10px; }
+
+  /* ---- start screen (only the part that changes) ---- */
+  .start { padding: 22px 120px; box-sizing: border-box; height: 100%; overflow: hidden; }
+  .start h1 { font-size: 22px; margin: 0 0 12px; }
+  .start .loud { border: 1px solid #8a6315; background: #2e2616; border-radius: 10px; padding: 10px 12px; font-size: 13px; color: #f4e3c0; line-height: 1.4; }
+  .start .row { display: flex; gap: 10px; margin-top: 10px; }
+  .start .drill { display: block; width: 100%; text-align: left; margin-top: 10px; line-height: 1.3; }
+  .start small { font-weight: 400; color: var(--muted); font-size: 13px; }
+  .start .how { border-color: var(--trig); color: #cfe0ff; display: flex; align-items: center; gap: 8px; }
+  .start .how::before { content: "▶"; font-size: 11px; }
+  .start .new { font-size: 12px; color: var(--muted); align-self: center; }
+  .callout { position: absolute; border: 2px solid var(--trig); border-radius: 12px; pointer-events: none; }
+  .callout span { position: absolute; top: -26px; left: 0; background: var(--trig); color: #fff; font-size: 12px; font-weight: 600;
+                  padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+
+  /* ---- tutorial card ---- */
+  .tut { position: absolute; inset: 0; display: grid; grid-template-rows: 44px 1fr 58px; }
+  .tut header { display: flex; align-items: center; gap: 12px; padding: 0 16px 0 22px; border-bottom: 1px solid var(--line); }
+  .tut header b { font-size: 15px; }
+  .tut header .of { color: var(--muted); font-size: 13px; }
+  .tut header .sp { flex: 1; }
+  .tut main { display: grid; grid-template-columns: 488px 1fr; gap: 18px; padding: 12px 22px 0 16px; min-height: 0; }
+  .tut .pic { background: #0d0f12; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; align-self: start; }
+  .tut .pic svg { display: block; width: 100%; height: auto; }
+  .tut .txt { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .tut h2 { margin: 2px 0 0; font-size: 19px; line-height: 1.2; }
+  .tut .txt p { margin: 0; font-size: 14px; line-height: 1.42; color: #cfd4d9; }
+  .tut .txt ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.42; color: #cfd4d9; }
+  .tut .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 99px;
+               background: #20242a; border: 1px solid var(--line); align-self: flex-start; }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .tut footer { display: flex; align-items: center; gap: 10px; padding: 0 16px; border-top: 1px solid var(--line); }
+  .dots { flex: 1; display: flex; justify-content: center; gap: 7px; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: #3a4048; }
+  .dots i.on { background: var(--ink); width: 20px; border-radius: 4px; }
+  .tut .hear { font-size: 13px; color: #cfe0ff; background: none; border: 1px dashed #3e5c8f; border-radius: 8px; padding: 6px 10px; cursor: pointer; align-self: flex-start; }
+
+  /* ---- animations (off with reduced motion: the picture is still complete) ---- */
+  @keyframes sway { 0%,100% { transform: rotate(-3deg) } 50% { transform: rotate(3deg) } }
+  @keyframes pull { 0%,15% { transform: translateX(0) } 55%,70% { transform: translateX(-34px) } 100% { transform: translateX(0) } }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+  @keyframes pulse { 0%,100% { opacity: .9 } 50% { opacity: .35 } }
+  @keyframes bang { 0%,48% { opacity: 0 } 55% { opacity: .9 } 75%,100% { opacity: 0 } }
+  .a-sway { animation: sway 2.4s ease-in-out infinite; transform-box: view-box; transform-origin: 422px 230px; }
+  .a-pull { animation: pull 2.6s ease-in-out infinite; }
+  .a-bang { animation: bang 2.6s linear infinite; }
+  .a-blink { animation: blink .7s steps(2) infinite; }
+  .a-pulse { animation: pulse 1.6s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .a-sway, .a-pull, .a-bang, .a-blink, .a-pulse { animation: none; } }
+  .static .a-sway, .static .a-pull, .static .a-bang, .static .a-blink, .static .a-pulse { animation: none; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Visual tutorial: mockup (I-34)</h1>
+  <p>This is a proposal to look at, not a decision. On the start screen a <b>How it works</b> button opens an
+    overlay with eight short steps. Each step has a picture of the real trainer screen with the part it
+    talks about highlighted, and two to four lines of text in the words of <code>CLASS_USE.md</code>.
+    <b>Back</b>, <b>Next</b> and <b>Skip</b> work in the frame below. The animations stop when the phone asks
+    for reduced motion, and every picture still makes sense without them.</p>
+
+  <h2>Try it (844 × 390, the landscape size the tests use)</h2>
+  <div class="phone" id="live"></div>
+
+  <h2>Entry point: the start screen</h2>
+  <div class="grid">
+    <div><div class="phone" id="entry"></div>
+      <div class="cap">A <b>How it works</b> button sits beside the Drill button. Until the student has seen the tutorial once (the flag kept in <code>localStorage</code>), a "New? 1 min" hint shows next to it.</div></div>
+  </div>
+
+  <h2>All steps</h2>
+  <div class="grid" id="all"></div>
+</div>
+
+<script>
+const C = { safe:'#2fbf71', warn:'#f0a020', bad:'#e5484d', trig:'#3b82f6', ink:'#e9ecef', muted:'#9aa3ad',
+            line:'#2c3138', frame:'#24282e', skin:'#d9c2ae' };
+
+/* The trainer screen at 844x390, right-handed (muzzle right), drawn from the real layout.
+   o.hl: zones to highlight (others dimmed). o.finger: 'frame' | 'off' | 'trigger' | 'pull'. */
+function screen(o = {}) {
+  const hl = o.hl || [], dim = k => hl.length && !hl.includes(k) ? ' opacity=".28"' : '';
+  const ring = (x, y, w, h, c, rx = 12) => `<rect x="${x-6}" y="${y-6}" width="${w+12}" height="${h+12}" rx="${rx+4}" fill="none" stroke="${c}" stroke-width="4" class="a-pulse"/>`;
+  const stCol = { safe: C.safe, bad: C.bad, trig: C.trig, warn: C.warn, idle: '#2f343a' }[o.stc || 'idle'];
+  let s = `<svg viewBox="0 0 844 390" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+  <defs>
+    <linearGradient id="st" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4c535c"/><stop offset="1" stop-color="#2f343a"/></linearGradient>
+    <pattern id="hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#1a1d21"/><rect width="6" height="12" fill="#202429"/></pattern>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker>
+    <marker id="ahw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${C.ink}"/></marker>
+    <marker id="ahb" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${C.bad}"/></marker>
+    <marker id="ahs" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${C.safe}"/></marker>
+  </defs>
+  <rect width="844" height="390" fill="#121417"/>
+  <g class="${o.sway ? 'a-sway' : ''}">
+  <g${dim('slide')}>
+    <rect x="17" y="12" width="810" height="82" rx="14" fill="url(#st)"/>
+    ${Array.from({length: 8}, (_, i) => `<rect x="${34 + i*13}" y="20" width="4" height="66" rx="2" fill="rgba(0,0,0,.35)"/>`).join('')}
+    <rect x="${422-130}" y="29" width="260" height="30" rx="15" fill="${stCol}"/>
+    <text x="422" y="50" text-anchor="middle" font-size="16" font-weight="700" letter-spacing="1" fill="#fff">${o.status || 'PLACE FINGER ON FRAME'}</text>
+    <text x="422" y="76" text-anchor="middle" font-size="12" fill="#cfd4d9">Shots ${o.shots || 0} · Clean ${o.clean || 0} · Alarms ${o.alarms || 0} · 180s 0</text>
+    <text x="760" y="85" text-anchor="end" font-size="11" letter-spacing="2" fill="${C.muted}">MUZZLE ▸</text>
+    <circle cx="796" cy="52" r="19" fill="#22262b" stroke="#3a4048"/><text x="796" y="58" text-anchor="middle" font-size="17" fill="${C.ink}">⚙</text>
+  </g>
+  <g${dim('grip')}>
+    <rect x="0" y="101" width="203" height="289" rx="18" fill="url(#hatch)"/>
+    <text x="101" y="240" text-anchor="middle" font-size="11" letter-spacing="2" fill="${C.muted}">GRIP</text>
+    <text x="101" y="256" text-anchor="middle" font-size="11" letter-spacing="1" fill="${C.muted}">(ignored)</text>
+  </g>
+  <g${dim('frame')}>
+    <rect x="203" y="101" width="624" height="119" rx="8" fill="${C.frame}"/>
+    <rect x="263" y="110" width="546" height="100" rx="12" fill="${o.frameOn ? 'rgba(47,191,113,.24)' : 'rgba(255,255,255,.04)'}"
+          stroke="${o.frameOn ? C.safe : 'rgba(255,255,255,.28)'}" stroke-width="2" ${o.frameOn ? '' : 'stroke-dasharray="7 6"'}/>
+    <text x="536" y="166" text-anchor="middle" font-size="11" letter-spacing="2" fill="${o.frameOn ? '#c9f3dc' : C.muted}">INDEX FINGER — FLAT ON FRAME</text>
+  </g>
+  <g${dim('trigger')}>
+    <path d="M203,305 L290,357 L470,357 Q510,357 510,317 L510,220" fill="none" stroke="${C.frame}" stroke-width="9" stroke-linejoin="round"/>
+    <g class="${o.finger === 'pull' ? 'a-pull' : ''}">
+      <rect x="425" y="226" width="16" height="102" rx="8" fill="${o.trigOn ? C.trig : '#7d838b'}"/>
+    </g>
+    <text transform="translate(470,285) rotate(90)" text-anchor="middle" font-size="10" letter-spacing="1.5" fill="${C.muted}">TRIGGER</text>
+  </g>
+  <g${dim('down')}>
+    <text x="653" y="304" text-anchor="end" font-size="12" fill="${C.warn}">180 check off — set</text><text x="653" y="321" text-anchor="end" font-size="12" fill="${C.warn}">downrange</text>
+    <rect x="521" y="341" width="132" height="37" rx="9" fill="${o.downSet ? '#262a31' : C.warn}"/>
+    <text x="587" y="365" text-anchor="middle" font-size="14" font-weight="600" fill="${o.downSet ? C.ink : '#241600'}">Set downrange</text>
+  </g>
+  <g${dim('radar')}>
+    <circle cx="746" cy="298" r="80" fill="#1b1e23" stroke="${C.line}"/>
+    <line x1="666" y1="298" x2="826" y2="298" stroke="#30353c"/><line x1="746" y1="218" x2="746" y2="378" stroke="#30353c"/>
+    <circle cx="746" cy="298" r="55" fill="none" stroke="#9a6a12" stroke-width="1.5"/>
+    <circle cx="746" cy="298" r="22" fill="none" stroke="#1f8a52" stroke-width="1.5"/>
+    ${o.trace ? `<path d="M746,298 q6,-3 9,4 t-4,10 t8,6" fill="none" stroke="${C.trig}" stroke-width="2.5"/><circle cx="759" cy="318" r="5" fill="${C.ink}"/>
+      <text x="653" y="236" text-anchor="end" font-size="13" font-weight="700" fill="${C.safe}">GOOD</text>
+      <text x="653" y="254" text-anchor="end" font-size="11" fill="${C.muted}">0.4° · low-right</text>` : ''}
+  </g>
+  </g>`;
+
+  // highlight rings
+  const R = { frame: [263,110,546,100], trigger: [410,222,72,112], radar: [666,218,160,160], down: [521,341,132,37],
+              grip: [0,101,203,289], slide: [17,12,810,82] };
+  hl.forEach(k => { const r = R[k]; if (r && !o.noRing) s += ring(...r, o.ringC || C.trig); });
+
+  // the finger (generic: a light rounded shape coming from the grip)
+  if (o.finger === 'frame') s += `<rect x="150" y="124" width="${o.short ? 300 : 430}" height="34" rx="17" fill="${C.skin}" opacity=".92"/>
+     <ellipse cx="${o.short ? 432 : 562}" cy="141" rx="12" ry="11" fill="#e9d8c8"/>`;
+  if (o.finger === 'off') s += `<path d="M150,190 Q240,198 330,236" stroke="${C.skin}" stroke-width="34" stroke-linecap="round" fill="none" opacity=".92"/>`;
+  if (o.finger === 'trigger' || o.finger === 'pull')
+    s += `<g class="${o.finger === 'pull' ? 'a-pull' : ''}"><path d="M150,195 Q300,200 412,262" stroke="${C.skin}" stroke-width="34" stroke-linecap="round" fill="none" opacity=".92"/>
+      <ellipse cx="418" cy="268" rx="13" ry="12" fill="#e9d8c8"/></g>`;
+  if (o.finger === 'pull') s += `<path d="M396,350 L346,350" stroke="${C.ink}" stroke-width="3" marker-end="url(#ahw)"/>
+      <text x="371" y="342" text-anchor="middle" font-size="11" fill="${C.ink}">pull back</text>
+      <rect class="a-bang" opacity="0" x="0" y="0" width="844" height="390" fill="#fff"/>`;
+
+  // movement arrows around the whole phone
+  if (o.move) { const c = o.move === 'bad' ? C.bad : C.safe, m = o.move === 'bad' ? 'ahb' : 'ahs';
+    s += `<path d="M60,40 q-40,40 0,80" fill="none" stroke="${c}" stroke-width="5" marker-start="url(#${m})" marker-end="url(#${m})"/>
+          <path d="M790,250 q44,40 0,90" fill="none" stroke="${c}" stroke-width="5" marker-start="url(#${m})" marker-end="url(#${m})"/>`; }
+  if (o.alarm) s += `<rect x="3" y="3" width="838" height="384" rx="10" fill="none" stroke="${C.bad}" stroke-width="8" class="a-blink"/>`;
+  if (o.extra) s += o.extra;
+  return s + '</svg>';
+}
+
+/* small diagrams for the steps that are about the room, not the screen */
+function hold() {   // how to hold the phone: side of a pistol, screen facing the shooter
+  return `<svg viewBox="0 0 844 390" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+  <rect width="844" height="390" fill="#121417"/>
+  <defs><marker id="m1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${C.muted}"/></marker></defs>
+  <g transform="translate(150,70)">
+    <rect x="0" y="0" width="420" height="200" rx="26" fill="#1b1e23" stroke="#3a4048" stroke-width="6"/>
+    <rect x="20" y="16" width="380" height="40" rx="8" fill="#3d434b"/>
+    <rect x="20" y="62" width="380" height="58" rx="8" fill="${C.frame}"/>
+    <rect x="70" y="70" width="310" height="42" rx="10" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2" stroke-dasharray="6 5"/>
+    <rect x="20" y="62" width="100" height="130" rx="10" fill="#202429"/>
+    <rect x="178" y="122" width="10" height="56" rx="5" fill="#7d838b"/>
+    <path d="M-60,150 Q-10,170 40,120 L140,104" stroke="${C.skin}" stroke-width="30" stroke-linecap="round" fill="none" opacity=".92"/>
+    <path d="M-80,210 Q20,240 110,200" stroke="${C.skin}" stroke-width="44" stroke-linecap="round" fill="none" opacity=".55"/>
+    <path d="M440,100 L560,100" stroke="${C.muted}" stroke-width="3" marker-end="url(#m1)" stroke-dasharray="8 6"/>
+    <text x="500" y="88" text-anchor="middle" font-size="16" fill="${C.ink}" font-weight="600">muzzle</text>
+    <text x="500" y="124" text-anchor="middle" font-size="13" fill="${C.muted}">downrange</text>
+  </g>
+  <text x="420" y="330" text-anchor="middle" font-size="16" fill="${C.ink}">Landscape, screen facing you, top edge = top of the slide.</text>
+  <text x="420" y="356" text-anchor="middle" font-size="14" fill="${C.muted}">Left-handed? Settings → Shooting hand mirrors everything.</text>
+  </svg>`;
+}
+function drillPic() {
+  const step = (x, lbl, sub, c) => `<g transform="translate(${x},150)"><circle r="34" fill="#1b1e23" stroke="${c}" stroke-width="3"/>
+     <text y="7" text-anchor="middle" font-size="20" fill="${c}" font-weight="700">${lbl}</text>
+     <text y="62" text-anchor="middle" font-size="13" fill="${C.ink}">${sub[0]}</text><text y="80" text-anchor="middle" font-size="12" fill="${C.muted}">${sub[1]}</text></g>`;
+  const arr = x => `<path d="M${x},150 l40,0" stroke="${C.muted}" stroke-width="3" marker-end="url(#m2)"/>`;
+  return `<svg viewBox="0 0 844 390" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+  <rect width="844" height="390" fill="#121417"/>
+  <defs><marker id="m2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${C.muted}"/></marker></defs>
+  <text x="422" y="56" text-anchor="middle" font-size="18" font-weight="700" fill="${C.ink}">Every drill runs the same way</text>
+  ${step(90, '✋', ['finger on', 'the frame'], C.safe)}${arr(134)}
+  ${step(258, '♪', ['start beep', '1–5 s later'], C.warn)}${arr(302)}
+  ${step(426, '●●', ['fire', 'the string'], C.trig)}${arr(470)}
+  ${step(594, '✋', ['finger back', 'on the frame'], C.safe)}${arr(638)}
+  ${step(756, '✓', ['tone +', 'your times'], C.safe)}
+  <rect x="140" y="290" width="564" height="58" rx="12" fill="#1b1e23" stroke="${C.line}"/>
+  <text x="422" y="314" text-anchor="middle" font-size="14" fill="${C.ink}">Start screen → <tspan font-weight="700">Drill</tspan>: Freestyle, Bill Drill, Low Ready, Box Drill, Transitions</text>
+  <text x="422" y="335" text-anchor="middle" font-size="12" fill="${C.muted}">All the safety rules stay on during a drill. Pausing cancels the run.</text>
+  </svg>`;
+}
+
+const chip = (c, t) => `<span class="chip"><i style="background:${c}"></i>${t}</span>`;
+const STEPS = [
+  { t: 'Hold the phone like the side of a pistol', pic: hold(),
+    body: `<p>The screen is the side of the gun: the slide on top, the grip at the rear, the muzzle pointing away from you.</p>
+           <p>Your shooting hand holds the phone the way it would hold the grip.</p>` },
+  { t: 'Finger flat on the frame = safe', pic: screen({ hl: ['frame'], finger: 'frame', frameOn: true, status: 'SAFE', stc: 'safe', move: 'safe', sway: true }),
+    body: `<p>Lay your index finger flat along the frame strip. The strip turns green and you hear the OK tone.</p>
+           <p>With the finger there you can move, turn and walk as much as you like.</p>${chip(C.safe, 'OK tone')}`, sound: 'OK tone' },
+  { t: 'Finger off the frame: hold still', pic: screen({ hl: ['frame'], ringC: C.bad, finger: 'off', status: 'ALARM — FINGER ON FRAME', stc: 'bad', move: 'bad', alarm: true, alarms: 1 }),
+    body: `<p>Once the finger leaves the frame, the phone must stay still. If it moves, the alarm sounds and <b>keeps going until the finger is back flat on the frame</b>.</p>
+           <p>Slow drift counts too: more than 5° from where you were pointing.</p>${chip(C.bad, 'Alarm beeps')}`, sound: 'Alarm' },
+  { t: 'Press the trigger straight back', pic: screen({ hl: ['trigger'], finger: 'pull', trigOn: true, status: 'ON TRIGGER', stc: 'trig' }),
+    body: `<p>Put your fingertip on the trigger and pull it straight back toward the grip. When it breaks you hear the shot click and the screen flashes.</p>
+           <p>Keep the phone still while you press. Resting on the trigger without pulling counts as off the frame.</p>${chip(C.ink, 'Shot click + flash')}`, sound: 'Shot' },
+  { t: 'Read the shot', pic: screen({ hl: ['radar'], finger: 'trigger', trigOn: true, trace: true, status: 'ON TRIGGER', stc: 'trig', shots: 1, clean: 1 }),
+    body: `<p>The circle under the muzzle shows how far the muzzle moved during the press. Inside the green ring is <b>Good</b>.</p>
+           <p>Ease the trigger forward until it resets to fire again. Then finger back on the frame.</p>` },
+  { t: 'Set downrange: the 180 rule', pic: screen({ hl: ['down'], ringC: C.warn, finger: 'frame', frameOn: true, status: 'SAFE', stc: 'safe' }),
+    body: `<p>Point the muzzle downrange and tap <b>Set downrange</b>.</p>
+           <p>From then on, pointing more than 90° away (left, right, up or down) sounds a wailing alarm, even with the finger on the frame. Turn back downrange to clear it.</p>${chip(C.warn, '180 wail')}`, sound: '180 wail' },
+  { t: 'Drills', pic: drillPic(),
+    body: `<p>Freestyle has no timer. The timed drills start with a beep, time your shots and show your results at the end.</p>
+           <p>Pick one with the <b>Drill</b> button on the start screen. Each one has a picture of how to run it.</p>` },
+  { t: 'Ready', pic: screen({ hl: ['frame'], finger: 'frame', short: true, frameOn: true, status: 'SAFE', stc: 'safe', noRing: true }),
+    body: `<ul><li>Hold <b>Test sound</b> and set the volume, phone away from your ears.</li>
+           <li>Turn the phone to landscape.</li>
+           <li>Tap <b>Start</b>, finger on the frame.</li></ul>
+           <p style="color:var(--muted);font-size:13px">You can open this again from the start screen at any time.</p>`, last: true },
+];
+
+function card(i, interactive) {
+  const s = STEPS[i], n = STEPS.length;
+  return `<div class="tut">
+    <header><b>How it works</b><span class="of">${i + 1} of ${n}</span><span class="sp"></span>
+      <button class="btn ghost" data-a="skip">${s.last ? 'Close' : 'Skip'}</button></header>
+    <main><div class="pic">${s.pic}</div>
+      <div class="txt"><h2>${s.t}</h2>${s.body}${s.sound ? `<button class="hear" data-a="hear">🔊 Hold to hear: ${s.sound}</button>` : ''}</div></main>
+    <footer><button class="btn" data-a="back" ${i ? '' : 'style="visibility:hidden"'}>Back</button>
+      <div class="dots">${STEPS.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
+      <button class="btn primary" data-a="next">${s.last ? 'Start' : 'Next'}</button></footer></div>`;
+}
+
+// live frame
+let cur = 0; const live = document.getElementById('live');
+const draw = () => live.innerHTML = card(cur, true);
+live.addEventListener('click', e => { const a = e.target.closest('[data-a]')?.dataset.a;
+  if (a === 'next') cur = (cur + 1) % STEPS.length; if (a === 'back') cur = Math.max(0, cur - 1); if (a === 'skip') cur = 0; draw(); });
+draw();
+
+// entry point
+document.getElementById('entry').innerHTML = `<div class="start">
+  <h1>Trigger Discipline Trainer</h1>
+  <div class="loud"><b>⚠ Loud alarms.</b> Hold <b>Test sound</b> and set the volume before you start. Keep the phone away from your ears. …
+    <div class="row"><button class="btn">Test sound (hold)</button></div></div>
+  <div class="row" style="margin-top:12px"><button class="btn how">How it works</button><span class="new">New? 1 min, 8 steps</span></div>
+  <button class="btn drill"><b>Drill: Freestyle</b><br><small>No timer, practise the rules</small></button>
+  <div class="row"><button class="btn primary">Start</button><button class="btn">Settings</button></div></div>
+`;
+
+// gallery (static, half size)
+const all = document.getElementById('all');
+STEPS.forEach((_, i) => { const d = document.createElement('div');
+  d.innerHTML = `<div class="phone small static">${card(i)}</div><div class="cap">Step ${i + 1}: ${STEPS[i].t}</div>`; all.appendChild(d); });
+</script>
+</body>
+</html>
