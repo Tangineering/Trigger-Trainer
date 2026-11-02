@@ -1023,7 +1023,12 @@ let lastMotionT = null, watchT0 = null, motionBannerOpen = false;
 let motionPauseArmed = true, motionNotice = false;   // motionNotice: Settings was opened by this path and is still open
 const overlayOpen = () => ['startOv', 'settingsOv', 'summaryOv', 'drillOv', 'drillResOv'].some(id => $(id).classList.contains('show'));
 const needsMotionPermission = () => typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
+// The Android line reads the user agent to choose wording only (D-142); every behavior stays on feature checks (D-53).
+const isAndroidUA = () => /Android/i.test(navigator.userAgent || '') ||
+  !!(navigator.userAgentData && navigator.userAgentData.platform === 'Android');
 function motionFixText() {
+  if (window.isSecureContext !== false && isAndroidUA())
+    return 'Allow Motion sensors for this site (padlock → Permissions, or the browser\'s Settings → Site settings → Motion sensors), then reload. On Vanadium (GrapheneOS) also check Settings → Apps → the browser → Permissions → Sensors.';
   if (window.isSecureContext !== false && needsMotionPermission())
     return 'Close this tab, reopen the link and tap Allow; or Settings → Safari → Motion & Orientation Access.';
   return 'Open the page over HTTPS on a phone.';

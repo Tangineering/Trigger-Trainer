@@ -463,7 +463,7 @@ running, visible and landscape and no sample has arrived for `NO_MOTION_START_MS
 The fix line (`motionFixText()`) is chosen by feature checks (D-53): non-secure context → HTTPS line; else
 `DeviceMotionEvent.requestPermission` present → close the tab, reopen, Allow, or Settings → Safari → Motion &
 Orientation Access; else HTTPS line. While open, `setStatus` prefixes the pill with "NO MOTION · ". `#warnLine` no longer
-carries a no-motion message. `window.__tdt()` adds `motionSeen` (any sample since load) and `motionBannerOpen`.
+carries a no-motion message. `window.__tdt()` adds `motionSeen` (any sample since load) and `motionBannerOpen`. On an Android user agent the fix line now names the browser's Motion sensors setting instead (the case D-123 c called unobserved has been seen; see `## WQ-054`).
 
 ## WQ-050 — stale motion pauses and opens Settings (D-134, D-141)
 
@@ -481,6 +481,19 @@ Settings does not reopen until samples have come back and stopped again. Setting
 resume. `window.__tdt()` adds `motionPaused` (`motionNotice` && banner open && Settings open). Smoke: the `WQ-045` block
 now also covers this (Settings open and paused at 2 s, no reopen after Resume, reopen after one sample and a 5 s gap
 with a Bill standby cancelled and no completion tone, a recording stopped first).
+
+## WQ-054 — no-motion fix line on Android (D-142)
+
+`index.html` only (engine 0.18.1 unchanged, recordings unchanged). `motionFixText()` (signature unchanged; shown in the
+banner and in Settings → Motion data) checks, in order: non-secure context → HTTPS line; `isAndroidUA()` (`/Android/i` on
+`navigator.userAgent`, or `navigator.userAgentData.platform === 'Android'`) → "Allow Motion sensors for this site
+(padlock → Permissions, or the browser's Settings → Site settings → Motion sensors), then reload. On Vanadium (GrapheneOS)
+also check Settings → Apps → the browser → Permissions → Sensors."; `DeviceMotionEvent.requestPermission` present → the
+Safari line; else the HTTPS line. The user agent chooses wording only (D-142); every behavior stays on feature checks
+(D-53). Smoke: the `WQ-054` block after `WQ-045` starts the trainer with no motion in a context with the user agent
+`Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Mobile Safari/537.36` and
+checks the Android line in the banner and the Motion data section, then the default headless user agent keeps the
+feature-check line. Screenshots (`WQ_SCREENSHOTS=1`): `docs/screenshots/wq-054/`.
 
 ## WQ-036 — held test clock in the smoke suite (D-126)
 

@@ -32,6 +32,8 @@ Page and project changes with no engine change (the engine version shown in Sett
 - Low Ready with a class code: the code now lasts for the session only. **Again** keeps it; **New session** and
   reopening the page clear it, so a code typed in an earlier class no longer turns the next Low Ready into a class
   run.
+- No motion data on Android: the fix now names the browser's **Motion sensors** setting for the site (and, on
+  GrapheneOS, the browser's **Sensors** permission) instead of Safari's settings.
 
 ## [0.18.1] - 2026-10-28
 
