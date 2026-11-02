@@ -45,7 +45,7 @@ updated: 2026-11-02
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | blocked:owner-machine | — | platform |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
 | WQ-054 | No-motion banner: name the browser's Motion sensors setting on Android (D-123 c) | P2 | S | blocked:owner-machine | — | platform |
-| WQ-056 | Add a "How it works" visual tutorial opened from the start screen (D-140) | P2 | M | claimed:round-20261102-1 | — | ui |
+| WQ-056 | Add a "How it works" visual tutorial opened from the start screen (D-140) | P2 | M | blocked:owner-machine | — | ui |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -654,8 +654,8 @@ the smoke test uses.
 
 ### WQ-056 — Add a "How it works" visual tutorial opened from the start screen (D-140)
 
-- **Status:** claimed:round-20261102-1 · **Priority:** P2 · **Size:** M · **Track:** ui · **Env:** browser
-- **Added:** 2026-11-02 by tutorial-mockup session (I-34 promoted by Ricky's D-140 after reviewing the mockup)
+- **Status:** blocked:owner-machine · **Priority:** P2 · **Size:** M · **Track:** ui · **Env:** browser
+- **Added:** 2026-11-02 by tutorial-mockup session (I-34 promoted by Ricky's D-140 after reviewing the mockup) · **Updated:** 2026-11-02 by the orchestration session (round-20261102-1, Opus execution agent): the agent half landed in fd548dc, 62c1870 and 2fd1d12 on `main` — `#howBtn` above the drill button, `#tutorialOv` with the eight mocked steps (inline SVG from the mockup's helpers, animations only without reduced motion, step 4 flash inside the picture and only with Shot flash on), **Hold to hear** through `bindTestSound` `data-sound` (ok / move / shot / 180), step 8 **Start** calls `start()` in the tap, `tutorialOv` in `overlayOpen()`, `__tdt().tutorialOpen` / `tutorialStep`; wording tightened to the page's terms (D-143: step 5 "Clean", picker-order drills on step 7, step 4 text adapts to Shot flash / reduced motion, step 6 reads `S.limit180Deg`); 23 smoke checks, built screenshots in `docs/screenshots/wq-056/built-*.png` (steps 2–5 mid-animation); `npm test` 325 / 581 / 88 PASS, 0 FAIL, engine 0.18.1, recordings identical. Remaining, owner half: iPhone Safari (silent switch on) and Android Chrome: open **How it works**, step through all eight, hold each **Hold to hear** button and hear it at the set volume, **Start** from step 8 starts the trainer with sound; with Reduce Motion on the pictures are still
 - **Depends on:** — · **Blocks:** —
 
 **Context.** New students currently learn the rules from four lines of text on the start screen (`index.html:255`–260)
