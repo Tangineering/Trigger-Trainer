@@ -23,6 +23,9 @@ Page and project changes with no engine change (the engine version shown in Sett
 - For contributors: CHANGELOG, CONTRIBUTING, code of conduct, security note, bug-report template, the replay suite
   in GitHub Actions on every push and pull request, `docs/ARCHITECTURE.md`, README screenshots and a browser
   support / known limitations section.
+- Start screen: a **How it works** button (above **Drill**) opens an eight-step picture guide to the rules, with
+  **Hold to hear** buttons for the OK tone, the alarm, the shot and the 180 wail; **Start** on the last step starts
+  the trainer. It never opens by itself.
 
 ### Changed
 - When motion data stops (2 s after **Start** with none, or 5 s after it stopped), the trainer now pauses and opens

@@ -203,6 +203,56 @@
   #drillResTable { border-collapse: collapse; font-size: 15px; width: 100%; max-width: 520px; }
   #drillResTable td { padding: 5px 0; border-bottom: 1px solid var(--line); color: #cfd4d9; }
   #drillResTable td:last-child { text-align: right; font-weight: 600; color: #fff; padding-left: 16px; }
+  /* --- How it works (WQ-056, D-140): eight steps over the start screen; picture left, text right in landscape
+     (no scrolling at 844x390), picture above text in portrait. Pictures are inline SVG (tutPics), right-handed. --- */
+  #startOv .how { display: flex; align-items: center; gap: 8px; border-color: var(--trig); color: #cfe0ff; margin: 12px 0 0; }
+  #startOv .how::before { content: "▶"; font-size: 11px; }
+  #tutorialOv { z-index: 11; overflow-x: hidden; }    /* over the start screen, which stays behind it */
+  #tutorialOv:focus { outline: none; }
+  .tut { display: grid; grid-template-rows: auto 1fr auto; min-height: 100%; max-width: 1000px; margin: 0 auto;
+         box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  .tut header { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px 0 22px; border-bottom: 1px solid var(--line); }
+  .tut header h1 { font-size: 15px; margin: 0; }
+  .tut header .of { color: var(--muted); font-size: 13px; }
+  .tut header .sp { flex: 1; }
+  .tut .btn { min-height: 44px; min-width: 44px; }
+  .tut .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); padding: 8px 12px; font-size: 15px; }
+  .tut main { display: grid; grid-template-columns: minmax(0, 58fr) minmax(0, 42fr); gap: 18px; padding: 12px 22px 10px 16px; min-height: 0; }
+  .tut .pic { background: #0d0f12; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; align-self: start; }
+  .tut .pic svg { display: block; width: 100%; height: auto; }
+  .tut .txt { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .tut h2 { margin: 2px 0 0; font-size: 19px; line-height: 1.2; letter-spacing: 0; text-transform: none; color: var(--ink); }
+  .tut .txt p, .tut .txt li { margin: 0; font-size: 14px; line-height: 1.42; color: #cfd4d9; }
+  .tut .txt ul { margin: 0; padding-left: 18px; }
+  .tut .txt p.note { color: var(--muted); font-size: 13px; }
+  .tut .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 99px;
+               background: #20242a; border: 1px solid var(--line); align-self: flex-start; }
+  .tut .chip i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .tut .hear { font: inherit; font-size: 13px; color: #cfe0ff; background: none; border: 1px dashed #3e5c8f; border-radius: 8px;
+               padding: 6px 12px; min-height: 44px; cursor: pointer; align-self: flex-start;
+               touch-action: none; -webkit-user-select: none; user-select: none; }
+  .tut .hear[hidden] { display: none; }
+  .tut .hear.down { background: var(--bad); color: #fff; border: 1px solid transparent; }
+  .tut footer { display: flex; align-items: center; gap: 10px; padding: 7px 16px; border-top: 1px solid var(--line); }
+  .tut .dots { flex: 1; display: flex; justify-content: center; gap: 7px; }
+  .tut .dots i { width: 8px; height: 8px; border-radius: 50%; background: #3a4048; }
+  .tut .dots i.on { background: var(--ink); width: 20px; border-radius: 4px; }
+  #tutBack.off { visibility: hidden; }
+  @media (orientation: portrait) {
+    .tut main { grid-template-columns: minmax(0, 1fr); align-content: start; padding: 12px 16px 10px; }
+  }
+  /* Animations run only when reducedMotion() is false (tutPics adds the classes then); this rule is a second guard. */
+  @keyframes tu-sway { 0%,100% { transform: rotate(-3deg) } 50% { transform: rotate(3deg) } }
+  @keyframes tu-pull { 0%,15% { transform: translateX(0) } 55%,70% { transform: translateX(-34px) } 100% { transform: translateX(0) } }
+  @keyframes tu-blink { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+  @keyframes tu-pulse { 0%,100% { opacity: .9 } 50% { opacity: .35 } }
+  @keyframes tu-bang { 0%,48% { opacity: 0 } 55% { opacity: .9 } 75%,100% { opacity: 0 } }
+  .tu-sway { animation: tu-sway 2.4s ease-in-out infinite; transform-box: view-box; transform-origin: 422px 230px; }
+  .tu-pull { animation: tu-pull 2.6s ease-in-out infinite; }
+  .tu-bang { animation: tu-bang 2.6s linear infinite; }
+  .tu-blink { animation: tu-blink .7s steps(2) infinite; }
+  .tu-pulse { animation: tu-pulse 1.6s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .tu-sway, .tu-pull, .tu-bang, .tu-blink, .tu-pulse { animation: none; } }
   #rotateOv { z-index: 20; text-align: center; }
   #rotateOv .inner { padding-top: 30vh; }
   #rotateOv.armed.portrait { display: block; }   /* .portrait is set by tick() once portrait has lasted PORTRAIT_HOLD_MS (D-60) */
@@ -259,6 +309,7 @@
       <li>Pull the trigger straight back to fire. Return finger to frame before moving.</li>
     </ol>
     <p class="tip">Left-handed? Settings → Shooting hand.</p>
+    <button class="btn how" id="howBtn" type="button">How it works</button>
     <button class="btn" id="drillBtn" type="button"></button>
     <div class="row">
       <button class="btn primary" id="startBtn">Start</button>
@@ -386,6 +437,19 @@
     </div>
     <table id="drillResTable"><tbody id="drillResRows"></tbody></table>
     <p class="help">Nothing is saved or sent: results last for this session. Take a screenshot to keep them.</p>
+  </div>
+</div>
+
+<div id="tutorialOv" class="ov ui" role="dialog" aria-modal="true" aria-labelledby="tutTitle" tabindex="-1">
+  <div class="tut">
+    <header><h1 id="tutTitle">How it works</h1><span class="of" id="tutOf">1 of 8</span><span class="sp"></span>
+      <button class="btn ghost" id="tutSkip" type="button">Skip</button></header>
+    <main><div class="pic" id="tutPic" aria-hidden="true"></div>
+      <div class="txt"><h2 id="tutStepTitle"></h2><div class="txt" id="tutBody"></div>
+        <button class="hear" id="tutHear" type="button" hidden></button></div></main>
+    <footer><button class="btn" id="tutBack" type="button">Back</button>
+      <div class="dots" id="tutDots" aria-hidden="true"></div>
+      <button class="btn primary" id="tutNext" type="button">Next</button></footer>
   </div>
 </div>
 
@@ -1021,7 +1085,7 @@ let lastMotionT = null, watchT0 = null, motionBannerOpen = false;
    first). Armed once per no-motion episode: after the user closes Settings with motion still absent it stays closed
    until a sample has arrived (onMotion re-arms) and the data has gone stale again, so a laptop demo keeps working. */
 let motionPauseArmed = true, motionNotice = false;   // motionNotice: Settings was opened by this path and is still open
-const overlayOpen = () => ['startOv', 'settingsOv', 'summaryOv', 'drillOv', 'drillResOv'].some(id => $(id).classList.contains('show'));
+const overlayOpen = () => ['startOv', 'settingsOv', 'summaryOv', 'drillOv', 'drillResOv', 'tutorialOv'].some(id => $(id).classList.contains('show'));
 const needsMotionPermission = () => typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
 // The Android line reads the user agent to choose wording only (D-142); every behavior stays on feature checks (D-53).
 const isAndroidUA = () => /Android/i.test(navigator.userAgent || '') ||
@@ -1413,14 +1477,17 @@ $('downrangeBtn').addEventListener('click', () => {
   logRow(['d', t]);
 });
 
-// Hold-to-test: the movement alarm plays while the button is held, at the current Volume setting.
+// Hold-to-test: the movement alarm plays while the button is held, at the current Volume setting. A button with
+// data-sound (How it works, WQ-056) plays that sound instead: 'move' / '180' while held, 'ok' / 'shot' once on press.
 function bindTestSound(btn) {
   let held = false;
   const down = e => {
     e.preventDefault();
     if (held) return;
     held = true; btn.classList.add('down');
-    Snd.init(); Snd.resume(); Snd.startAlarm('move');
+    Snd.init(); Snd.resume();
+    const k = btn.dataset.sound || 'move';
+    if (k === 'ok') Snd.ok(); else if (k === 'shot') Snd.shot(); else Snd.startAlarm(k);
     try { btn.setPointerCapture(e.pointerId); } catch (err) {}
   };
   const up = () => {
@@ -1435,6 +1502,194 @@ function bindTestSound(btn) {
 }
 bindTestSound($('testSoundStart'));
 bindTestSound($('testSoundSettings'));
+
+/* ======================= How it works (WQ-056, D-140) ======================= */
+// Opened only from the start screen's How it works button: never by itself, nothing stored (D-140 b, c). The engine
+// is not running while it is open (Start has not been tapped). Eight steps at most (D-140 e). Pictures are inline SVG
+// of the right-handed trainer screen, ported from docs/mockups/tutorial/index.html (screen(), hold(), drillPic()).
+// Animation classes are added only when reducedMotion() is false; every picture reads correctly without them.
+const TUT_N = 8;
+let tutStep = 0;                                     // 1-based while open, 0 when closed
+function tutColors() {
+  const cs = getComputedStyle(document.documentElement), v = (k, d) => (cs.getPropertyValue(k) || '').trim() || d;
+  return { safe: v('--safe', '#2fbf71'), warn: v('--warn', '#f0a020'), bad: v('--bad', '#e5484d'), trig: v('--trig', '#3b82f6'),
+           ink: v('--ink', '#e9ecef'), muted: v('--muted', '#9aa3ad'), line: v('--line', '#2c3138'), frame: v('--frame', '#24282e'),
+           panel: v('--panel', '#1b1e23'), bg: v('--bg', '#121417'), steelHi: v('--steel-hi', '#4c535c'), steelLo: v('--steel-lo', '#2f343a'),
+           skin: '#d9c2ae' };
+}
+function tutPics() {
+  const C = tutColors(), A = !reducedMotion(), an = k => A ? ` class="tu-${k}"` : '';
+  const svg = body => `<svg viewBox="0 0 844 390" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">`
+    + `<rect width="844" height="390" fill="${C.bg}"/>${body}</svg>`;
+  /* The trainer screen. o.hl: highlighted parts (others dimmed); o.finger: 'frame' | 'off' | 'trigger' | 'pull'. */
+  const screenPic = (o = {}) => {
+    const hl = o.hl || [], dim = k => hl.length && !hl.includes(k) ? ' opacity=".28"' : '';
+    const ring = (x, y, w, h, c, rx = 12) => `<rect x="${x-6}" y="${y-6}" width="${w+12}" height="${h+12}" rx="${rx+4}" fill="none" stroke="${c}" stroke-width="4"${an('pulse')}/>`;
+    const stCol = { safe: C.safe, bad: '#d13438', trig: '#2563eb', warn: C.warn, idle: C.steelLo }[o.stc || 'idle'];
+    const pw = Math.max(260, (o.status || '').length * 10 + 40);
+    let s = `<defs>
+      <linearGradient id="tuSt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.steelHi}"/><stop offset="1" stop-color="${C.steelLo}"/></linearGradient>
+      <pattern id="tuHatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#1a1d21"/><rect width="6" height="12" fill="#202429"/></pattern>
+      <marker id="tuAhw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${C.ink}"/></marker>
+      <marker id="tuAhb" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${C.bad}"/></marker>
+      <marker id="tuAhs" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${C.safe}"/></marker>
+    </defs>
+    <g${o.sway ? an('sway') : ''}>
+    <g${dim('slide')}>
+      <rect x="17" y="12" width="810" height="82" rx="14" fill="url(#tuSt)"/>
+      ${Array.from({ length: 8 }, (_, i) => `<rect x="${34 + i * 13}" y="20" width="4" height="66" rx="2" fill="rgba(0,0,0,.35)"/>`).join('')}
+      <rect x="${422 - pw / 2}" y="29" width="${pw}" height="30" rx="15" fill="${stCol}"/>
+      <text x="422" y="50" text-anchor="middle" font-size="15" font-weight="700" letter-spacing="1" fill="#fff">${o.status || 'PLACE FINGER ON FRAME'}</text>
+      <text x="422" y="76" text-anchor="middle" font-size="12" fill="#d5dade">Shots ${o.shots || 0} · Clean ${o.clean || 0} · Alarms ${o.alarms || 0} · 180s 0</text>
+      <text x="760" y="85" text-anchor="end" font-size="11" letter-spacing="2" fill="${C.muted}">MUZZLE ▸</text>
+      <circle cx="796" cy="52" r="19" fill="#22262b" stroke="#3a4048"/><text x="796" y="58" text-anchor="middle" font-size="17" fill="${C.ink}">⚙</text>
+    </g>
+    <g${dim('grip')}>
+      <rect x="0" y="101" width="203" height="289" rx="18" fill="url(#tuHatch)"/>
+      <text x="101" y="240" text-anchor="middle" font-size="11" letter-spacing="2" fill="${C.muted}">GRIP</text>
+      <text x="101" y="256" text-anchor="middle" font-size="11" letter-spacing="1" fill="${C.muted}">(ignored)</text>
+    </g>
+    <g${dim('frame')}>
+      <rect x="203" y="101" width="624" height="119" rx="8" fill="${C.frame}"/>
+      <rect x="263" y="110" width="546" height="100" rx="12" fill="${o.frameOn ? 'rgba(47,191,113,.24)' : 'rgba(255,255,255,.04)'}"
+            stroke="${o.frameOn ? C.safe : 'rgba(255,255,255,.28)'}" stroke-width="2" ${o.frameOn ? '' : 'stroke-dasharray="7 6"'}/>
+      <text x="536" y="166" text-anchor="middle" font-size="11" letter-spacing="2" fill="${o.frameOn ? '#c9f3dc' : C.muted}">INDEX FINGER — FLAT ON FRAME</text>
+    </g>
+    <g${dim('trigger')}>
+      <path d="M203,305 L290,357 L470,357 Q510,357 510,317 L510,220" fill="none" stroke="${C.frame}" stroke-width="9" stroke-linejoin="round"/>
+      <g${o.finger === 'pull' ? an('pull') : ''}><rect x="425" y="226" width="16" height="102" rx="8" fill="${o.trigOn ? C.trig : '#7d838b'}"/></g>
+      <text transform="translate(470,285) rotate(90)" text-anchor="middle" font-size="10" letter-spacing="1.5" fill="${C.muted}">TRIGGER</text>
+    </g>
+    <g${dim('down')}>
+      ${o.downSet ? '' : `<text x="653" y="304" text-anchor="end" font-size="12" fill="${C.warn}">180 check off — set</text><text x="653" y="321" text-anchor="end" font-size="12" fill="${C.warn}">downrange</text>`}
+      <rect x="521" y="341" width="132" height="37" rx="9" fill="${o.downSet ? '#1f3a2b' : C.warn}" ${o.downSet ? `stroke="${C.safe}"` : ''}/>
+      <text x="587" y="365" text-anchor="middle" font-size="14" font-weight="600" fill="${o.downSet ? '#c9f3dc' : '#2a1a00'}">Set downrange</text>
+    </g>
+    <g${dim('radar')}>
+      <circle cx="746" cy="298" r="80" fill="${C.panel}" stroke="${C.line}"/>
+      <line x1="666" y1="298" x2="826" y2="298" stroke="#30353c"/><line x1="746" y1="218" x2="746" y2="378" stroke="#30353c"/>
+      <circle cx="746" cy="298" r="55" fill="none" stroke="#9a6a12" stroke-width="1.5"/>
+      <circle cx="746" cy="298" r="22" fill="none" stroke="#1f8a52" stroke-width="1.5"/>
+      ${o.trace ? `<path d="M746,298 q6,-3 9,4 t-4,10 t8,6" fill="none" stroke="${C.trig}" stroke-width="2.5"/><circle cx="759" cy="318" r="5" fill="${C.safe}" stroke="#fff" stroke-width="1.5"/>
+        <text x="653" y="236" text-anchor="end" font-size="13" font-weight="700" fill="${C.safe}">Last: Clean 0.40°</text>
+        <text x="653" y="254" text-anchor="end" font-size="11" fill="${C.muted}">low-right</text>` : ''}
+    </g>
+    </g>`;
+    const R = { frame: [263, 110, 546, 100], trigger: [410, 222, 72, 112], radar: [666, 218, 160, 160], down: [521, 341, 132, 37] };
+    hl.forEach(k => { const r = R[k]; if (r && !o.noRing) s += ring(...r, o.ringC || C.trig); });
+    if (o.finger === 'frame') s += `<rect x="150" y="124" width="${o.short ? 300 : 430}" height="34" rx="17" fill="${C.skin}" opacity=".92"/>
+       <ellipse cx="${o.short ? 432 : 562}" cy="141" rx="12" ry="11" fill="#e9d8c8"/>`;
+    if (o.finger === 'off') s += `<path d="M150,190 Q240,198 330,236" stroke="${C.skin}" stroke-width="34" stroke-linecap="round" fill="none" opacity=".92"/>`;
+    if (o.finger === 'trigger' || o.finger === 'pull')
+      s += `<g${o.finger === 'pull' ? an('pull') : ''}><path d="M150,195 Q300,200 412,262" stroke="${C.skin}" stroke-width="34" stroke-linecap="round" fill="none" opacity=".92"/>
+        <ellipse cx="418" cy="268" rx="13" ry="12" fill="#e9d8c8"/></g>`;
+    if (o.finger === 'pull') s += `<path d="M396,350 L346,350" stroke="${C.ink}" stroke-width="3" marker-end="url(#tuAhw)"/>
+        <text x="371" y="342" text-anchor="middle" font-size="11" fill="${C.ink}">pull back</text>`;
+    // the shot flash stays inside the picture, and only when Shot flash is on and motion is not reduced (WQ-044)
+    if (o.bang && A && shotFlash) s += `<rect class="tu-bang" opacity="0" x="0" y="0" width="844" height="390" fill="#fff"/>`;
+    if (o.move) { const c = o.move === 'bad' ? C.bad : C.safe, m = o.move === 'bad' ? 'tuAhb' : 'tuAhs';
+      s += `<path d="M60,40 q-40,40 0,80" fill="none" stroke="${c}" stroke-width="5" marker-start="url(#${m})" marker-end="url(#${m})"/>
+            <path d="M790,250 q44,40 0,90" fill="none" stroke="${c}" stroke-width="5" marker-start="url(#${m})" marker-end="url(#${m})"/>`; }
+    if (o.alarm) s += `<rect x="3" y="3" width="838" height="384" rx="10" fill="none" stroke="${C.bad}" stroke-width="8"${an('blink')}/>`;
+    return svg(s);
+  };
+  const holdPic = () => svg(`<defs><marker id="tuM1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${C.muted}"/></marker></defs>
+    <g transform="translate(150,70)">
+      <rect x="0" y="0" width="420" height="200" rx="26" fill="${C.panel}" stroke="#3a4048" stroke-width="6"/>
+      <rect x="20" y="16" width="380" height="40" rx="8" fill="#3d434b"/>
+      <rect x="20" y="62" width="380" height="58" rx="8" fill="${C.frame}"/>
+      <rect x="70" y="70" width="310" height="42" rx="10" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2" stroke-dasharray="6 5"/>
+      <rect x="20" y="62" width="100" height="130" rx="10" fill="#202429"/>
+      <rect x="178" y="122" width="10" height="56" rx="5" fill="#7d838b"/>
+      <path d="M-60,150 Q-10,170 40,120 L140,104" stroke="${C.skin}" stroke-width="30" stroke-linecap="round" fill="none" opacity=".92"/>
+      <path d="M-80,210 Q20,240 110,200" stroke="${C.skin}" stroke-width="44" stroke-linecap="round" fill="none" opacity=".55"/>
+      <path d="M440,100 L560,100" stroke="${C.muted}" stroke-width="3" marker-end="url(#tuM1)" stroke-dasharray="8 6"/>
+      <text x="500" y="88" text-anchor="middle" font-size="16" fill="${C.ink}" font-weight="600">muzzle</text>
+      <text x="500" y="124" text-anchor="middle" font-size="13" fill="${C.muted}">downrange</text>
+    </g>
+    <text x="420" y="330" text-anchor="middle" font-size="16" fill="${C.ink}">Landscape, screen facing you, top edge = top of the slide.</text>
+    <text x="420" y="356" text-anchor="middle" font-size="14" fill="${C.muted}">Left-handed? Settings → Shooting hand mirrors everything.</text>`);
+  const drillPic = () => {
+    const step = (x, lbl, sub, c) => `<g transform="translate(${x},150)"><circle r="34" fill="${C.panel}" stroke="${c}" stroke-width="3"/>
+       <text y="7" text-anchor="middle" font-size="20" fill="${c}" font-weight="700">${lbl}</text>
+       <text y="62" text-anchor="middle" font-size="13" fill="${C.ink}">${sub[0]}</text><text y="80" text-anchor="middle" font-size="12" fill="${C.muted}">${sub[1]}</text></g>`;
+    const arr = x => `<path d="M${x},150 l40,0" stroke="${C.muted}" stroke-width="3" marker-end="url(#tuM2)"/>`;
+    const names = DRILL_MODES.filter(m => m.ready).map(m => m.name).join(', ');
+    return svg(`<defs><marker id="tuM2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${C.muted}"/></marker></defs>
+    <text x="422" y="56" text-anchor="middle" font-size="18" font-weight="700" fill="${C.ink}">Every drill runs the same way</text>
+    ${step(90, '✋', ['finger on', 'the frame'], C.safe)}${arr(134)}
+    ${step(258, '♪', ['start beep', '1–5 s later'], C.warn)}${arr(302)}
+    ${step(426, '●●', ['fire', 'the string'], C.trig)}${arr(470)}
+    ${step(594, '✋', ['finger back', 'on the frame'], C.safe)}${arr(638)}
+    ${step(756, '✓', ['tone +', 'your times'], C.safe)}
+    <rect x="120" y="290" width="604" height="58" rx="12" fill="${C.panel}" stroke="${C.line}"/>
+    <text x="422" y="314" text-anchor="middle" font-size="14" fill="${C.ink}">Start screen → <tspan font-weight="700">Drill</tspan>: ${escHtml(names)}</text>
+    <text x="422" y="335" text-anchor="middle" font-size="12" fill="${C.muted}">All the safety rules stay on during a drill. Pausing cancels the run.</text>`);
+  };
+  return { screenPic, holdPic, drillPic, C };
+}
+// The steps, built at render time so the colours, Shot flash, reduced motion and the 180 limit are current.
+function tutSteps() {
+  const { screenPic, holdPic, drillPic, C } = tutPics();
+  const chip = (c, t) => `<span class="chip"><i style="background:${c}"></i>${t}</span>`;
+  const flashOn = shotFlash && !reducedMotion();
+  return [
+    { t: 'Hold the phone like the side of a pistol', pic: holdPic(),
+      body: `<p>The screen is the side of the gun: the slide on top, the grip at the rear, the muzzle pointing away from you.</p>
+             <p>Your shooting hand holds the phone the way it would hold the grip.</p>` },
+    { t: 'Finger flat on the frame = safe', pic: screenPic({ hl: ['frame'], finger: 'frame', frameOn: true, status: 'SAFE', stc: 'safe', move: 'safe', sway: true }),
+      body: `<p>Lay your index finger flat along the frame strip. The strip turns green and you hear the OK tone.</p>
+             <p>With the finger there you can move, turn and walk as much as you like.</p>${chip(C.safe, 'OK tone')}`, sound: 'ok', label: 'OK tone' },
+    { t: 'Finger off the frame: hold still', pic: screenPic({ hl: ['frame'], ringC: C.bad, finger: 'off', status: 'ALARM — MOVED, FINGER OFF FRAME', stc: 'bad', move: 'bad', alarm: true, alarms: 1 }),
+      body: `<p>Once the finger leaves the frame, the phone must stay still. If it moves, the alarm sounds and <b>keeps going until the finger is back flat on the frame</b>.</p>${chip(C.bad, 'Alarm beeps')}`, sound: 'move', label: 'Alarm' },
+    { t: 'Press the trigger straight back', pic: screenPic({ hl: ['trigger'], finger: 'pull', trigOn: true, status: 'ON TRIGGER — HOLD STILL', stc: 'trig', bang: true }),
+      body: `<p>Put your fingertip on the trigger and pull it straight back toward the grip. When it breaks you hear the shot click and ${flashOn ? 'the screen flashes' : 'the trigger is outlined'}.</p>
+             <p>Keep the phone still while you press. Resting on the trigger without pulling counts as off the frame.</p>${chip(C.ink, flashOn ? 'Shot click + flash' : 'Shot click')}`, sound: 'shot', label: 'Shot' },
+    { t: 'Read the shot', pic: screenPic({ hl: ['radar'], finger: 'trigger', trigOn: true, trace: true, status: 'SHOT — RESET OR RETURN TO FRAME', stc: 'trig', shots: 1, clean: 1 }),
+      body: `<p>The circle under the muzzle shows how far the muzzle moved during the press. Inside the green ring is <b>Clean</b>.</p>
+             <p>Ease the trigger forward until it resets to fire again. Then finger back on the frame.</p>` },
+    { t: 'Set downrange: the 180 rule', pic: screenPic({ hl: ['down'], ringC: C.warn, finger: 'frame', frameOn: true, status: 'SAFE', stc: 'safe' }),
+      body: `<p>Point the muzzle downrange and tap <b>Set downrange</b>.</p>
+             <p>From then on, pointing more than ${S.limit180Deg}° away (left, right, up or down) sounds a wailing alarm, even with the finger on the frame. Turn back downrange to clear it.</p>${chip(C.warn, '180 wail')}`, sound: '180', label: '180 wail' },
+    { t: 'Drills', pic: drillPic(),
+      body: `<p>Freestyle has no timer. The timed drills start with a beep, time your shots and show your results at the end.</p>
+             <p>Pick one with the <b>Drill</b> button on the start screen. Each one has a picture of how to run it.</p>` },
+    { t: 'Ready', pic: screenPic({ hl: ['frame'], finger: 'frame', short: true, frameOn: true, status: 'SAFE', stc: 'safe', noRing: true }),
+      body: `<ul><li>Hold <b>Test sound</b> and set the volume, phone away from your ears.</li>
+             <li>Turn the phone to landscape.</li>
+             <li>Tap <b>Start</b>, finger on the frame.</li></ul>
+             <p class="note">You can open this again from the start screen at any time.</p>` },
+  ].slice(0, TUT_N);
+}
+function stopHearSound() { if (Snd.alarm && !engine.state.alarmActive) Snd.stopAlarm(); $('tutHear').classList.remove('down'); }
+function renderTutorial() {
+  const steps = tutSteps(), i = tutStep - 1, s = steps[i], last = tutStep === steps.length;
+  $('tutOf').textContent = `${tutStep} of ${steps.length}`;
+  $('tutSkip').textContent = last ? 'Close' : 'Skip';
+  $('tutPic').innerHTML = s.pic;
+  $('tutStepTitle').textContent = s.t;
+  $('tutBody').innerHTML = s.body;
+  const h = $('tutHear');
+  h.hidden = !s.sound; h.dataset.sound = s.sound || '';
+  h.textContent = s.sound ? `🔊 Hold to hear: ${s.label}` : '';
+  $('tutBack').classList.toggle('off', i === 0);
+  $('tutBack').disabled = i === 0;
+  $('tutNext').textContent = last ? 'Start' : 'Next';
+  $('tutDots').innerHTML = steps.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
+  $('tutorialOv').scrollTop = 0;
+}
+function openTutorial() { tutStep = 1; renderTutorial(); $('tutorialOv').classList.add('show'); try { $('tutorialOv').focus({ preventScroll: true }); } catch (e) {} }
+function closeTutorial() { stopHearSound(); tutStep = 0; $('tutorialOv').classList.remove('show'); }
+function tutGo(d) { stopHearSound(); tutStep = Math.max(1, Math.min(TUT_N, tutStep + d)); renderTutorial(); }
+$('howBtn').addEventListener('click', openTutorial);
+$('tutSkip').addEventListener('click', closeTutorial);
+$('tutBack').addEventListener('click', () => tutGo(-1));
+$('tutNext').addEventListener('click', () => {
+  if (tutStep < TUT_N) return tutGo(1);
+  start();                                          // same as #startBtn: audio unlock and motion permission in this tap
+  closeTutorial();
+});
+bindTestSound($('tutHear'));
 $('startSettingsBtn').addEventListener('click', openSettings);
 $('gear').addEventListener('click', openSettings);
 $('doneBtn').addEventListener('click', () => { closeSettings(); if (!running) { buildSettings(); $('startOv').classList.add('show'); } });
@@ -1518,7 +1773,8 @@ window.__tdt = () => {
                        nextBeepIn: s.drill.phase === 'standby' && s.drill.dueAt != null && s.lastTickT != null ? s.drill.dueAt - s.lastTickT : null,
                        result: s.drill.result ? JSON.parse(JSON.stringify(s.drill.result)) : null } : null,
     drillRuns: s.drillRuns.length, drillSel, drillResOpen: $('drillResOv').classList.contains('show'),
-    pickerOpen: $('drillOv').classList.contains('show'), shotFlash, classCode };
+    pickerOpen: $('drillOv').classList.contains('show'), shotFlash, classCode,
+    tutorialOpen: $('tutorialOv').classList.contains('show'), tutorialStep: tutStep || null };
 };
 })();
 </script>
