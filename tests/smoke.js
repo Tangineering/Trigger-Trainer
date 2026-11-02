@@ -1999,6 +1999,51 @@ const check = (name, cond, state) => {
     await np.close(); await nctx.close();
   }
 
+  // WQ-054 (D-142): on an Android user agent the no-motion fix line names the browser's Motion sensors site setting
+  // (and GrapheneOS's Sensors permission) instead of Safari's; the wording only reads the user agent (D-53 behaviour
+  // unchanged). The default headless user agent keeps the feature-check line of WQ-045.
+  {
+    const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Mobile Safari/537.36';
+    const actx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true, userAgent: ANDROID_UA });
+    const ap = await actx.newPage();
+    ap.on('pageerror', e => errors.push('android-ua page: ' + e.message));
+    await ap.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await ap.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await ap.reload();
+    const aban = () => ap.evaluate(() => ({ ua: navigator.userAgent, shown: getComputedStyle(document.getElementById('motionBanner')).display !== 'none',
+      text: document.getElementById('motionBanner').textContent, settings: document.getElementById('settingsOv').classList.contains('show'),
+      secText: document.getElementById('motionSection').textContent }));
+    const androidRe = /Allow Motion sensors for this site/;
+    await ap.click('#startBtn'); await ap.waitForTimeout(2500);
+    let a = await aban(), an = await ap.evaluate(() => window.__tdt());
+    check('WQ-054: the context reports the Android user agent', /Android/.test(a.ua), a.ua);
+    check('WQ-054: Android user agent, 2 s after Start with no motion: the banner names Motion sensors, not Safari',
+      an.motionBannerOpen && a.shown && androidRe.test(a.text) && /Site settings → Motion sensors/.test(a.text) && /reload/.test(a.text) &&
+      /Permissions → Sensors/.test(a.text) && !/Safari/.test(a.text) && !/over HTTPS/.test(a.text), a);
+    check('WQ-054: the Motion data section in Settings shows the same Android line', a.settings && androidRe.test(a.secText) && !/Safari/.test(a.secText), a);
+    if (process.env.WQ_SCREENSHOTS) {
+      const fs = require('fs'), shotDir = path.resolve(__dirname, '..', 'docs', 'screenshots', 'wq-054');
+      fs.mkdirSync(shotDir, { recursive: true });
+      await ap.screenshot({ path: path.join(shotDir, 'settings-motion-android-844x390.png') });
+      await ap.click('#doneBtn'); await ap.waitForTimeout(200);
+      await ap.screenshot({ path: path.join(shotDir, 'banner-android-844x390.png') });
+    }
+    check('WQ-054: no page errors in this section', errors.filter(e => e.startsWith('android-ua page')).length === 0, errors);
+    await ap.close(); await actx.close();
+    // Default (non-Android) headless user agent, Start with no motion: the banner line is still the feature-check one (HTTPS or Safari), never the Android one.
+    const dctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+    const dp2 = await dctx.newPage();
+    await dp2.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+    await dp2.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await dp2.reload();
+    await dp2.click('#startBtn'); await dp2.waitForTimeout(2500);
+    const d = await dp2.evaluate(() => ({ ua: navigator.userAgent, fix: document.getElementById('motionBanner').textContent,
+      perm: typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function' && window.isSecureContext !== false }));
+    check('WQ-054: default user agent (no "Android"): the fix line keeps the feature-check branch',
+      !/Android/i.test(d.ua) && /No motion data/.test(d.fix) && !androidRe.test(d.fix) && (d.perm ? /tap Allow/.test(d.fix) : /over HTTPS on a phone/.test(d.fix)), d);
+    await dp2.close(); await dctx.close();
+  }
+
   // WQ-037: home-screen icons (D-127). The page under test is loaded from file://, so this block serves the repo from
   // a throwaway local HTTP server and fetches the manifest, every icon it lists and the apple-touch-icon over HTTP.
   {
