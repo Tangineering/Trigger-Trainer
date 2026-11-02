@@ -539,3 +539,12 @@ row with `Date.now()`; `setEnginePaused` calls `syncWall` and logs `w` on resume
 seconds); `drillLineText(s, t)` shows "Rep n of 5 · next beep in m s" in a shared standby; results get a "Class code"
 first row; recorder label `drill-low-ready-class`. `window.__tdt()` adds `classCode` and `drill.shared`, `drill.slot`,
 `drill.nextBeepIn`.
+
+## WQ-055 — Android Motion sensors site setting (docs only)
+
+Known platform fact: Android shows no motion-permission prompt, and Vanadium on GrapheneOS blocks the **Motion sensors**
+site setting by default (per-site toggle since Vanadium 144; the OS also has Settings → Apps → the browser → Permissions
+→ Sensors), so the page gets no `devicemotion` until the student allows it (a student's Pixel 9, 2026-11-02). Stock
+Chrome and Samsung Internet allow it by default; other privacy browsers (Brave, Cromite, DuckDuckGo) are unchecked
+("may"). Documented in `docs/CLASS_USE.md` (Student setup step 1 and the WQ-055 note) and README "Known limitations";
+the banner wording is WQ-054's.

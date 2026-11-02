@@ -55,6 +55,11 @@ Chrome 155). Other phones and browsers may work but have not been checked.
   downrange again now and then in a long session.
 - **Portrait swings on iPhone:** in a hard swing Safari can report portrait for up to about 4 seconds. The page waits
   3 seconds before it pauses and shows **Rotate to landscape**, so a very hard swing can still pause it.
+- **Motion sensors blocked on some Android browsers** (WQ-055). Android shows no prompt. If the **No motion data**
+  banner appears, allow **Motion sensors** for this site: tap the padlock → Permissions, or the browser's Settings →
+  Site settings → Motion sensors, then reload. Vanadium on GrapheneOS blocks them by default; there also check
+  Settings → Apps → the browser → Permissions → **Sensors**. Other privacy browsers (Brave, Cromite, DuckDuckGo) may
+  block them too; stock Chrome and Samsung Internet allow them by default.
 
 ## Deploy (GitHub Pages)
 

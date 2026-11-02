@@ -13,7 +13,8 @@
   students only after the owner's phone check and `git push origin main:release`.
 
 ## Student setup (about 1 minute)
-1. Open the link, tap **Start**. iPhone: tap **Allow** for motion access.
+1. Open the link, tap **Start**. iPhone: tap **Allow** for motion access. Android shows no prompt (see the Android note
+   below if the **No motion data** banner appears).
 2. Turn the phone sideways. Left-handed: Settings → Shooting hand → Left.
 3. Hold the phone so the screen faces your trigger-finger side, muzzle toward the end marked MUZZLE.
 4. **Point the muzzle downrange and tap Set downrange** (under the muzzle). Until then the 180
@@ -22,6 +23,13 @@
 
 WQ-045: if a **No motion data** banner appears over the slide on an iPhone, the alarms cannot work: close the tab, reopen
 the link and tap **Allow** (or turn on Settings → Safari → Motion & Orientation Access).
+
+WQ-055: Android shows no prompt for motion access. If the **No motion data** banner appears on an Android phone, allow
+**Motion sensors** for this site: tap the padlock → Permissions, or the browser's Settings → Site settings → Motion
+sensors; then reload the page. Vanadium on GrapheneOS blocks them by default; there also check Settings → Apps → the
+browser → Permissions → **Sensors**. Other privacy browsers (Brave, Cromite, DuckDuckGo) may block them too; stock
+Chrome and Samsung Internet allow them by default. To check, turn on Settings → "Show sensor readout on the trainer
+screen": the rate values move when the phone moves.
 
 WQ-040: the shot is a click and a flash. On iPhone the page cannot vibrate. If there is no sound, turn Silent mode off
 (it can mute the page on some iOS versions).
