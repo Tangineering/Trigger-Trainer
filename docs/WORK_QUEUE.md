@@ -26,8 +26,8 @@ How to use it:
   `docs/DECISIONS.md`.
 
 ```yaml
-next_id: WQ-054
-updated: 2026-10-29
+next_id: WQ-057
+updated: 2026-11-02
 ```
 
 ## Index
@@ -45,6 +45,7 @@ updated: 2026-10-29
 | WQ-043 | Offline use: cache the page with a service worker (D-121) | P2 | M | blocked:owner-machine | — | platform |
 | WQ-047 | Protect main: require a pull request and the replay check | P2 | S | blocked:owner-machine | — | hygiene |
 | WQ-049 | Run the browser suites (smoke, roundtrip) in GitHub Actions | P2 | S | queued | — | hygiene |
+| WQ-056 | Add a "How it works" visual tutorial opened from the start screen (D-140) | P2 | M | queued | — | ui |
 
 Status values: `queued` · `claimed:<session or round>` · `blocked:<what>` ·
 `blocked:user` (needs a decision only the owner can make — the item says which)
@@ -632,6 +633,77 @@ pause / Settings screen instead of training on. The existing pause path is `setE
   Pixel 11 or S20+: normal use never opens Settings by itself, including after a return from the background.
 
 **Verification.** The smoke section; `npm test` output and the owner's two reports in the completion entry.
+
+---
+
+### WQ-056 — Add a "How it works" visual tutorial opened from the start screen (D-140)
+
+- **Status:** queued · **Priority:** P2 · **Size:** M · **Track:** ui · **Env:** browser
+- **Added:** 2026-11-02 by tutorial-mockup session (I-34 promoted by Ricky's D-140 after reviewing the mockup)
+- **Depends on:** — · **Blocks:** —
+
+**Context.** New students currently learn the rules from four lines of text on the start screen (`index.html:255`–260)
+and then from the alarm itself. Ricky asked for a visual tutorial reachable from the start screen (I-34). A mockup was
+built and reviewed: `docs/mockups/tutorial/index.html` (open it in a browser; the top frame is clickable, the grid
+below shows every step) with screenshots `docs/screenshots/wq-056/mockup-entry.png` and `mockup-step-1.png` …
+`mockup-step-8.png`. Ricky's verdict (D-140): build it as mocked, minus the step 3 slow-drift note and the start
+screen's "New?" hint; open it only from the button; keep the **Hold to hear** buttons; eight steps is the maximum.
+The mockup already has those changes applied, so it is the visual spec.
+
+**Scope.**
+- `index.html` only (markup, CSS, wiring). The engine is untouched: no `VERSION` bump, no `CHANGELOG.md` section, nothing
+  logged in a recording, every recording replays identically.
+- **Entry.** A **How it works** button on the start screen (`#startOv`, `index.html:246`), placed above `#drillBtn`
+  (`index.html:262`) as in `mockup-entry.png`. No hint text, no badge, no first-run auto-open, nothing stored about
+  having seen the tutorial (D-140 b, c).
+- **Overlay.** A new `#tutorialOv` built on the existing `.ov` overlay pattern (`index.html:127`), `role="dialog"`
+  `aria-modal="true"` labelled by its title, like the five overlays of WQ-044. Header "How it works · n of 8" with
+  **Skip** (on the last step **Close**); body = picture + title + 2–3 lines; footer **Back** / step dots / **Next**
+  (last step: **Start**, which closes the tutorial and calls the same `start()` as `#startBtn`, `index.html:1322`, so
+  the audio unlock and motion permission still happen inside that tap). **Skip** / **Close** return to the start
+  screen. The engine is not running while it is open (it opens only from the start screen).
+- **Steps.** Exactly the eight in the mockup, in that order, with its wording: 1 hold the phone like the side of a
+  pistol; 2 finger flat on the frame = safe; 3 finger off the frame, hold still (no drift sentence, D-140 a); 4 press
+  the trigger straight back; 5 read the shot; 6 Set downrange and the 180 rule; 7 drills; 8 ready. Never more than
+  eight (D-140 e). Wording may be tightened to `docs/CLASS_USE.md`'s terms; the facts must match CLAUDE.md's behavior
+  spec.
+- **Pictures.** Inline SVG (no new files, so `sw.js` needs no change and the tutorial works offline), ported from the
+  mockup's `screen()`, `hold()` and `drillPic()` helpers. Pictures are the right-handed layout. Colours from the page's
+  `:root` tokens. Animations (sway, pull, flash, alarm blink, highlight pulse) only when `reducedMotion()` is false
+  and under `@media (prefers-reduced-motion: reduce) { animation: none }`; every picture must read correctly static.
+  The step 4 flash stays inside the picture (never full-screen) and is left out when Shot flash is off (`shotFlash`,
+  WQ-044) or reduced motion is on.
+- **Hold to hear** (D-140 d) on steps 2 (OK tone, `Snd.ok()`), 3 (move alarm, `Snd.startAlarm('move')` while held,
+  `stopAlarm()` on release), 4 (shot, `Snd.shot()`) and 6 (180 wail, `Snd.startAlarm('180')` while held). Reuse or
+  generalise `bindTestSound` (`index.html:1381`), which already does `Snd.init()` / `resume()` inside the press and
+  handles pointer capture and release; one-shot sounds play on press.
+- **Layout.** No scrolling at 844×390 landscape (picture left, text right, as mocked) and readable in portrait at
+  390×844 (picture above text; the start screen is shown in portrait too). Touch targets at least 44 px.
+- `window.__tdt()` adds `tutorialOpen` and `tutorialStep` (1-based, `null` when closed).
+- Hub files (append-only blocks): `CLAUDE.md` `## WQ-056` block (entry, overlay, steps, sounds, test hooks) and one
+  line in its `index.html` table; `docs/CLASS_USE.md` one line pointing students to **How it works**;
+  `docs/DECISIONS.md` `Claude (proposed)` rows for anything decided beyond this text (numbers from
+  `python scripts/wq.py next`). Screenshots of the built tutorial (each step at 844×390, the entry, one portrait step)
+  go in `docs/screenshots/wq-056/` beside the mockup ones.
+- Out of scope: mirroring the pictures for left-handed students (step 1's text points to Settings → Shooting hand);
+  per-drill tutorials (the picker already has diagrams); any engine or recorder change; auto-opening or "seen" flags
+  (D-140 c). Touches `index.html`: do not run in parallel with another item that edits it (WQ-050).
+
+**Acceptance.**
+- Agent-verifiable, in a new `WQ-056` section of `tests/smoke.js`: the start screen shows **How it works** and no
+  tutorial is open at load, and it never opens after a reload or after Start; clicking it opens `#tutorialOv` at step
+  1; **Next** ×7 reaches step 8 and there are exactly eight steps; **Back** goes back; **Skip** returns to the start
+  screen with the engine untouched; step 8's **Start** closes the tutorial and the trainer starts as from `#startBtn`;
+  holding the step 3 button sets `Snd.alarm.kind === 'move'` and releasing clears it (step 6: `'180'`); no step's text
+  contains "drift"; at 844×390 `#tutorialOv` does not scroll on any step; nothing new in `localStorage`. The WQ-044
+  dialog check covers `tutorialOv` too (add it to the list at `tests/smoke.js:2123`). `npm test` passes; every
+  recording replays to identical events; engine `VERSION` unchanged.
+- Owner-verifiable: on an iPhone (Safari) and an Android phone (Chrome): open **How it works**, step through all eight,
+  hold each **Hold to hear** button and hear the sound at the set volume (on the iPhone with the silent switch on);
+  **Start** from step 8 starts the trainer with sound; with Reduce Motion on, the pictures are still.
+
+**Verification.** The smoke section and `npm test` output; the screenshots in `docs/screenshots/wq-056/`; the owner's
+two phone reports in the completion entry (the item returns `blocked:owner-machine` for that half).
 
 ---
 
