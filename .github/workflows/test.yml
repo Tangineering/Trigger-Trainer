@@ -11,9 +11,28 @@ jobs:
   replay:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - name: Replay every recording
         run: node tests/replay.js
+
+  # Browser suites (WQ-049). Not yet a required check: branch protection (WQ-047)
+  # requires only `replay` until `browser` has a record of green runs.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      # No lockfile in the repo, so `npm install` rather than `npm ci`.
+      - name: Install dependencies
+        run: npm install
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Smoke suite
+        run: node tests/smoke.js
+      - name: Roundtrip suite
+        run: node tests/roundtrip.js

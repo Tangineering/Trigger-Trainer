@@ -237,7 +237,7 @@ tests/make-synthetic.js generates tests/recordings/synthetic/
 tests/smoke.js          browser state-machine test (+ icon, offline and accessibility blocks)
 tests/roundtrip.js      browser record → Node replay equality test
 tests/axis-estimate.js  gyro axis-order estimators over the recordings (npm run axis-estimate)
-.github/workflows/test.yml   GitHub Actions: the replay suite on every push and pull request (job `replay`)
+.github/workflows/test.yml   GitHub Actions on every push and pull request: the replay suite (job `replay`), smoke and roundtrip (job `browser`)
 .github/ISSUE_TEMPLATE/bug_report.md   bug report template (phone, OS, browser, engine version, recording)
 package.json            dev-only: playwright (exact pin) for the browser tests
 docs/ARCHITECTURE.md    contributor version of the Architecture section below
