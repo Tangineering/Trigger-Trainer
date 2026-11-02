@@ -152,3 +152,5 @@ opens Settings at **Motion data**, because the alarms cannot work without it. Fo
 close the tab, reopen the link and tap **Allow**), then tap **Resume**. Once the data comes back the section reads
 "Motion data OK". If you tap **Resume** with motion still missing (a laptop demo), the trainer runs on with the banner and
 Settings does not open again until motion has come back and stopped once more.
+
+WQ-056: new students can tap **How it works** on the start screen (above **Drill**): eight short pictures of the rules, with **Hold to hear** for the OK tone, the alarm, the shot and the 180 wail, and **Start** at the end.

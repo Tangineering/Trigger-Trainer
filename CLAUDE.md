@@ -133,6 +133,7 @@ Contributor version: `docs/ARCHITECTURE.md` (WQ-039); this manual stays the sour
 | Drill picker | `DRILL_MODES` (`{id, name, sub, how, svg, ready}`, D-93 order; diagrams inline in `DRILL_SVG`; not-ready drills hidden). `#drillBtn` on the start screen opens `#drillOv` (**Choose** / **Cancel**). The selection `drillSel` is kept in `localStorage['tdt.drill']`, not in `S` (D-98 i). |
 | Drill runs and results | `beginDrillRun(t)` (Start, recorder start, **Again**, Restore defaults while running) seeds `engine.startDrill` and logs `['r', t, drill, seed]`; Freestyle does nothing. `leaveToStart()` (**Change drill**, **New session**) cancels and logs `['x', t]` only if a drill existed. `drillEnd` → `Snd.complete(0.35)` + `showDrillResult()` (`#drillResOv`, pauses the engine while open). `#drillLine` shows the run's phase. |
 | `window.__tdt()` | Read-only snapshot used by the browser tests. Keep it. |
+| How it works | `#howBtn` (start screen, above `#drillBtn`) opens `#tutorialOv`: eight steps from `tutSteps()` (inline SVG from `tutPics()`), **Hold to hear** via `bindTestSound` + `data-sound`; nothing stored (WQ-056, D-140, D-143). |
 
 ### State machine
 `not armed` → (finger on frame) → `SAFE` (OK tone) → (finger lifts) → `OFF FRAME`
@@ -578,3 +579,23 @@ site setting by default (per-site toggle since Vanadium 144; the OS also has Set
 Chrome and Samsung Internet allow it by default; other privacy browsers (Brave, Cromite, DuckDuckGo) are unchecked
 ("may"). Documented in `docs/CLASS_USE.md` (Student setup step 1 and the WQ-055 note) and README "Known limitations";
 the banner wording is WQ-054's.
+
+## WQ-056 — How it works tutorial (D-140, D-143)
+
+`index.html` only (engine 0.18.1 unchanged, nothing logged in a recording). **Entry:** `#howBtn` "How it works" on the
+start screen, above `#drillBtn`; no hint, no badge, no auto-open, nothing in `localStorage` (D-140 b, c). **Overlay:**
+`#tutorialOv` (`.ov`, z-index 11 over `#startOv`, `role="dialog"` `aria-modal` labelled by `#tutTitle`); header "How it
+works · n of 8" (`#tutOf`) with `#tutSkip` (**Skip**; **Close** on step 8), body = `#tutPic` (inline SVG) + `#tutStepTitle`
++ `#tutBody` + `#tutHear`, footer `#tutBack` (hidden on step 1) / `#tutDots` / `#tutNext` (**Start** on step 8: calls
+`start()` in the same tap, then `closeTutorial()`). Landscape: picture left, text right, no scrolling at 844×390;
+portrait: picture above text. **Steps** (`tutSteps()`, built at each render, `TUT_N` = 8, never more, D-140 e): hold the
+phone; finger flat on the frame = safe; finger off the frame, hold still (no drift sentence, D-140 a); press the trigger
+straight back; read the shot (Clean); Set downrange and the 180 rule (`S.limit180Deg`); drills (names from `DRILL_MODES`);
+ready. **Pictures:** `tutPics()` ports the mockup's `screen()`, `hold()`, `drillPic()` (`docs/mockups/tutorial/index.html`),
+right-handed, colours from the `:root` tokens; animation classes `tu-sway`, `tu-pull`, `tu-blink`, `tu-pulse`, `tu-bang`
+are added only when `reducedMotion()` is false (and a `prefers-reduced-motion` rule stops them); the step 4 flash
+(`tu-bang`) stays inside the picture and is left out when `shotFlash` is off. **Sounds:** `bindTestSound(btn)` reads
+`btn.dataset.sound` (`ok`, `move`, `shot`, `180`; default `move` for the two Test sound buttons): alarms while held,
+`Snd.ok()` / `Snd.shot()` on press; `stopHearSound()` on step change and close. `overlayOpen()` lists `tutorialOv`.
+`window.__tdt()` adds `tutorialOpen` and `tutorialStep` (1-based, `null` when closed). Smoke: the `WQ-056` section;
+screenshots `docs/screenshots/wq-056/built-*.png` (written with `WQ_SCREENSHOTS=1`).
