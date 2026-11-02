@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tutorial mockup</title>
-<!-- Mockup for I-34 (visual tutorial from the start screen). Not loaded by the app; nothing here is decided.
+<!-- Mockup for I-34 / WQ-056 (visual tutorial from the start screen), revised per D-140. Not loaded by the app.
      Open in a browser: the top frame is clickable (Back / Next / Skip), the grid below shows every step. -->
 <style>
   :root {
@@ -84,7 +84,7 @@
 <body>
 <div class="page">
   <h1>Visual tutorial: mockup (I-34)</h1>
-  <p>This is a proposal to look at, not a decision. On the start screen a <b>How it works</b> button opens an
+  <p>Revised per D-140 (WQ-056). On the start screen a <b>How it works</b> button opens an
     overlay with eight short steps. Each step has a picture of the real trainer screen with the part it
     talks about highlighted, and two to four lines of text in the words of <code>CLASS_USE.md</code>.
     <b>Back</b>, <b>Next</b> and <b>Skip</b> work in the frame below. The animations stop when the phone asks
@@ -96,7 +96,7 @@
   <h2>Entry point: the start screen</h2>
   <div class="grid">
     <div><div class="phone" id="entry"></div>
-      <div class="cap">A <b>How it works</b> button sits beside the Drill button. Until the student has seen the tutorial once (the flag kept in <code>localStorage</code>), a "New? 1 min" hint shows next to it.</div></div>
+      <div class="cap">A <b>How it works</b> button above the Drill button. The tutorial opens only from here, never by itself (D-140).</div></div>
   </div>
 
   <h2>All steps</h2>
@@ -243,8 +243,7 @@ const STEPS = [
     body: `<p>Lay your index finger flat along the frame strip. The strip turns green and you hear the OK tone.</p>
            <p>With the finger there you can move, turn and walk as much as you like.</p>${chip(C.safe, 'OK tone')}`, sound: 'OK tone' },
   { t: 'Finger off the frame: hold still', pic: screen({ hl: ['frame'], ringC: C.bad, finger: 'off', status: 'ALARM — FINGER ON FRAME', stc: 'bad', move: 'bad', alarm: true, alarms: 1 }),
-    body: `<p>Once the finger leaves the frame, the phone must stay still. If it moves, the alarm sounds and <b>keeps going until the finger is back flat on the frame</b>.</p>
-           <p>Slow drift counts too: more than 5° from where you were pointing.</p>${chip(C.bad, 'Alarm beeps')}`, sound: 'Alarm' },
+    body: `<p>Once the finger leaves the frame, the phone must stay still. If it moves, the alarm sounds and <b>keeps going until the finger is back flat on the frame</b>.</p>${chip(C.bad, 'Alarm beeps')}`, sound: 'Alarm' },
   { t: 'Press the trigger straight back', pic: screen({ hl: ['trigger'], finger: 'pull', trigOn: true, status: 'ON TRIGGER', stc: 'trig' }),
     body: `<p>Put your fingertip on the trigger and pull it straight back toward the grip. When it breaks you hear the shot click and the screen flashes.</p>
            <p>Keep the phone still while you press. Resting on the trigger without pulling counts as off the frame.</p>${chip(C.ink, 'Shot click + flash')}`, sound: 'Shot' },
@@ -288,7 +287,7 @@ document.getElementById('entry').innerHTML = `<div class="start">
   <h1>Trigger Discipline Trainer</h1>
   <div class="loud"><b>⚠ Loud alarms.</b> Hold <b>Test sound</b> and set the volume before you start. Keep the phone away from your ears. …
     <div class="row"><button class="btn">Test sound (hold)</button></div></div>
-  <div class="row" style="margin-top:12px"><button class="btn how">How it works</button><span class="new">New? 1 min, 8 steps</span></div>
+  <div class="row" style="margin-top:12px"><button class="btn how">How it works</button></div>
   <button class="btn drill"><b>Drill: Freestyle</b><br><small>No timer, practise the rules</small></button>
   <div class="row"><button class="btn primary">Start</button><button class="btn">Settings</button></div></div>
 `;
