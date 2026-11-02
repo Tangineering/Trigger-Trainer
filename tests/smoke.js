@@ -1918,50 +1918,83 @@ const check = (name, cond, state) => {
     await op.close(); await octx.close();
   }
 
-  // WQ-045 (D-123, D-124): no devicemotion sample within 2 s of Start shows the non-modal banner and the pill prefix;
-  // one sample clears both; samples stopping for more than 5 s while running shows them again. The trainer is not paused.
+  // WQ-045 (D-123, D-124) + WQ-050 (D-134): no devicemotion sample within 2 s of Start shows the banner and the pill
+  // prefix and opens Settings at Motion data, which pauses the engine; closing Settings resumes and it does not reopen
+  // while motion stays absent; one sample clears the banner and re-arms; samples stopping for more than 5 s reopen it,
+  // cancelling a drill run in standby with no completion tone; a recording in progress is stopped first.
   {
     const nctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
     const np = await nctx.newPage();
     np.on('pageerror', e => errors.push('no-motion page: ' + e.message));
     await np.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
-    await np.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+    await np.evaluate(() => { try { localStorage.clear(); localStorage.setItem('tdt.drill', 'bill'); } catch (e) {} });
     await np.reload();
     const nst = () => np.evaluate(() => window.__tdt());
     const banner = () => np.evaluate(() => {
-      const b = document.getElementById('motionBanner');
+      const b = document.getElementById('motionBanner'), ov = document.getElementById('settingsOv'), sec = document.getElementById('motionSection');
       return { shown: getComputedStyle(b).display !== 'none', text: b.textContent, pill: document.getElementById('status').textContent,
+               settings: ov.classList.contains('show'), secShown: !sec.hidden && getComputedStyle(sec).display !== 'none',
+               secText: sec.textContent, secTop: sec.getBoundingClientRect().top < ov.querySelector('#sliders1').getBoundingClientRect().top,
                perm: typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function' && window.isSecureContext !== false };
     });
+    const fixRe = b => b.perm ? /tap Allow/ : /over HTTPS on a phone/;
     const nmotion = () => np.evaluate(() => window.dispatchEvent(new DeviceMotionEvent('devicemotion', {
       rotationRate: { alpha: 0, beta: 0, gamma: 0 }, acceleration: { x: 0, y: 0, z: 0 }, interval: 16 })));
     await np.click('#startBtn'); await np.waitForTimeout(800);
     let n = await nst(), b = await banner();
     check('WQ-045: just after Start with no motion yet: no banner, motionSeen false', n.running && !n.motionSeen && !n.motionBannerOpen && !b.shown, [n.motionSeen, n.motionBannerOpen, b]);
+    check('WQ-050: just after Start: Settings not open, engine running', !b.settings && !n.paused && !n.motionPaused, [b.settings, n.paused, n.motionPaused]);
     await np.waitForTimeout(1700);
     n = await nst(); b = await banner();
     check('WQ-045: 2 s after Start with no motion: banner shown, pill reads NO MOTION', n.motionBannerOpen && b.shown && /^NO MOTION/.test(b.pill) && /No motion data\. The alarms cannot work\./.test(b.text), [n.motionBannerOpen, b]);
     check('WQ-045: the fix line follows the feature check (D-53)',
       b.perm ? /tap Allow/.test(b.text) && /Motion & Orientation Access/.test(b.text) : /over HTTPS on a phone/.test(b.text), b);
-    check('WQ-045: the banner does not pause the engine', n.running && !n.paused, n);
+    check('WQ-050: 2 s after Start with no motion: Settings open, engine paused, motionPaused', b.settings && n.running && n.paused && n.motionPaused, [b.settings, n.paused, n.motionPaused]);
+    check('WQ-050: the Motion data section is shown at the top with the banner text and the fix line',
+      b.secShown && b.secTop && /Motion data/.test(b.secText) && /No motion data\. The alarms cannot work\./.test(b.secText) && fixRe(b).test(b.secText), b);
+    await np.click('#doneBtn'); await np.waitForTimeout(150);
+    n = await nst(); b = await banner();
+    check('WQ-050: Resume closes Settings and the engine runs again; banner and pill prefix stay',
+      !b.settings && !n.paused && !n.motionPaused && n.motionBannerOpen && b.shown && /^NO MOTION/.test(b.pill), [b, n.paused, n.motionPaused]);
+    await np.waitForTimeout(2500);
+    n = await nst(); b = await banner();
+    check('WQ-050: with motion still absent, Settings does not reopen (once per episode)', !b.settings && !n.paused && n.motionBannerOpen, [b, n.paused]);
     // The banner lets touches through: a finger on the frame strip under it still arms (mouse fallback / touch keep working).
     const ncdp = await nctx.newCDPSession(np);
     await ncdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: REST[0], y: REST[1], id: 1, radiusX: 25, radiusY: 25 }] });
     await np.waitForTimeout(150);
     n = await nst(); b = await banner();
     check('WQ-045: with the banner up, a finger on the frame arms; the pill keeps the state after the prefix', n.armed && n.onRest && /^NO MOTION · SAFE$/.test(b.pill), [n.armed, n.onRest, b.pill]);
-    await nmotion(); await np.waitForTimeout(100);
+    await nmotion(); await np.waitForTimeout(50);
+    // Lift before the start beep can come (Bill: 1-4 s after the finger is on the frame): the run stays in a started standby.
+    await ncdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await np.waitForTimeout(50);
     n = await nst(); b = await banner();
-    check('WQ-045: one sample clears the banner and the pill', n.motionSeen && !n.motionBannerOpen && !b.shown && b.pill === 'SAFE', [n.motionSeen, n.motionBannerOpen, b]);
+    check('WQ-045: one sample clears the banner and the pill', n.motionSeen && !n.motionBannerOpen && !b.shown && !/NO MOTION/.test(b.pill), [n.motionSeen, n.motionBannerOpen, b]);
+    check('WQ-050: a Bill Drill run is in a started standby (delay drawn, no beep yet)', n.drill && n.drill.id === 'bill' && n.drill.phase === 'standby' && n.drill.dueSet, n.drill);
     await np.waitForTimeout(3500);
-    n = await nst();
-    check('WQ-045: a 3.5 s gap after samples arrived: still no banner (gap limit 5 s)', !n.motionBannerOpen, n.motionBannerOpen);
+    n = await nst(); b = await banner();
+    check('WQ-045: a 3.5 s gap after samples arrived: still no banner (gap limit 5 s)', !n.motionBannerOpen && !b.settings, [n.motionBannerOpen, b.settings]);
     await np.waitForTimeout(2000);
     n = await nst(); b = await banner();
     check('WQ-045: samples stopped for more than 5 s while running: banner and pill again', n.motionBannerOpen && b.shown && /^NO MOTION/.test(b.pill), [n.motionBannerOpen, b]);
+    check('WQ-050: one sample re-armed it: Settings reopens at Motion data, engine paused', b.settings && b.secShown && n.paused && n.motionPaused, [b, n.paused, n.motionPaused]);
+    check('WQ-050: the drill run in standby was cancelled (fresh standby), no completion tone (no drillEnd: no run kept, no results screen)',
+      n.drill && n.drill.phase === 'standby' && !n.drill.dueSet && n.drillRuns === 0 && !n.drillResOpen, [n.drill, n.drillRuns, n.drillResOpen]);
     await nmotion(); await np.waitForTimeout(100);
     n = await nst(); b = await banner();
     check('WQ-045: the next sample hides it again', !n.motionBannerOpen && !b.shown && !/NO MOTION/.test(b.pill), [n.motionBannerOpen, b]);
+    check('WQ-050: while Settings stays open the section reads Motion data OK', b.settings && b.secShown && /Motion data OK/.test(b.secText) && !n.motionPaused, b);
+    // A recording in progress is stopped first, then Settings shows the notice.
+    await np.click('#recStart'); await np.waitForTimeout(150);
+    n = await nst(); b = await banner();
+    check('WQ-050: recording started, Settings closed, section hidden', n.recording && !b.settings && !b.secShown && !n.paused, [n.recording, b]);
+    await np.waitForTimeout(5500);
+    n = await nst(); b = await banner();
+    check('WQ-050: stale motion during a recording stops it and opens Settings at Motion data',
+      !n.recording && b.settings && b.secShown && n.paused && n.motionPaused && fixRe(b).test(b.secText), [n.recording, b, n.paused]);
+    const recInfo = await np.evaluate(() => document.getElementById('recInfo').textContent);
+    check('WQ-050: the stopped recording is kept (Save last recording available)', /Last recording/.test(recInfo), recInfo);
     check('WQ-045: no page errors in this section', errors.filter(e => e.startsWith('no-motion page')).length === 0, errors);
     await np.close(); await nctx.close();
   }

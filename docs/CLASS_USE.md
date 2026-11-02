@@ -145,3 +145,10 @@ pattern `45`; alarms and trigger reset ask for longer ones, so read it straight 
 Each shot flashes the whole screen white. For a student who is sensitive to flashing light, turn it off in
 Settings → Other → **Shot flash**: the trigger is then outlined briefly instead, and the shot sound stays. The flash is
 also replaced automatically when the phone's "reduce motion" accessibility setting is on.
+
+## When Settings opens by itself (WQ-050)
+If the phone stops sending motion data (2 s after **Start** with none, or 5 s after it stopped), the trainer pauses and
+opens Settings at **Motion data**, because the alarms cannot work without it. Follow the fix line shown there (iPhone:
+close the tab, reopen the link and tap **Allow**), then tap **Resume**. Once the data comes back the section reads
+"Motion data OK". If you tap **Resume** with motion still missing (a laptop demo), the trainer runs on with the banner and
+Settings does not open again until motion has come back and stopped once more.
